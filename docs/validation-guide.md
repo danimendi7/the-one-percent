@@ -20,6 +20,7 @@ npm start -- -H 0.0.0.0
 3. Si Windows pregunta por el firewall, permite el acceso en **redes privadas**.
 
 Notas:
+- Desde M2, con Supabase local configurado, la app pide acceso. Para revisar la demo, elige «Explorar la demo sin cuenta» en la pantalla de acceso.
 - Al ser HTTP local, **no** se puede instalar como app ni recibir notificaciones. Es lo esperado hasta el despliegue con HTTPS.
 - Los datos de la demo son independientes en cada navegador y dispositivo. Para empezar de cero: **Ajustes → Restablecer demo**.
 
@@ -134,3 +135,17 @@ Medición automática a 375 px: ningún control principal de Resumen, Hábitos o
 ## 6. Qué anotar durante la revisión
 
 Para cada observación indica la pantalla, el dispositivo y el navegador, qué esperabas y qué ocurrió. Si es posible, adjunta una captura. Clasifícala como **bloqueante**, **importante** o **detalle**. La incorporaré antes de empezar M2.
+
+## 7. Validación de M2 (cuenta y sincronización)
+
+Requisito: `npm run db:start` en marcha y `.env.local` con los valores locales (ver README).
+
+- [ ] Abre la app sin sesión: te lleva a **/login**. Entra con `owner@theonepercent.local`; el correo está en Mailpit (http://127.0.0.1:55324).
+- [ ] Desde el móvil (http://IP-del-PC:3000): usa el **código de 6 dígitos** del correo.
+- [ ] Cuenta nueva: Resumen, Hábitos, Analítica y Revisiones muestran estados vacíos explicativos, sin etiquetas «Demo».
+- [ ] Crea un hábito y márcalo en el móvil: en el PC (con sesión abierta) aparece en 1–2 s sin recargar.
+- [ ] Activa el modo avión en el móvil y marca un hábito: el indicador pasa a «Sin conexión». Al volver la conexión pasa a «Sincronizado» y el registro aparece una sola vez en el PC.
+- [ ] Edita el mismo hábito a la vez en los dos dispositivos: el segundo muestra el aviso de conflicto con «Aplicar el mío».
+- [ ] Cambia la frecuencia de un hábito: las semanas anteriores conservan su porcentaje.
+- [ ] Ajustes → «Datos de la demo en este navegador» (si usaste la demo): importa solo lo que elijas. Los registros de ejemplo no se importan.
+- [ ] Ajustes → Exportar mis datos (JSON) y Cerrar sesión.

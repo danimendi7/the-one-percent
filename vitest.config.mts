@@ -10,7 +10,7 @@ export default defineConfig({
     environment: "node",
     coverage: {
       provider: "v8",
-      include: ["src/features/**/domain/**/*.ts"],
+      include: ["src/features/**/domain/**/*.ts", "src/features/sync/engine.ts"],
       exclude: ["**/*.test.ts"],
     },
   },

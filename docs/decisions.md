@@ -18,9 +18,24 @@
 | D14 | Service worker | No incluido en M1 (solo manifest e iconos) | No simular offline ni push. Llega con la cola offline (M2) y el push (M5). |
 | D15 | Supabase CLI | Dependencia local del proyecto; nunca `login` ni `link` | Separación total de otros proyectos; `supabase start` no necesita cuenta. |
 
+## M2
+
+| # | Tema | Decisión | Motivo |
+| --- | --- | --- | --- |
+| D16 | Puertos locales | Stack `the-one-percent` en 55320–55329 | En el equipo corre otro stack local en los puertos por defecto. Se evita cualquier interferencia. |
+| D17 | Registro privado | `private.allowed_emails` y un trigger en `auth.users` que rechaza emails no autorizados | PRD §6: sin registro público. El login no revela si un email está autorizado. |
+| D18 | Escrituras | RPC `apply_ops` con SECURITY INVOKER (RLS siempre activa) y guardas en triggers | Una única vía de escritura validada; RLS como segunda barrera. |
+| D19 | Conflictos de registros | Gana la última escritura según la hora del dispositivo, con lápidas al desmarcar | Coherente con «set desired state». Un desfase de reloj entre dispositivos puede invertir el orden (riesgo bajo y aceptado). |
+| D20 | Conflictos de edición | Versión optimista; se mantiene la versión del servidor y se avisa con «Aplicar el mío» | La especificación pide estrategia explícita y aviso. |
+| D21 | Un registro por hábito y día | `unique (user_id, habit_id, local_date)`; el valor numérico es el total del día | Las sesiones múltiples (lectura, enfoque) tendrán su propia tabla con `source_activity_id` en M3/M4. |
+| D22 | Columna `state` de habits | Se usa `archived_on` (fecha) en lugar de `state` | Permite saber desde cuándo deja de contar sin recalcular la historia. |
+| D23 | Código de 6 dígitos | El correo de acceso incluye enlace y código | El Auth local rechaza URLs de retorno con IP privada, y en iOS los enlaces se abren en Safari en vez de en la PWA instalada. |
+| D24 | Cookie de sesión | Nombre fijo `sb-top-auth-token` | Por defecto depende del host de la API, que difiere entre navegador (IP de la red local) y servidor. |
+| D25 | Arranque en frío | `allowedDevOrigins` para redes privadas y un aviso de arranque si la app no hidrata en 12 s | Causa de los bloques vacíos vistos desde el móvil (ver informe M2). |
+
 ## Decisiones abiertas (para ti)
 
-1. Inicio de sesión: enlace mágico por email o passkeys (M2).
+1. ~~Inicio de sesión~~: resuelto en M2, enlace mágico más código.
 2. Hosting y dominio, y cuentas nuevas y dedicadas de GitHub, Vercel y Supabase (M2/M6).
 3. Proveedor de push y planificador en servidor (M5).
 4. Retención de datos y frecuencia de exportación/copias (M6).

@@ -9,6 +9,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : [["list"]],
+  // First requests after a cold start (Next server + PostgREST schema cache) can take a few seconds.
+  expect: { timeout: 10_000 },
   use: {
     baseURL,
     locale: "es-ES",

@@ -1,4 +1,5 @@
 import { BottomTabs } from "./bottom-tabs"
+import { DataSourceProvider } from "./data-source"
 import { MobileHeader } from "./mobile-header"
 import { SideNav } from "./side-nav"
 
@@ -22,6 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <BottomTabs />
+      <DataSourceProvider />
     </div>
   )
 }

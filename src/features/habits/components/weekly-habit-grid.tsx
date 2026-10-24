@@ -1,6 +1,7 @@
 "use client"
 
-import { ChevronLeft, ChevronRight, Moon, MoreHorizontal, Pencil } from "lucide-react"
+import { CalendarRange, ChevronLeft, ChevronRight, Moon, MoreHorizontal, Pencil } from "lucide-react"
+import { EmptyState } from "@/components/common/empty-state"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -100,7 +101,12 @@ export function WeeklyHabitGrid({
       </div>
 
       {habits.length === 0 ? (
-        <p className="px-4 py-10 text-center text-sm text-text-secondary">No hay hábitos activos esta semana.</p>
+        <EmptyState
+          icon={CalendarRange}
+          title="Sin hábitos en esta semana"
+          description={isCurrent ? "Los hábitos que crees aparecerán aquí desde hoy." : "Ningún hábito estaba activo en estas fechas."}
+          className="py-10"
+        />
       ) : (
         <>
           {/* Mobile: stacked */}

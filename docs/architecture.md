@@ -64,3 +64,39 @@ Layout: escritorio ≥1024 px sidebar de 240 px; tablet 768–1023 px rail de 72
 ## Decisiones y supuestos
 
 Ver [`decisions.md`](decisions.md).
+
+## M2: datos reales y sincronización
+
+```
+UI ──► habitActions / useHabits()  (fachada, src/features/habits/store/habit-store.ts)
+          │
+          ├─ demoBackend ── localStorage (modo demo)
+          │
+          └─ accountBackend
+               └─ SyncEngine (src/features/sync/engine.ts)
+                    ├─ ServerCache + cola de operaciones ──► IndexedDB (por usuario)
+                    ├─ vista optimista = rebase(cache, cola) con los mismos reductores puros
+                    ├─ push: apply_ops(device_id, ops[])  ──► Postgres (RLS, guardas, ledger)
+                    └─ pull: pull_changes(cursor - solape) ◄── Realtime invalida · foco · online · cada 30 s
+```
+
+**Operaciones** (`src/features/sync/domain/types.ts`): `entry.set` (estado deseado, nunca toggle), `habit.create` (id generado en el cliente), `habit.update` (con `base_version`), `habit.archive`, `habit.restore`, `rest_day.set` y `profile.update`. Cada una lleva un `op_id` único.
+
+**Garantías**
+- *Idempotencia*: `sync_operations (user_id, client_op_id)` es único; repetir un `op_id` devuelve el resultado guardado sin volver a aplicarlo. Si se pierde la respuesta, el cliente reintenta sin duplicar.
+- *Cola duradera*: las operaciones se guardan en IndexedDB antes de enviarse y sobreviven a cierres y reinicios. Los estados deseados del mismo día se compactan.
+- *Sin parpadeos*: una operación confirmada sale de la cola solo después del pull que la refleja.
+- *Conflictos*:
+  - Registros y días de descanso: gana la última escritura según la hora del dispositivo. Desmarcar deja una «lápida» con hora, para que una marca más antigua que llegue tarde no la resucite.
+  - Edición de hábitos: control optimista por `version`. Si dos dispositivos editan a la vez, el segundo recibe `conflict`, se mantiene la versión más reciente y se avisa con la opción «Aplicar el mío».
+- *Cursor*: `server_seq` global (`public.change_seq`). Los pulls incrementales releen un solape de 500 posiciones para cubrir transacciones que confirman tarde; la fusión ignora filas más antiguas que la copia local. Al arrancar la app se hace siempre un pull completo.
+- *Hoy* se calcula con `profiles.timezone`, igual en el cliente y en el servidor (`public.user_today()`).
+
+**Integridad en la base de datos** (independiente del cliente):
+- Solo se registra en días programados según la versión de horario vigente, nunca en días futuros ni de descanso, y con el tipo de valor correcto.
+- Las versiones de horario solo se añaden o sustituyen desde hoy: el histórico es inmutable.
+- `habit_type` y `start_date` son inmutables.
+- Las claves compuestas `(habit_id, user_id)` impiden vincular datos de otro usuario.
+- Los registros retroactivos quedan en `audit_logs`.
+
+**Auth**: enlace mágico con *token hash* (`/auth/confirm`), válido desde cualquier dispositivo, más un código de 6 dígitos en el mismo correo (red local y PWA de iOS). `src/proxy.ts` refresca la sesión y envía a `/login` a quien no tiene sesión ni ha elegido explícitamente la demo. Las cuentas solo se crean para emails de `private.allowed_emails`.

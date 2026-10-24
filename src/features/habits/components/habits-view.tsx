@@ -1,9 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { ArchiveRestore, ListChecks, Plus } from "lucide-react"
+import Link from "next/link"
+import { ArchiveRestore, CloudUpload, ListChecks, Plus } from "lucide-react"
+import { useHasDemoData } from "../store/demo-store"
 import { Button } from "@/components/ui/button"
-import { DemoBadge } from "@/components/common/demo-note"
+import { SourceBadge } from "@/components/common/demo-note"
 import { EmptyState } from "@/components/common/empty-state"
 import { PageHeader } from "@/components/shell/page-header"
 import { cn } from "@/lib/utils"
@@ -19,6 +21,7 @@ import { WeeklyHabitGrid } from "./weekly-habit-grid"
 
 export function HabitsView() {
   const model = useHabitsModel()
+  const hasDemo = useHasDemoData()
   const [view, setView] = useState<"today" | "week">("today")
   const [weekStart, setWeekStart] = useState<LocalDate | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -42,7 +45,7 @@ export function HabitsView() {
         meta={
           <span className="flex items-center gap-2">
             {model ? <span>{capitalize(formatDate(model.today, { weekday: "long", day: "numeric", month: "long" }))}</span> : <span>&nbsp;</span>}
-            <DemoBadge />
+            <SourceBadge source={model?.source} />
           </span>
         }
         inlineActions
@@ -63,10 +66,20 @@ export function HabitsView() {
             title="Aún no tienes hábitos activos"
             description="Crea el primero. Empezará a contar desde hoy y solo en los días que programes."
             action={
-              <Button onClick={openNew}>
-                <Plus />
-                Crear hábito
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={openNew}>
+                  <Plus />
+                  Crear hábito
+                </Button>
+                {model.source === "account" && hasDemo && (
+                  <Button asChild variant="outline">
+                    <Link href="/settings">
+                      <CloudUpload />
+                      Importar desde la demo
+                    </Link>
+                  </Button>
+                )}
+              </div>
             }
           />
         </div>

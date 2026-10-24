@@ -30,3 +30,12 @@ export function DemoNote({ children, className }: { children: React.ReactNode; c
     </div>
   )
 }
+
+/**
+ * Label for screens computed from habit data: "Demo" only when the data comes
+ * from the local demo. Real account data carries no demo label.
+ */
+export function SourceBadge({ source, children }: { source: "demo" | "account" | null | undefined; children?: React.ReactNode }) {
+  if (source !== "demo") return null
+  return <DemoBadge>{children}</DemoBadge>
+}

@@ -2,9 +2,11 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { ArrowRight, Brain, Check, Compass, Timer } from "lucide-react"
+import { ArrowRight, BarChart3, Brain, Check, CloudUpload, Compass, Flag, ListChecks, Plus, Timer } from "lucide-react"
+import { EmptyState } from "@/components/common/empty-state"
+import { useHasDemoData } from "@/features/habits/store/demo-store"
 import { Button } from "@/components/ui/button"
-import { DemoBadge } from "@/components/common/demo-note"
+import { SourceBadge } from "@/components/common/demo-note"
 import { pct } from "@/components/common/format"
 import { ProgressRing } from "@/components/common/progress-ring"
 import { PageHeader } from "@/components/shell/page-header"
@@ -30,7 +32,7 @@ export function OverviewView() {
         meta={
           <span className="flex items-center gap-2">
             {model ? <span>{capitalize(formatDate(model.today, { weekday: "long", day: "numeric", month: "long" }))}</span> : <span>&nbsp;</span>}
-            <DemoBadge />
+            <SourceBadge source={model?.source} />
           </span>
         }
       />
@@ -38,20 +40,26 @@ export function OverviewView() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
         {/* Today */}
         <section aria-labelledby="today-title" className="lg:col-span-7 xl:col-span-8">
-          <div className="panel rounded-2xl p-4 sm:p-5">
-            {model ? <TodayHeader model={model} /> : <div className="h-[88px] animate-pulse rounded-xl bg-surface-raised/50" />}
-          </div>
-          <div className="mt-4">
-            {model ? <TodayChecklist model={model} /> : <div className="panel h-80 animate-pulse rounded-2xl" />}
-          </div>
+          {model && model.active.length === 0 ? (
+            <FirstHabitPanel source={model.source} />
+          ) : (
+            <>
+              <div className="panel rounded-2xl p-4 sm:p-5">
+                {model ? <TodayHeader model={model} /> : <div className="h-[88px] animate-pulse rounded-xl bg-surface-raised/50" />}
+              </div>
+              <div className="mt-4">
+                {model ? <TodayChecklist model={model} /> : <div className="panel h-80 animate-pulse rounded-2xl" />}
+              </div>
+            </>
+          )}
         </section>
 
         {/* Side column */}
         <div className="grid min-w-0 grid-cols-1 content-start gap-4 lg:col-span-5 xl:col-span-4">
-          <Priorities />
+          {model?.source === "account" ? <PrioritiesComingSoon /> : <Priorities />}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-1 xl:grid-cols-2">
             <FocusCta />
-            <LearnCta />
+            <LearnCta source={model?.source} />
           </div>
         </div>
 
@@ -73,6 +81,16 @@ export function OverviewView() {
               Ver todos
             </Link>
           </div>
+          {model?.source === "account" ? (
+            <div className="panel rounded-2xl">
+              <EmptyState
+                icon={Flag}
+                title="Tus objetivos llegarán en M3"
+                description="Podrás definir visión, objetivos y métricas, y vincularlos a tus hábitos sin registros duplicados."
+                className="py-8"
+              />
+            </div>
+          ) : (
           <ul className="panel divide-y divide-border/70 rounded-2xl">
             {GOALS.map((g) => (
               <li key={g.id} className="px-4 py-3.5">
@@ -89,6 +107,7 @@ export function OverviewView() {
               </li>
             ))}
           </ul>
+          )}
         </section>
       </div>
     </>
@@ -196,7 +215,7 @@ function FocusCta() {
   )
 }
 
-function LearnCta() {
+function LearnCta({ source }: { source?: "demo" | "account" }) {
   return (
     <div className="panel flex min-h-[132px] flex-col justify-between rounded-2xl p-2">
       <Link
@@ -211,7 +230,7 @@ function LearnCta() {
         className="flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-xs text-text-tertiary transition-colors hover:bg-surface-raised hover:text-text-secondary"
       >
         <Brain className="size-3.5" aria-hidden />
-        {RECALL_CARDS.length} tarjetas por repasar
+        {source === "account" ? "Repaso espaciado · M4" : `${RECALL_CARDS.length} tarjetas por repasar`}
       </Link>
     </div>
   )
@@ -227,7 +246,19 @@ const DIM_NAMES: Record<DimensionId, string> = {
 function Dimensions({ model }: { model: HabitsModel }) {
   const range = { from: addDays(model.today, -29), to: model.today }
   const dims = byDimension(model.all, range, model.ctx)
-  const ids = (Object.keys(DIM_NAMES) as DimensionId[]).filter((d) => dims.has(d))
+  const ids = (Object.keys(DIM_NAMES) as DimensionId[]).filter((d) => dims.has(d) && dims.get(d)!.applicable > 0)
+  if (ids.length === 0) {
+    return (
+      <div className="panel rounded-2xl">
+        <EmptyState
+          icon={BarChart3}
+          title="Aún no hay datos de los últimos 30 días"
+          description="Cada dimensión mostrará su cumplimiento y tendencia en cuanto registres hábitos en ella."
+          className="py-8"
+        />
+      </div>
+    )
+  }
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {ids.map((id) => {
@@ -270,5 +301,49 @@ function Dimensions({ model }: { model: HabitsModel }) {
         )
       })}
     </div>
+  )
+}
+
+/** Empty account (or demo with everything archived): a clear first step instead of empty blocks. */
+function FirstHabitPanel({ source }: { source: "demo" | "account" }) {
+  const hasDemo = useHasDemoData()
+  return (
+    <div className="panel rounded-2xl">
+      <EmptyState
+        icon={ListChecks}
+        title="Empieza por tu primer hábito"
+        description="Tu progreso de hoy, la checklist y las tendencias aparecerán aquí en cuanto crees un hábito. Cuenta desde hoy y solo los días que programes."
+        action={
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button asChild>
+              <Link href="/habits">
+                <Plus /> Crear hábito
+              </Link>
+            </Button>
+            {source === "account" && hasDemo && (
+              <Button asChild variant="outline">
+                <Link href="/settings">
+                  <CloudUpload /> Importar desde la demo
+                </Link>
+              </Button>
+            )}
+          </div>
+        }
+      />
+    </div>
+  )
+}
+
+/** Account mode: no fixture priorities are ever shown as if they were the user's. */
+function PrioritiesComingSoon() {
+  return (
+    <section aria-labelledby="prio-title" className="panel rounded-2xl p-4 sm:p-5">
+      <h2 id="prio-title" className="text-base font-semibold">
+        Top 3 de hoy
+      </h2>
+      <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+        Tus tres prioridades diarias, sincronizadas entre dispositivos, llegan en M3 junto con el temporizador de enfoque.
+      </p>
+    </section>
   )
 }

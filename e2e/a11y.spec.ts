@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright"
 import { expect, test } from "./fixtures"
 
-const ROUTES = ["/", "/habits", "/analytics", "/knowledge/library", "/knowledge/discover", "/knowledge/brain", "/settings/notifications", "/more"]
+const ROUTES = ["/login", "/", "/habits", "/analytics", "/knowledge/library", "/knowledge/discover", "/knowledge/brain", "/settings/notifications", "/more"]
 
 test.describe("accessibility (axe, WCAG 2.1 AA)", () => {
   for (const route of ROUTES) {

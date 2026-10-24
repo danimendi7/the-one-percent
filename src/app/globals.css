@@ -227,3 +227,18 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Boot watchdog: shown only if the app has not hydrated after a while (JS blocked or failed). */
+.boot-fallback {
+  display: none;
+}
+html:not([data-hydrated]) .boot-fallback {
+  display: flex;
+  opacity: 0;
+  animation: boot-reveal 0.01s linear 12s forwards;
+}
+@keyframes boot-reveal {
+  to {
+    opacity: 1;
+  }
+}

@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils"
 import { WEEKDAY_LONG, WEEKDAY_SHORT, type Weekday } from "../domain/dates"
 import type { HabitInput } from "../domain/ops"
 import type { DimensionId, Habit, HabitType, ScheduleRule, TargetDirection } from "../domain/types"
-import { habitActions } from "../store/habit-store"
+import { habitActions, useHabits } from "../store/habit-store"
 import { DIMENSION_COLOR, HABIT_ICONS } from "./habit-icon"
 
 const DIMENSIONS: { id: DimensionId; name: string }[] = [
@@ -99,6 +99,7 @@ export function HabitFormSheet({
 
 function HabitForm({ habit, onDone }: { habit: Habit | null; onDone: () => void }) {
   const editing = habit !== null
+  const source = useHabits()?.source
   const current = habit?.schedule[habit.schedule.length - 1]?.rule
   const ids = { name: useId(), target: useId(), unit: useId() }
 
@@ -171,7 +172,9 @@ function HabitForm({ habit, onDone }: { habit: Habit | null; onDone: () => void 
         <SheetDescription>
           {editing
             ? "El nombre y el icono se actualizan en todo el historial. La frecuencia cambia solo desde hoy."
-            : "Datos locales de demostración. Se guardan en este navegador."}
+            : source === "account"
+              ? "Empieza a contar desde hoy y se sincroniza con tus dispositivos."
+              : "Datos locales de demostración. Se guardan en este navegador."}
         </SheetDescription>
       </SheetHeader>
 

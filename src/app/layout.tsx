@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { BootFallback, HydrationMark } from "@/components/shell/boot"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -45,6 +46,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
         <Toaster position="top-center" offset={16} mobileOffset={{ top: 64 }} />
+        <HydrationMark />
+        <BootFallback />
       </body>
     </html>
   )

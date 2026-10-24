@@ -2,6 +2,7 @@
 
 import { Check, Flag } from "lucide-react"
 import { DemoBadge, DemoNote } from "@/components/common/demo-note"
+import { EmptyState } from "@/components/common/empty-state"
 import { pct } from "@/components/common/format"
 import { PageHeader } from "@/components/shell/page-header"
 import { cn } from "@/lib/utils"
@@ -14,6 +15,20 @@ import { GOALS } from "./fixtures"
 /** GoalProgress: effort (habits, computed) and outcome (measurements) are shown separately (PRD §3.4). */
 export function GoalsView() {
   const model = useHabitsModel()
+  if (model?.source === "account") {
+    return (
+      <>
+        <PageHeader title="Objetivos" description="Visión → objetivo → sistema → hábitos, con esfuerzo y resultado medidos por separado." />
+        <div className="panel rounded-2xl">
+          <EmptyState
+            icon={Flag}
+            title="Los objetivos de tu cuenta llegan en M3"
+            description="Podrás definir métricas, valores de partida, metas y fechas, y vincular hábitos sin registros duplicados. Mientras tanto, la demo muestra cómo se verán."
+          />
+        </div>
+      </>
+    )
+  }
   return (
     <>
       <PageHeader

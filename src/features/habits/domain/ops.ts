@@ -150,3 +150,13 @@ export function setRestDay(state: HabitsState, date: LocalDate, rest: boolean): 
 export function activeHabits(state: HabitsState, today: LocalDate): Habit[] {
   return state.habits.filter((h) => !h.archivedOn || h.archivedOn > today)
 }
+
+/** Insert a fully-specified habit (sync replay / import). No-op if the id exists. */
+export function insertHabit(state: HabitsState, habit: Habit): HabitsState {
+  if (state.habits.some((h) => h.id === habit.id)) return state
+  return { ...state, habits: [...state.habits, habit] }
+}
+
+export function setTimezone(state: HabitsState, timezone: string): HabitsState {
+  return state.timezone === timezone ? state : { ...state, timezone }
+}

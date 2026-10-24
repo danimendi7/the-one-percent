@@ -1,6 +1,6 @@
 "use client"
 
-import { Moon } from "lucide-react"
+import { CalendarCheck, Moon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { WEEKDAY_SHORT, startOfWeek, addDays } from "../domain/dates"
@@ -54,6 +54,22 @@ export function TodayChecklist({ model, className }: { model: HabitsModel; class
         <Button variant="outline" onClick={() => habitActions.setRestDay(today, false)}>
           Quitar descanso
         </Button>
+      </div>
+    )
+  }
+
+  if (daily.length === 0 && weekly.length === 0) {
+    return (
+      <div className={cn("panel flex items-start gap-4 rounded-2xl p-5", className)} role="status">
+        <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-raised">
+          <CalendarCheck className="size-5 text-text-secondary" aria-hidden />
+        </div>
+        <div>
+          <p className="font-semibold">Nada programado para hoy</p>
+          <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+            Ninguno de tus hábitos activos toca hoy. Los días no programados no cuentan en ningún porcentaje.
+          </p>
+        </div>
       </div>
     )
   }

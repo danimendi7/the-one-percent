@@ -1,7 +1,10 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Table2, LineChart as LineIcon } from "lucide-react"
+import Link from "next/link"
+import { Gauge, LineChart as LineIcon, Table2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/common/empty-state"
 import {
   Area,
   AreaChart,
@@ -13,7 +16,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { DemoBadge } from "@/components/common/demo-note"
+import { SourceBadge } from "@/components/common/demo-note"
 import { pct } from "@/components/common/format"
 import { PageHeader } from "@/components/shell/page-header"
 import { cn } from "@/lib/utils"
@@ -49,7 +52,7 @@ export function AnalyticsView() {
     <>
       <PageHeader
         title="Analítica"
-        meta={<DemoBadge>Demo · calculado de tus registros locales</DemoBadge>}
+        meta={<SourceBadge source={model?.source}>Demo · calculado de los registros de ejemplo</SourceBadge>}
         description="Estadística descriptiva calculada a partir de los registros. Sin puntuaciones opacas: cada cifra indica su base."
         actions={
           <Segmented
@@ -93,6 +96,22 @@ function Content({
   onHabit: (id: string) => void
 }) {
   const range = { from: addDays(model.today, -(days - 1)), to: model.today }
+  if (model.all.length === 0) {
+    return (
+      <div className="panel rounded-2xl">
+        <EmptyState
+          icon={Gauge}
+          title="Todavía no hay nada que analizar"
+          description="La analítica se calcula a partir de tus registros. Crea un hábito y marca tus días: las cifras aparecerán aquí con su base de cálculo."
+          action={
+            <Button asChild>
+              <Link href="/habits">Ir a Hábitos</Link>
+            </Button>
+          }
+        />
+      </div>
+    )
+  }
   const selected = habitId === "all" ? null : model.all.find((h) => h.id === habitId) ?? null
   const scope = selected ? [selected] : model.all
 
@@ -243,7 +262,9 @@ function TrendPanel({ model, habits, className }: { model: HabitsModel; habits: 
       <h2 id="trend-title" className="sr-only">
         Tendencia semanal
       </h2>
-      {table ? (
+      {data.every((d) => d.rate === null) ? (
+        <NoData />
+      ) : table ? (
         <DataTable
           caption="Cumplimiento por semana"
           head={["Semana del", "Cumplimiento", "Cumplidas / aplicables"]}
@@ -305,7 +326,9 @@ function WeekdayPanel({
   return (
     <section className={cn("panel rounded-2xl p-4 sm:p-5", className)} aria-label="Constancia por día de la semana">
       <PanelHeader title="Por día de la semana" subtitle="% de cumplimiento en el periodo" showTable={table} onToggle={() => setTable(!table)} />
-      {table ? (
+      {data.every((d) => d.rate === null) ? (
+        <NoData />
+      ) : table ? (
         <DataTable
           caption="Cumplimiento por día de la semana"
           head={["Día", "Cumplimiento", "Oportunidades"]}
@@ -517,3 +540,16 @@ function DataTable({ caption, head, rows }: { caption: string; head: string[]; r
   )
 }
 
+
+function NoData() {
+  return (
+    <div className="grid h-56 place-items-center rounded-xl border border-dashed border-border px-6 text-center">
+      <div>
+        <p className="text-sm font-medium">Sin datos en este periodo</p>
+        <p className="mt-1 text-xs leading-relaxed text-text-tertiary">
+          No hubo oportunidades programadas. Se muestra N/D en lugar de 0% para no falsear la tendencia.
+        </p>
+      </div>
+    </div>
+  )
+}

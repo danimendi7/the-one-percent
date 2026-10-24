@@ -2,10 +2,12 @@
 
 import { useId, useState } from "react"
 import { toast } from "sonner"
+import { NotebookPen } from "lucide-react"
+import { EmptyState } from "@/components/common/empty-state"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { DemoBadge } from "@/components/common/demo-note"
+import { SourceBadge } from "@/components/common/demo-note"
 import { pct } from "@/components/common/format"
 import { PageHeader } from "@/components/shell/page-header"
 import { addDays, formatDate, startOfWeek } from "@/features/habits/domain/dates"
@@ -21,7 +23,7 @@ export function ReviewsView() {
     <>
       <PageHeader
         title="Revisión semanal"
-        meta={<DemoBadge>Demo · cifras reales de tus registros locales</DemoBadge>}
+        meta={<SourceBadge source={model?.source}>Demo · cifras de los registros de ejemplo</SourceBadge>}
         description="Cifras calculadas sin IA, decisiones tuyas: mantener, cambiar o quitar."
       />
       {model ? <Review model={model} /> : <div className="panel h-96 animate-pulse rounded-2xl" />}
@@ -44,6 +46,17 @@ function Review({ model }: { model: HabitsModel }) {
     .sort((a, b) => (b.s.rate ?? -1) - (a.s.rate ?? -1))
   const [decisions, setDecisions] = useState<Record<string, Decision>>({})
   const delta = total.rate !== null && prev.rate !== null ? Math.round((total.rate - prev.rate) * 100) : null
+  if (rows.length === 0) {
+    return (
+      <div className="panel rounded-2xl">
+        <EmptyState
+          icon={NotebookPen}
+          title="Tu primera revisión estará lista pronto"
+          description={`La revisión resume la semana anterior (${formatDate(ws, { day: "numeric", month: "long" })} al ${formatDate(we, { day: "numeric", month: "long" })}). Aparecerá cuando tengas hábitos con días programados en esa semana.`}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">

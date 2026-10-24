@@ -6,6 +6,7 @@ import { activeHabits } from "../domain/ops"
 import type { EvalContext } from "../domain/metrics"
 import type { Habit, HabitsState } from "../domain/types"
 import type { LocalDate } from "../domain/dates"
+import type { DataSource } from "../store/types"
 
 export interface HabitsModel {
   state: HabitsState
@@ -16,6 +17,7 @@ export interface HabitsModel {
   all: Habit[]
   ctx: EvalContext
   persisted: boolean
+  source: DataSource
 }
 
 export function useHabitsModel(): HabitsModel | null {
@@ -30,6 +32,7 @@ export function useHabitsModel(): HabitsModel | null {
       all: state.habits,
       ctx: { entries: state.entries, restDays: new Set(state.restDays), today },
       persisted: snap.persisted,
+      source: snap.source,
     }
   }, [snap])
 }
