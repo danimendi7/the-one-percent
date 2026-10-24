@@ -1,0 +1,229 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * THE ONE PERCENT — Dark Performance tokens.
+ * Source of truth: docs/spec/DESIGN_SYSTEM.md. Components must use these
+ * semantic tokens, never raw hex values.
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
+
+  /* Spec tokens */
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-signal: var(--signal);
+  --color-signal-foreground: var(--signal-foreground);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-dim-body: var(--dim-body);
+  --color-dim-mind: var(--dim-mind);
+  --color-dim-learn: var(--dim-learn);
+  --color-dim-work: var(--dim-work);
+
+  /* shadcn/ui semantic mapping */
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.34);
+  --radius-2xl: calc(var(--radius) * 1.67);
+  --radius-3xl: calc(var(--radius) * 2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Spec palette */
+  --background: #0b0f14;
+  --surface: #161d26;
+  --surface-raised: #202a34;
+  --border: #26313d;
+  --signal: #b9f36a;
+  --signal-foreground: #0b0f14;
+  --foreground: #f3f6f8;
+  --text-secondary: #aab5c1;
+  --text-tertiary: #8794a3; /* AA (≥4.5:1) on background and surface */
+  --warning: #d9ab6c;
+  --error: #ef7c82;
+
+  /* Dimension hues (categorical, fixed order). Validated with the dataviz palette checker on #161d26: band, chroma, CVD ΔE ≥ 12.6, normal ΔE ≥ 16.2, contrast ≥ 3:1. */
+  --dim-body: #1dab8f;
+  --dim-mind: #6794dd;
+  --dim-learn: #c98040;
+  --dim-work: #bd77b7;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: #18202a;
+  --popover-foreground: var(--foreground);
+  --primary: var(--signal);
+  --primary-foreground: var(--signal-foreground);
+  --secondary: var(--surface-raised);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-raised);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--surface-raised);
+  --accent-foreground: var(--foreground);
+  --destructive: var(--error);
+  --input: #2e3a47;
+  --ring: color-mix(in oklab, var(--signal) 70%, transparent);
+
+  --chart-1: var(--signal);
+  --chart-2: var(--dim-mind);
+  --chart-3: var(--dim-body);
+  --chart-4: var(--dim-learn);
+  --chart-5: var(--dim-work);
+
+  --radius: 0.75rem;
+
+  --sidebar: #0d1218;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--signal);
+  --sidebar-primary-foreground: var(--signal-foreground);
+  --sidebar-accent: var(--surface);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* Layout constants (z-index scale lives here, not scattered) */
+  --z-header: 30;
+  --z-nav: 40;
+  --bottom-tabs-h: 4rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv11";
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--signal) 35%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Tabular figures for every metric */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum", "ss01";
+    letter-spacing: -0.01em;
+  }
+  /* Hairline top highlight that gives panels a machined edge */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.035),
+      0 1px 2px rgb(2 6 10 / 0.5);
+  }
+  .panel-raised {
+    background: var(--surface-raised);
+    border: 1px solid color-mix(in oklab, var(--border) 70%, white 6%);
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  /* Rest-day hatch pattern (non-colour cue for exempt days) */
+  .hatch {
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--text-tertiary) 22%, transparent) 0 1px,
+      transparent 1px 6px
+    );
+  }
+}
+
+/* Ambient canvas glow: fixed, non-interactive, never on scrolling layers */
+.canvas-glow::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60rem 28rem at 85% -10%, rgb(185 243 106 / 0.045), transparent 60%),
+    radial-gradient(50rem 30rem at -10% 110%, rgb(157 180 240 / 0.035), transparent 60%);
+}
+
+@keyframes pop {
+  0% { transform: scale(0.82); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .animate-pop {
+    animation: pop 180ms var(--ease-out-quint);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
