@@ -45,6 +45,7 @@ export function HabitsView() {
             <DemoBadge />
           </span>
         }
+        inlineActions
         actions={
           <Button onClick={openNew} disabled={!model}>
             <Plus />

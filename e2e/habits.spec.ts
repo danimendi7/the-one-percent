@@ -42,6 +42,24 @@ test.describe("habit tracker (local demo)", () => {
     await expect(todayMetric(page)).toHaveAccessibleName("3 de 7 hábitos de hoy")
   })
 
+  test("a quick value saves in one tap", async ({ page }, info) => {
+    await page.goto("/habits")
+    await todayCell(page, "Lectura").click()
+    if (isMobile(info.project.name)) await expect(page.getByRole("dialog")).toBeVisible() // bottom sheet on phones
+    await page.getByRole("button", { name: "Registrar 30 min" }).click()
+    await expect(todayCell(page, "Lectura")).toHaveAccessibleName(/hecho, 30 min/)
+    await expect(todayMetric(page)).toHaveAccessibleName("3 de 7 hábitos de hoy")
+  })
+
+  test("metric explanations open with a tap on mobile", async ({ page }, info) => {
+    test.skip(!isMobile(info.project.name), "mobile only")
+    await page.goto("/habits")
+    await page.getByRole("button", { name: "Detalle de métricas y cómo se calculan" }).click()
+    const sheet = page.getByRole("dialog", { name: "Cómo se calcula" })
+    await expect(sheet).toBeVisible()
+    await expect(sheet.getByText(/Oportunidades cumplidas \/ aplicables/)).toBeVisible()
+  })
+
   test("a new Mon/Wed habit appears only on scheduled days (acceptance #1)", async ({ page }, info) => {
     await page.goto("/habits")
     await page.getByRole("button", { name: "Nuevo hábito" }).click()

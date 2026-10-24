@@ -105,7 +105,7 @@ export function WeeklyHabitGrid({
         <>
           {/* Mobile: stacked */}
           <div className="md:hidden">
-            <div className="sticky top-14 z-10 grid grid-cols-7 gap-1.5 border-b border-border bg-surface/95 px-3 py-2 backdrop-blur">
+            <div className="sticky top-14 z-10 grid grid-cols-7 gap-1 border-b border-border bg-surface/95 px-2 py-2 backdrop-blur">
               {days.map((d) => (
                 <DayHeader key={d} date={d} model={model} compact />
               ))}
@@ -114,8 +114,8 @@ export function WeeklyHabitGrid({
               {habits.map((h) => {
                 const t = rowTally(h, days, model)
                 return (
-                  <li key={h.id} className="px-3 pt-3 pb-3.5">
-                    <div className="mb-2.5 flex items-center gap-2.5">
+                  <li key={h.id} className="px-2 pt-3 pb-3">
+                    <div className="mb-2 flex items-center gap-2.5 px-1">
                       <HabitIcon icon={h.icon} dimensionId={h.dimensionId} size="sm" />
                       <button
                         type="button"
@@ -129,10 +129,10 @@ export function WeeklyHabitGrid({
                         {t.done}/{t.planned}
                       </span>
                     </div>
-                    <div className="grid grid-cols-7 gap-1.5">
+                    <div className="grid grid-cols-7 gap-1">
                       {days.map((d) => (
                         <div key={d} className="flex justify-center">
-                          <HabitDayCell habit={h} date={d} ctx={model.ctx} />
+                          <HabitDayCell habit={h} date={d} ctx={model.ctx} className="aspect-auto h-11" />
                         </div>
                       ))}
                     </div>
@@ -227,7 +227,7 @@ function DayHeader({ date, model, compact = false }: { date: LocalDate; model: H
         </span>
         {isRest ? (
           <Moon className="mt-0.5 size-3 text-text-tertiary" aria-hidden />
-        ) : (
+        ) : compact ? null : (
           <MoreHorizontal className="mt-0.5 size-3 opacity-0" aria-hidden />
         )}
       </DropdownMenuTrigger>

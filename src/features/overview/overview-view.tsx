@@ -69,7 +69,7 @@ export function OverviewView() {
             <h2 id="goals-title" className="text-base font-semibold">
               Objetivos activos
             </h2>
-            <Link href="/goals" className="text-sm text-text-secondary hover:text-foreground">
+            <Link href="/goals" className="-mr-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-text-secondary hover:text-foreground">
               Ver todos
             </Link>
           </div>
@@ -198,17 +198,21 @@ function FocusCta() {
 
 function LearnCta() {
   return (
-    <div className="panel flex min-h-[132px] flex-col justify-between rounded-2xl p-4">
-      <Compass className="size-5 text-dim-learn" strokeWidth={1.75} aria-hidden />
-      <div className="space-y-1.5">
-        <Link href="/knowledge/discover" className="line-clamp-2 text-sm font-semibold hover:underline">
-          {FEATURED_TOPIC.title}
-        </Link>
-        <Link href="/knowledge/brain" className="flex items-center gap-1.5 text-xs text-text-tertiary hover:text-text-secondary">
-          <Brain className="size-3.5" aria-hidden />
-          {RECALL_CARDS.length} tarjetas por repasar
-        </Link>
-      </div>
+    <div className="panel flex min-h-[132px] flex-col justify-between rounded-2xl p-2">
+      <Link
+        href="/knowledge/discover"
+        className="flex flex-1 flex-col justify-between gap-3 rounded-xl p-2 transition-colors hover:bg-surface-raised"
+      >
+        <Compass className="size-5 text-dim-learn" strokeWidth={1.75} aria-hidden />
+        <span className="line-clamp-2 text-sm font-semibold">{FEATURED_TOPIC.title}</span>
+      </Link>
+      <Link
+        href="/knowledge/brain"
+        className="flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-xs text-text-tertiary transition-colors hover:bg-surface-raised hover:text-text-secondary"
+      >
+        <Brain className="size-3.5" aria-hidden />
+        {RECALL_CARDS.length} tarjetas por repasar
+      </Link>
     </div>
   )
 }

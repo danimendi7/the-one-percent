@@ -430,7 +430,7 @@ export function Segmented({
           disabled={disabled}
           onClick={() => onChange(o.value)}
           className={cn(
-            "h-9 truncate rounded-lg px-2 text-[0.8125rem] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+            "h-10 truncate rounded-lg px-2 text-[0.8125rem] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
             value === o.value ? "bg-surface-raised text-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]" : "text-text-secondary hover:text-foreground"
           )}
         >

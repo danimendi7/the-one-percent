@@ -50,6 +50,7 @@ export function LibraryView() {
       <PageHeader
         title="Biblioteca"
         meta={<DemoBadge>Demo · datos de ejemplo</DemoBadge>}
+        inlineActions
         actions={<AddBookDialog />}
       />
 
@@ -80,7 +81,7 @@ export function LibraryView() {
                 <SelectItem value="rating">Valoración</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex rounded-xl border border-border bg-surface p-1" role="group" aria-label="Vista">
+            <div className="flex rounded-xl border border-border bg-surface p-[1px] sm:p-1" role="group" aria-label="Vista">
               {(["grid", "list"] as const).map((l) => (
                 <button
                   key={l}
@@ -89,7 +90,7 @@ export function LibraryView() {
                   aria-label={l === "grid" ? "Portadas" : "Lista"}
                   onClick={() => setLayout(l)}
                   className={cn(
-                    "grid size-9 place-items-center rounded-lg transition-colors",
+                    "grid size-10 place-items-center rounded-lg transition-colors sm:size-9",
                     layout === l ? "bg-surface-raised text-foreground" : "text-text-tertiary hover:text-foreground"
                   )}
                 >
@@ -110,7 +111,7 @@ export function LibraryView() {
                 aria-selected={shelf === s.id}
                 onClick={() => setShelf(s.id)}
                 className={cn(
-                  "flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm whitespace-nowrap transition-colors",
+                  "flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm whitespace-nowrap transition-colors sm:h-9 sm:px-3.5",
                   shelf === s.id
                     ? "border-foreground/30 bg-surface-raised text-foreground"
                     : "border-border text-text-secondary hover:text-foreground"

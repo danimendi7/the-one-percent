@@ -16,7 +16,22 @@ function stepFor(habit: Habit): number {
   return 1
 }
 
-/** QuantitativeQuickEntry (DESIGN_SYSTEM): stepper + direct entry for numeric/duration habits. */
+/** One-tap values around the target, so the common case needs no typing. */
+export function presetsFor(habit: Habit): number[] {
+  const t = habit.target ?? 0
+  if (habit.direction === "at_most") {
+    return t <= 5 ? Array.from({ length: t + 2 }, (_, i) => i).slice(0, 4) : [0, Math.round(t / 2), t, Math.round(t * 1.5)]
+  }
+  if (habit.type === "duration") {
+    const ladder = [5, 10, 15, 20, 30, 45, 60, 90, 120]
+    const from = Math.max(0, ladder.findIndex((v) => v >= t))
+    return ladder.slice(from, from + 4)
+  }
+  const round = (n: number) => (n >= 1000 ? Math.round(n / 500) * 500 : Math.round(n))
+  return [...new Set([t, round(t * 1.25), round(t * 1.5)])]
+}
+
+/** QuantitativeQuickEntry (DESIGN_SYSTEM): presets + stepper + direct entry for numeric/duration habits. */
 export function QuickEntry({
   habit,
   date,
@@ -32,6 +47,7 @@ export function QuickEntry({
 }) {
   const id = useId()
   const step = stepFor(habit)
+  const presets = presetsFor(habit)
   const [raw, setRaw] = useState(initial !== null ? String(initial) : "")
   const value = raw === "" ? null : Number(raw.replace(",", "."))
   const valid = value !== null && Number.isFinite(value) && value >= 0
@@ -59,6 +75,26 @@ export function QuickEntry({
         </p>
       </div>
 
+      <div
+        className="grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${presets.length}, minmax(0, 1fr))` }}
+        role="group"
+        aria-label="Valores rápidos"
+      >
+        {presets.map((v) => (
+          <Button
+            key={v}
+            type="button"
+            variant={initial === v ? "secondary" : "outline"}
+            className="num h-11 px-1"
+            onClick={() => onSave(v)}
+            aria-label={`Registrar ${num(v)} ${habit.unit ?? ""}`.trim()}
+          >
+            {num(v)}
+          </Button>
+        ))}
+      </div>
+
       <div className="flex items-center gap-2">
         <Button type="button" variant="outline" size="icon" onClick={() => bump(-step)} aria-label={`Restar ${num(step)}`}>
           <Minus />
@@ -73,8 +109,8 @@ export function QuickEntry({
             autoComplete="off"
             value={raw}
             onChange={(e) => setRaw(e.target.value.replace(/[^\d.,]/g, ""))}
-            placeholder="0"
-            className="num h-11 pr-16 text-center text-lg font-semibold"
+            placeholder="Otra cantidad"
+            className="num h-11 pr-16 text-center text-lg font-semibold placeholder:text-sm placeholder:font-normal"
             aria-invalid={raw !== "" && !valid}
           />
           <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-text-tertiary">
@@ -96,7 +132,7 @@ export function QuickEntry({
             </span>
           )
         ) : (
-          <span className="text-text-tertiary">Introduce la cantidad exacta.</span>
+          <span className="text-text-tertiary">Toca un valor rápido o introduce la cantidad exacta.</span>
         )}
       </p>
 

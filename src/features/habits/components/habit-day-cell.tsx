@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { Check, Moon } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { useMediaQuery } from "@/hooks/use-media-query"
 import { compact } from "@/components/common/format"
 import { cn } from "@/lib/utils"
 import type { LocalDate } from "../domain/dates"
@@ -23,7 +25,10 @@ const STATE_CLASS: Record<CellState, string> = {
   inactive: "border-transparent",
 }
 
-/** HabitDayCell: one tap for binary habits; numeric opens the quick-entry popover. */
+/**
+ * HabitDayCell: one tap for binary habits; numeric opens quick entry
+ * (bottom sheet on touch-size screens, popover on desktop).
+ */
 export function HabitDayCell({
   habit,
   date,
@@ -38,6 +43,7 @@ export function HabitDayCell({
   const info = cellInfo(habit, date, ctx)
   const label = cellAriaLabel(habit, date, info)
   const [open, setOpen] = useState(false)
+  const mobile = useMediaQuery("(max-width: 767px)")
 
   const base = cn(
     "relative grid aspect-square w-full max-w-11 place-items-center rounded-[10px] border text-[0.6875rem] font-semibold transition-[background-color,border-color,transform] duration-150 select-none",
@@ -60,6 +66,9 @@ export function HabitDayCell({
     habit.type === "binary" ? (
       info.state === "done" ? (
         <Check key="done" className="animate-pop size-[18px]" strokeWidth={3} aria-hidden />
+      ) : info.state === "todo" ? (
+        // Affordance: today's pending cell hints at the tap-to-complete action.
+        <Check className="size-[18px] opacity-25" strokeWidth={2.5} aria-hidden />
       ) : null
     ) : numericValue !== null ? (
       <span key={`${info.state}`} className={cn("num", info.state === "done" && "animate-pop")}>
@@ -86,29 +95,51 @@ export function HabitDayCell({
     )
   }
 
+  const entry = (
+    <QuickEntry
+      habit={habit}
+      date={date}
+      initial={numericValue}
+      onSave={(v) => {
+        recordEntry(habit, date, v, ctx.today)
+        setOpen(false)
+      }}
+      onClear={() => {
+        recordEntry(habit, date, null, ctx.today)
+        setOpen(false)
+      }}
+    />
+  )
+  const trigger = (
+    <button type="button" aria-haspopup="dialog" className={base} onClick={mobile ? () => setOpen(true) : undefined}>
+      {/* Name via hidden text, not aria-label, so it always contains the visible value (WCAG 2.5.3). */}
+      <span className="sr-only">{`${label}. Editar cantidad`}</span>
+      <span aria-hidden className="contents">{content}</span>
+    </button>
+  )
+
+  if (mobile) {
+    return (
+      <>
+        {trigger}
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetContent side="bottom" className="gap-0 rounded-t-3xl p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>{habit.name}</SheetTitle>
+              <SheetDescription>Registrar cantidad</SheetDescription>
+            </SheetHeader>
+            <div className="pb-safe px-5 pt-6 pb-5">{entry}</div>
+          </SheetContent>
+        </Sheet>
+      </>
+    )
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button" aria-haspopup="dialog" className={base}>
-          {/* Name via hidden text, not aria-label, so it always contains the visible value (WCAG 2.5.3). */}
-          <span className="sr-only">{`${label}. Editar cantidad`}</span>
-          <span aria-hidden className="contents">{content}</span>
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent className="w-[min(18rem,calc(100vw-2rem))]" align="center" collisionPadding={16}>
-        <QuickEntry
-          habit={habit}
-          date={date}
-          initial={numericValue}
-          onSave={(v) => {
-            recordEntry(habit, date, v, ctx.today)
-            setOpen(false)
-          }}
-          onClear={() => {
-            recordEntry(habit, date, null, ctx.today)
-            setOpen(false)
-          }}
-        />
+        {entry}
       </PopoverContent>
     </Popover>
   )

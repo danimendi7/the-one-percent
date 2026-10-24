@@ -18,7 +18,7 @@ export function SyncStatus({ compact = false, className }: { compact?: boolean; 
     <Popover>
       <PopoverTrigger
         className={cn(
-          "inline-flex h-9 min-w-9 items-center justify-center gap-2 rounded-full border px-3 text-xs font-medium transition-colors",
+          "relative inline-flex h-10 min-w-10 items-center justify-center gap-2 rounded-full border px-3 text-xs font-medium transition-colors after:absolute after:-inset-1 after:content-[''] md:h-9 md:min-w-9",
           failed
             ? "border-warning/40 bg-warning/10 text-warning"
             : "border-border bg-surface text-text-secondary hover:text-foreground",

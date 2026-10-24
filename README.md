@@ -55,7 +55,7 @@ src/features/<módulo>/
 supabase/             configuración local y migraciones (vacías hasta M2)
 ```
 
-Más detalle en [`docs/architecture.md`](docs/architecture.md).
+Más detalle en [`docs/architecture.md`](docs/architecture.md). Para revisar el prototipo: [`docs/validation-guide.md`](docs/validation-guide.md).
 
 ## Seguridad
 

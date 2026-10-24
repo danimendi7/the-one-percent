@@ -26,6 +26,7 @@ export function recordEntry(habit: Habit, date: LocalDate, value: boolean | numb
     return
   }
   if (result.previous === (value === false ? null : value)) return
+  haptic(value !== null && value !== false ? 12 : 6)
 
   const when = date === today ? "hoy" : formatDate(date, { weekday: "short", day: "numeric" })
   const what =
@@ -44,4 +45,15 @@ export function recordEntry(habit: Habit, date: LocalDate, value: boolean | numb
       onClick: () => habitActions.setEntry(habit.id, date, result.previous),
     },
   })
+}
+
+/** Subtle tactile confirmation where supported (Android); a no-op elsewhere and under reduced motion. */
+function haptic(ms: number) {
+  try {
+    if (typeof navigator === "undefined" || !("vibrate" in navigator)) return
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    navigator.vibrate(ms)
+  } catch {
+    // ignore: haptics are best-effort
+  }
 }
