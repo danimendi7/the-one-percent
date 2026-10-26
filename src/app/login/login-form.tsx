@@ -143,7 +143,8 @@ export function LoginForm() {
 }
 
 /**
- * Alternative to the link: the 6-digit code from the same email. Works on
+ * Alternative to the link: the 6-digit code from the same email (6–8 digits accepted,
+ * in case the project's OTP length differs). Works on
  * another device, on the local network and inside an installed iOS PWA
  * (where links open in Safari instead of the app).
  */
@@ -155,7 +156,7 @@ function CodeForm({ email }: { email: string }) {
   async function verify(e: React.FormEvent) {
     e.preventDefault()
     const supabase = getSupabaseBrowser()
-    if (!supabase || code.length !== 6) return
+    if (!supabase || code.length < 6) return
     setStatus("checking")
     const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" })
     if (error) {
@@ -175,14 +176,14 @@ function CodeForm({ email }: { email: string }) {
           id={id}
           inputMode="numeric"
           autoComplete="one-time-code"
-          maxLength={6}
+          maxLength={8}
           value={code}
-          onChange={(e) => setCode(e.target.value.replace(/D/g, "").slice(0, 6))}
+          onChange={(e) => setCode(e.target.value.replace(/D/g, "").slice(0, 8))}
           className="num h-12 flex-1 text-center text-lg tracking-[0.4em]"
           aria-invalid={status === "error"}
           aria-describedby={status === "error" ? `${id}-err` : undefined}
         />
-        <Button type="submit" size="lg" disabled={code.length !== 6 || status === "checking"}>
+        <Button type="submit" size="lg" disabled={code.length < 6 || status === "checking"}>
           {status === "checking" ? "…" : "Entrar"}
         </Button>
       </div>

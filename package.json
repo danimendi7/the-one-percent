@@ -22,7 +22,8 @@
     "cloud": "node scripts/cloud.mjs",
     "backup": "node scripts/backup.mjs",
     "restore:drill": "node scripts/restore-drill.mjs",
-    "smoke": "playwright test --config playwright.smoke.config.ts"
+    "smoke": "playwright test --config playwright.smoke.config.ts",
+    "cloud:auth": "node scripts/cloud-auth.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

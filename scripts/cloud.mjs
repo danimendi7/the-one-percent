@@ -7,6 +7,7 @@
  *   npm run cloud -- push-dry               list migrations that would be applied
  *   npm run cloud -- push --confirm <ref>   apply migrations (only after an explicit confirmation)
  *   npm run cloud -- lint                   lint the linked remote database
+ *   npm run cloud -- advisors               Supabase security + performance advisors
  *
  * Safety rules:
  * - Requires SUPABASE_ACCESS_TOKEN in the environment of this terminal only. It never uses
@@ -92,6 +93,10 @@ switch (command) {
   case "lint":
     verify({ requireLink: true })
     supabase(["db", "lint", "--linked", "--level", "warning"])
+    break
+  case "advisors":
+    verify({ requireLink: true })
+    supabase(["db", "advisors", "--linked", "--type", "all", "--level", "info"])
     break
   default:
     fail(`Comando desconocido: ${command}`)
