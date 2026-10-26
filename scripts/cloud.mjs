@@ -94,10 +94,17 @@ switch (command) {
     verify({ requireLink: true })
     supabase(["db", "lint", "--linked", "--level", "warning"])
     break
-  case "advisors":
+  case "advisors": {
     verify({ requireLink: true })
-    supabase(["db", "advisors", "--linked", "--type", "all", "--level", "info"])
+    const out = supabase(["db", "advisors", "--linked", "--type", "all", "--level", "info", "--output-format", "json"], { capture: true })
+    const results = JSON.parse(out.slice(out.indexOf("{"))).results ?? []
+    if (!results.length) console.log("✔ Advisors: sin avisos.")
+    for (const r of results) console.log(`  [${r.level}] ${r.categories?.join("/")} · ${r.name} · ${r.metadata?.schema ?? ""}.${r.metadata?.name ?? ""}`)
+    const blocking = results.filter((r) => r.level === "ERROR" || (r.level === "WARN" && r.categories?.includes("SECURITY")))
+    if (blocking.length) fail(`${blocking.length} avisos de seguridad por resolver.`)
+    console.log(`✔ Sin avisos de seguridad (WARN/ERROR). Total: ${results.length} (${results.filter((r) => r.level === "INFO").length} INFO).`)
     break
+  }
   default:
     fail(`Comando desconocido: ${command}`)
 }
