@@ -13,6 +13,7 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 import { assertContainer, dumpData, encrypt, LOCAL_URL_IN_CONTAINER, manifest } from "./lib/backup-core.mjs"
 import { evaluateDbUrl } from "./lib/cloud-guard.mjs"
+import { loadLocalSecrets } from "./lib/local-secrets.mjs"
 
 export function runBackup(source, { dir } = {}) {
   const passphrase = process.env.BACKUP_PASSPHRASE
@@ -20,6 +21,8 @@ export function runBackup(source, { dir } = {}) {
   let url = LOCAL_URL_IN_CONTAINER
   let ref = "local"
   if (source === "cloud") {
+    // The DB URL may come from .env.cloud.local; the passphrase never does (keep it separate from the data).
+    loadLocalSecrets(["SUPABASE_DB_URL"])
     const cfg = JSON.parse(readFileSync("supabase/cloud-project.json", "utf8"))
     url = process.env.SUPABASE_DB_URL ?? ""
     const check = evaluateDbUrl(url, cfg)

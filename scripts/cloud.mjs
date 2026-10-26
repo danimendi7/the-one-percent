@@ -16,6 +16,7 @@
  */
 import { existsSync, readFileSync } from "node:fs"
 import { evaluateCloudTarget } from "./lib/cloud-guard.mjs"
+import { loadLocalSecrets, SECRETS_FILE } from "./lib/local-secrets.mjs"
 import { supabaseCli } from "./lib/supabase-cli.mjs"
 
 const cfg = JSON.parse(readFileSync("supabase/cloud-project.json", "utf8"))
@@ -26,10 +27,14 @@ function fail(msg) {
   process.exit(1)
 }
 
+const loaded = loadLocalSecrets(["SUPABASE_ACCESS_TOKEN", "SUPABASE_DB_PASSWORD"])
+if (loaded.length) console.log(`(secretos leídos de ${SECRETS_FILE}: ${loaded.join(", ")}; valores no mostrados)`)
+
 if (!process.env.SUPABASE_ACCESS_TOKEN) {
   fail(
     "Define SUPABASE_ACCESS_TOKEN (token personal de la cuenta de THE ONE PERCENT) solo en esta terminal.\n" +
       "  PowerShell:  $env:SUPABASE_ACCESS_TOKEN = '<token>'\n" +
+      `  o en el fichero ignorado por git ${SECRETS_FILE}:  SUPABASE_ACCESS_TOKEN=<token>\n` +
       "Así no se usa ni se modifica la sesión global de la CLI."
   )
 }
