@@ -1,9 +1,9 @@
 {
   "$comment": "Expected cloud target for THE ONE PERCENT. Not secret. Fill ref and organizationId after creating the project (step B1). scripts/cloud.mjs refuses to run against anything else. Forbidden identifiers are stored only as SHA-256 hashes so this repo contains no data from other projects.",
   "name": "the-one-percent",
-  "ref": null,
-  "organizationId": null,
-  "region": "eu-central-1",
+  "ref": "noqajqliylyxsxbcoptf",
+  "organizationId": "mytuhydhznptvrijccta",
+  "region": "eu-west-2",
   "forbiddenRefHashes": ["48db9af28b7cfa0e97c8820abf5b90ff8884c6a4955167bd017b82c255414fb3"],
   "forbiddenOrganizationHashes": ["17413616cc7722175b31752634f5a33f038a780dae141a9a5ff7712203957ae8"]
 }

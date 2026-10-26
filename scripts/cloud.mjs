@@ -79,13 +79,13 @@ switch (command) {
   }
   case "push-dry":
     verify({ requireLink: true })
-    supabase(["db", "push", "--dry-run"])
+    supabase(["db", "push", "--linked", "--dry-run"])
     break
   case "push": {
     const t = verify({ requireLink: true })
     const i = args.indexOf("--confirm")
     if (i < 0 || args[i + 1] !== t.ref) fail(`Para aplicar migraciones repite el ref exacto: npm run cloud -- push --confirm ${t.ref}`)
-    supabase(["db", "push"])
+    supabase(["db", "push", "--linked"])
     console.log("✔ Migraciones aplicadas.")
     break
   }
