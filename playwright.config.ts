@@ -1,10 +1,12 @@
 import { defineConfig } from "@playwright/test"
 
-const PORT = 3100
+export const PORT = 3100
 const baseURL = `http://localhost:${PORT}`
 
 export default defineConfig({
   testDir: "./e2e",
+  // Deployment smoke tests have their own config (playwright.smoke.config.ts).
+  testIgnore: [/smoke.spec.ts$/],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

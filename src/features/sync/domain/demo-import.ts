@@ -97,6 +97,7 @@ export function planDemoImport(
         local_date: e.date,
         value: e.value,
         client_updated_at: e.updatedAt,
+        base_seq: null,
       })
       entries++
     }

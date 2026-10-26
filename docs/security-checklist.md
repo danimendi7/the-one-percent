@@ -1,6 +1,6 @@
 # Checklist de seguridad
 
-Estado al cierre de M2 (solo local). ✅ hecho · ⏳ fase indicada.
+Estado al cierre de la Fase A de M2.5 (solo local). ✅ hecho · ⏳ fase indicada.
 
 ## Repositorio y secretos
 - ✅ `.env*` ignorado por git; solo se versiona `.env.example`, sin valores.
@@ -29,8 +29,14 @@ Estado al cierre de M2 (solo local). ✅ hecho · ⏳ fase indicada.
 ## Cliente
 - ✅ Sin `dangerouslySetInnerHTML`; React escapa todo el texto.
 - ✅ Estado de la demo validado con Zod. La caché de sincronización está en IndexedDB por usuario.
-- ⚠️ Tras cerrar sesión, la copia local en IndexedDB (sin cifrar) permanece en el dispositivo para conservar los cambios no enviados. En dispositivos compartidos conviene una opción de «borrar copia local»: anotada para M3.
-- ⏳ Cabeceras CSP y de seguridad con el despliegue (M6).
+- ✅ Al cerrar sesión se puede borrar la copia local (IndexedDB y cola), con aviso de cambios no enviados; sin esa opción, la copia permanece (sin cifrar) para no perder cambios.
+- ✅ Cabeceras: CSP (sin scripts de terceros; `connect-src` solo la app y Supabase), `frame-ancestors 'none'`, nosniff, `Referrer-Policy`, `Permissions-Policy` y HSTS en Vercel. Sin `X-Powered-By`.
+- ✅ Cookies de sesión `Secure` bajo HTTPS. El build falla en Vercel si falta Supabase o no usa https.
+
+## Cloud y copias (M2.5)
+- ✅ `npm run cloud` exige un token por variable de entorno y aborta si ve el proyecto u organización de Uría o si ref, nombre, organización, región o enlace no coinciden.
+- ✅ Copias cifradas fuera del repo; la cadena de conexión y la frase de paso solo se pasan en tiempo de ejecución. El simulacro de restauración solo escribe en el stack local, tras una copia automática del estado previo.
+- ⏳ Tras crear tu cuenta en cloud: desactivar nuevos registros, revisar los Advisors y configurar SMTP propio cuando haya dominio.
 
 ## Dependencias
 - ✅ `npm audit`: 0 vulnerabilidades.

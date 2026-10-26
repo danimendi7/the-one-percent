@@ -3,7 +3,7 @@ import { DEMO_COOKIE } from "@/lib/supabase/env"
 import { getSupabaseServer } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
-  const supabase = await getSupabaseServer()
+  const supabase = await getSupabaseServer({ secure: request.nextUrl.protocol === "https:" })
   await supabase.auth.signOut()
   const res = NextResponse.redirect(new URL("/login", request.url), { status: 303 })
   res.cookies.delete(DEMO_COOKIE)

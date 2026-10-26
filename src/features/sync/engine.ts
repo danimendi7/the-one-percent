@@ -13,7 +13,7 @@ export class NetworkError extends Error {
 }
 
 export interface SyncTransport {
-  applyOps(deviceId: string, ops: Op[]): Promise<{ results: OpResult[]; server_today: LocalDate }>
+  applyOps(deviceId: string, ops: Op[]): Promise<{ results: OpResult[]; server_today: LocalDate; server_time?: string }>
   pull(since: number): Promise<PullPayload>
 }
 
@@ -74,6 +74,9 @@ export class SyncEngine {
   private readonly overlap: number
   private readonly batchSize: number
   private readonly schedule: (fn: () => void, ms: number) => () => void
+  /** Estimated server clock minus device clock (ms). */
+  private clockOffset = 0
+  private lastHybrid = 0
 
   constructor(private readonly deps: EngineDeps) {
     this.now = deps.now ?? Date.now
@@ -123,6 +126,27 @@ export class SyncEngine {
     return this.snapshot
   }
 
+  /**
+   * Hybrid logical time for a new intent: device clock corrected with the server
+   * offset, and strictly increasing on this device. Clocks only break ties between
+   * truly concurrent edits; sequential edits are decided by base_seq.
+   */
+  clientTime(): string {
+    const t = Math.max(Math.round(this.now() + this.clockOffset), this.lastHybrid + 1)
+    this.lastHybrid = t
+    return new Date(t).toISOString()
+  }
+
+  /** server_seq of a row as this device last saw it (entry: habitId+date, rest: date). */
+  rowSeq(kind: "entry" | "rest", habitIdOrDate: string, date?: string): number | null {
+    const key = kind === "entry" ? `e:${habitIdOrDate}:${date}` : `r:${habitIdOrDate}`
+    return this.cache.rowSeq[key] ?? null
+  }
+
+  diagnostics() {
+    return { clockOffsetMs: Math.round(this.clockOffset), cursor: this.cache.cursor, deviceId: this.deps.deviceId, failures: this.failures }
+  }
+
   /** Server version of a habit as last seen (for optimistic-concurrency edits). */
   habitVersion(habitId: string): number {
     return this.cache.habitVersion[habitId] ?? 1
@@ -144,6 +168,7 @@ export class SyncEngine {
 
   /** Run a sync cycle: push pending ops, then pull. Concurrent calls coalesce. */
   sync(opts: { full?: boolean } = {}): Promise<void> {
+    if (this.stopped) return Promise.resolve()
     if (this.running) {
       this.rerun = true
       return this.running
@@ -160,10 +185,13 @@ export class SyncEngine {
     return this.running
   }
 
+  /** Stop for good: no further network calls, retries or writes to local storage. */
   stop(): void {
+    this.stopped = true
     this.cancelRetry?.()
     this.listeners.clear()
   }
+  private stopped = false
 
   // ── internals ──────────────────────────────────────────────────────────
   private async cycle(full: boolean): Promise<void> {
@@ -172,7 +200,9 @@ export class SyncEngine {
     try {
       const acked = await this.push()
       const since = full || this.cache.cursor === 0 ? 0 : Math.max(0, this.cache.cursor - this.overlap)
+      const sent = this.now()
       const payload = await this.deps.transport.pull(since)
+      this.observeServerTime(payload.server_time, sent, this.now())
       this.cache = mergePull(this.cache, payload)
       // Remove acknowledged ops only after the pull, so the UI never flickers back.
       this.queue = this.queue.filter((q) => !acked.has(q.op.op_id))
@@ -208,10 +238,12 @@ export class SyncEngine {
         this.inFlight.add(q.op.op_id)
         q.attempts++
       }
+      const sent = this.now()
       const res = await this.deps.transport.applyOps(
         this.deps.deviceId,
         batch.map((q) => q.op)
       )
+      this.observeServerTime(res.server_time, sent, this.now())
       for (const r of res.results) {
         acked.add(r.op_id)
         const status = r.status === "duplicate" ? r.outcome : r.status
@@ -234,7 +266,19 @@ export class SyncEngine {
     this.notices = [...this.notices, { id: op.op_id, kind, opType: op.type, subject, code, op }]
   }
 
+  /** NTP-style estimate: server time vs. the midpoint of the request, lightly smoothed. */
+  private observeServerTime(serverTime: string | undefined, sent: number, received: number) {
+    if (!serverTime) return
+    const server = Date.parse(serverTime)
+    if (Number.isNaN(server)) return
+    const sample = server - (sent + received) / 2
+    this.clockOffset = this.lastSampleAt === 0 ? sample : this.clockOffset * 0.5 + sample * 0.5
+    this.lastSampleAt = received
+  }
+  private lastSampleAt = 0
+
   private async persist(): Promise<void> {
+    if (this.stopped) return
     try {
       await this.deps.storage.save({ cache: this.cache, queue: this.queue })
       this.persisted = true

@@ -86,9 +86,12 @@ UI ──► habitActions / useHabits()  (fachada, src/features/habits/store/hab
 - *Idempotencia*: `sync_operations (user_id, client_op_id)` es único; repetir un `op_id` devuelve el resultado guardado sin volver a aplicarlo. Si se pierde la respuesta, el cliente reintenta sin duplicar.
 - *Cola duradera*: las operaciones se guardan en IndexedDB antes de enviarse y sobreviven a cierres y reinicios. Los estados deseados del mismo día se compactan.
 - *Sin parpadeos*: una operación confirmada sale de la cola solo después del pull que la refleja.
-- *Conflictos*:
-  - Registros y días de descanso: gana la última escritura según la hora del dispositivo. Desmarcar deja una «lápida» con hora, para que una marca más antigua que llegue tarde no la resucite.
+- *Conflictos (v2, M2.5)*:
+  - Registros y días de descanso: cada operación lleva `base_seq` (la versión de la fila que vio el dispositivo). Si nadie la cambió desde entonces, la edición es **secuencial** y se aplica sin mirar relojes.
+  - Solo las ediciones **simultáneas** comparan un reloj híbrido: la hora del dispositivo corregida con `server_time` (estimación tipo NTP en cada respuesta) y estrictamente creciente. El servidor limita las horas futuras a `now() + 1 min`.
+  - Desmarcar deja una lápida, para que una marca anterior que llegue tarde no la resucite.
   - Edición de hábitos: control optimista por `version`. Si dos dispositivos editan a la vez, el segundo recibe `conflict`, se mantiene la versión más reciente y se avisa con la opción «Aplicar el mío».
+- *Tiempo real*: se usa solo como señal de invalidación. Cada (re)suscripción lanza un pull de puesta al día (evita perder cambios hechos antes de que el canal estuviera activo); los canales caídos se reintentan con backoff y, mientras tanto, se sondea cada 10 s (30 s con el tiempo real sano).
 - *Cursor*: `server_seq` global (`public.change_seq`). Los pulls incrementales releen un solape de 500 posiciones para cubrir transacciones que confirman tarde; la fusión ignora filas más antiguas que la copia local. Al arrancar la app se hace siempre un pull completo.
 - *Hoy* se calcula con `profiles.timezone`, igual en el cliente y en el servidor (`public.user_today()`).
 

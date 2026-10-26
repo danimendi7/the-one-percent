@@ -16,6 +16,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { DemoBadge } from "@/components/common/demo-note"
 import { PageHeader } from "@/components/shell/page-header"
 import { SyncStatusLabel } from "@/components/shell/sync-status"
@@ -123,39 +125,118 @@ function AccountSection() {
           <Button variant="outline" onClick={exportAccount}>
             <Download /> Exportar mis datos (JSON)
           </Button>
-          <Button
-            variant="ghost"
-            className="text-text-secondary"
-            onClick={() => (sync.pending > 0 ? setConfirmOut(true) : signOut())}
-          >
+          <Button variant="ghost" className="text-text-secondary" onClick={() => setConfirmOut(true)}>
             <LogOut /> Cerrar sesión
           </Button>
         </div>
       </Group>
 
-      <Dialog open={confirmOut} onOpenChange={setConfirmOut}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Hay cambios sin sincronizar</DialogTitle>
-            <DialogDescription>
-              {sync.pending} {sync.pending === 1 ? "cambio está" : "cambios están"} solo en este dispositivo. Siguen guardados aquí y se
-              enviarán cuando vuelvas a entrar con esta cuenta, pero no estarán en tus otros dispositivos hasta entonces.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="ghost">Cancelar</Button>
-            </DialogClose>
-            <Button variant="outline" onClick={() => habitActions.syncNow?.()}>
-              <RefreshCw /> Reintentar
-            </Button>
-            <Button variant="destructive" onClick={signOut}>
-              Cerrar sesión igualmente
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SyncDiagnostics />
+      <SignOutDialog open={confirmOut} onOpenChange={setConfirmOut} pending={sync.pending} />
     </>
+  )
+}
+
+/**
+ * Sign out, optionally deleting this device's copy (IndexedDB cache and queue).
+ * Cloud data is never touched. Unsent changes are surfaced before they could be lost.
+ */
+function SignOutDialog({ open, onOpenChange, pending }: { open: boolean; onOpenChange: (v: boolean) => void; pending: number }) {
+  const [wipe, setWipe] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const loses = wipe && pending > 0
+
+  async function confirm() {
+    setBusy(true)
+    if (wipe) await habitActions.clearLocalCopy?.()
+    signOut()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cerrar sesión</DialogTitle>
+          <DialogDescription>
+            {pending > 0
+              ? `Hay ${pending} ${pending === 1 ? "cambio" : "cambios"} sin sincronizar en este dispositivo.`
+              : "Todo está sincronizado con tu cuenta."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-border px-4 py-3">
+          <Label htmlFor="wipe-local" className="flex-1 leading-snug">
+            Borrar los datos de este dispositivo
+            <span className="mt-0.5 block text-xs font-normal text-text-tertiary">
+              Elimina la copia local y la cola de cambios. Tus datos en la nube no se tocan. Recomendado en dispositivos compartidos.
+            </span>
+          </Label>
+          <Switch id="wipe-local" checked={wipe} onCheckedChange={setWipe} />
+        </div>
+        {loses && (
+          <p role="alert" className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+            Se perderán {pending} {pending === 1 ? "cambio que no ha llegado" : "cambios que no han llegado"} a la nube. Sincroniza primero
+            si quieres conservarlos.
+          </p>
+        )}
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="ghost">Cancelar</Button>
+          </DialogClose>
+          {pending > 0 && (
+            <Button variant="outline" onClick={() => habitActions.syncNow?.()}>
+              <RefreshCw /> Sincronizar ahora
+            </Button>
+          )}
+          <Button variant={loses ? "destructive" : "default"} onClick={confirm} disabled={busy}>
+            {busy ? "Cerrando…" : loses ? "Borrar y cerrar sesión" : "Cerrar sesión"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Real-device validation aid: what this device knows about its sync state. */
+function SyncDiagnostics() {
+  const snap = useHabits()!
+  const [open, setOpen] = useState(false)
+  const d = habitActions.diagnostics?.()
+  return (
+    <section aria-label="Diagnóstico de sincronización">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex min-h-11 w-full items-center justify-between px-1 text-xs font-medium text-text-tertiary hover:text-text-secondary"
+      >
+        Diagnóstico de sincronización
+        <ChevronRight className={`size-4 transition-transform ${open ? "rotate-90" : ""}`} aria-hidden />
+      </button>
+      {open && d && (
+        <div className="panel rounded-2xl px-5 py-4">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <dt className="text-text-tertiary">Dispositivo</dt>
+            <dd className="num truncate text-right">{d.deviceId.slice(0, 8)}</dd>
+            <dt className="text-text-tertiary">Cambios pendientes</dt>
+            <dd className="num text-right">{snap.sync?.pending ?? 0}</dd>
+            <dt className="text-text-tertiary">Último pull</dt>
+            <dd className="num text-right">
+              {snap.sync?.lastSyncedAt ? new Date(snap.sync.lastSyncedAt).toLocaleTimeString("es-ES") : "N/D"}
+            </dd>
+            <dt className="text-text-tertiary">Cursor</dt>
+            <dd className="num text-right">{d.cursor}</dd>
+            <dt className="text-text-tertiary">Desfase de reloj</dt>
+            <dd className="num text-right">{(d.clockOffsetMs / 1000).toFixed(1)} s</dd>
+            <dt className="text-text-tertiary">Fallos seguidos</dt>
+            <dd className="num text-right">{d.failures}</dd>
+          </dl>
+          {snap.sync?.lastError && <p className="mt-3 text-xs break-words text-warning">Último error: {snap.sync.lastError}</p>}
+          <Button variant="outline" size="sm" className="mt-4 w-full" onClick={() => habitActions.syncNow?.()}>
+            <RefreshCw /> Forzar resincronización completa
+          </Button>
+        </div>
+      )}
+    </section>
   )
 }
 

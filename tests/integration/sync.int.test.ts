@@ -17,7 +17,8 @@ async function pull(u: TestUser, since = 0) {
     server_today: string
     cursor: number
     habits: { id: string; version: number; versions: { valid_from: string; kind: string; weekdays: number[] | null }[] }[]
-    entries: { habit_id: string; local_date: string; value_bool: boolean | null; value_numeric: number | null; deleted: boolean }[]
+    entries: { habit_id: string; local_date: string; value_bool: boolean | null; value_numeric: number | null; deleted: boolean; server_seq: number }[]
+    server_time: string
     rest_days: { local_date: string; rest: boolean }[]
   }
 }
@@ -37,8 +38,8 @@ function createOp(id: string, start: string, rule: unknown, type: "binary" | "nu
   }
 }
 
-const entryOp = (habit: string, date: string, value: unknown, at = new Date().toISOString()) => ({
-  type: "entry.set", op_id: opId("entry"), habit_id: habit, local_date: date, value, client_updated_at: at,
+const entryOp = (habit: string, date: string, value: unknown, at = new Date().toISOString(), base: number | null = null) => ({
+  type: "entry.set", op_id: opId("entry"), habit_id: habit, local_date: date, value, client_updated_at: at, base_seq: base,
 })
 
 let a: TestUser
@@ -263,5 +264,41 @@ describe("conflicts and change feed", () => {
     await apply(a, [createOp(h, addDays(today, -5), { kind: "daily" }), entryOp(h, addDays(today, -2), true)])
     const { data } = await a.client.from("audit_logs").select("action, entity_id").eq("entity_id", h)
     expect(data?.map((r) => r.action).sort()).toEqual(["backfill", "create"])
+  })
+})
+
+describe("conflict resolution v2 (base_seq + server-corrected time)", () => {
+  const HOUR = 3_600_000
+
+  it("both RPCs report the server clock", async () => {
+    const r = await apply(a, [])
+    expect(Date.parse((r as unknown as { server_time: string }).server_time)).not.toBeNaN()
+    expect(Date.parse((await pull(a)).server_time)).not.toBeNaN()
+  })
+
+  it("a sequential edit applies even with a device time hours in the past", async () => {
+    const h = randomUUID()
+    await apply(a, [createOp(h, addDays(today, -1), { kind: "daily" }), entryOp(h, today, true)])
+    const seen = (await pull(a)).entries.find((e) => e.habit_id === h)!.server_seq
+    const res = await apply(a, [entryOp(h, today, null, new Date(Date.now() - 2 * HOUR).toISOString(), seen)])
+    expect(res.results[0].status).toBe("applied")
+    expect((await pull(a)).entries.find((e) => e.habit_id === h)).toBeUndefined()
+  })
+
+  it("a concurrent edit (stale base) with an older time is superseded", async () => {
+    const h = randomUUID()
+    await apply(a, [createOp(h, addDays(today, -1), { kind: "daily" }), entryOp(h, today, true)])
+    const seen = (await pull(a)).entries.find((e) => e.habit_id === h)!.server_seq
+    await apply(a, [entryOp(h, today, 1 > 0, new Date().toISOString(), seen)]) // another device moves the row on
+    const res = await apply(a, [entryOp(h, today, null, new Date(Date.now() - HOUR).toISOString(), seen)])
+    expect(res.results[0].status).toBe("superseded")
+  })
+
+  it("device times in the future are clamped to the server clock", async () => {
+    const h = randomUUID()
+    await apply(a, [createOp(h, addDays(today, -1), { kind: "daily" })])
+    await apply(a, [entryOp(h, today, true, new Date(Date.now() + 24 * HOUR).toISOString())])
+    const row = await db((c) => c.query("select client_updated_at from public.habit_entries where habit_id = $1", [h]))
+    expect(new Date(row.rows[0].client_updated_at).getTime()).toBeLessThan(Date.now() + 2 * 60_000)
   })
 })

@@ -41,6 +41,10 @@ export interface HabitActions {
   reapplyNotice?(id: string): void
   /** Queue prepared operations (demo import). */
   submitOps?(ops: Op[]): void
+  /** Delete this device's cached copy and queue (cloud data untouched). */
+  clearLocalCopy?(): Promise<void>
+  /** Sync diagnostics for real-device validation. */
+  diagnostics?(): { clockOffsetMs: number; cursor: number; deviceId: string; failures: number }
 }
 
 export interface Backend {

@@ -6,11 +6,13 @@ import { sameRule } from "@/features/habits/domain/schedule"
 import type { Backend, HabitsSnapshot } from "@/features/habits/store/types"
 import { uuidv4 } from "@/lib/ids"
 import { SyncEngine } from "./engine"
-import { deviceId, idbStorage } from "./idb-storage"
+import { clearUserCache, deviceId, idbStorage } from "./idb-storage"
 import { supabaseTransport } from "./supabase-transport"
 import type { Op } from "./domain/types"
 
 const POLL_MS = 30_000
+/** Faster polling while realtime is not confirmed healthy. */
+const DEGRADED_POLL_MS = 10_000
 
 export interface AccountBackend extends Backend {
   userId: string
@@ -88,19 +90,51 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
     if (debounce) clearTimeout(debounce)
     debounce = setTimeout(() => void engine.sync(), 250)
   }
-  const channel = sb
-    .channel(`sync:${user.id}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "habit_entries", filter: `user_id=eq.${user.id}` }, onRemoteChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "habits", filter: `user_id=eq.${user.id}` }, onRemoteChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "routine_calendar", filter: `user_id=eq.${user.id}` }, onRemoteChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, onRemoteChange)
-    .subscribe()
+  // Realtime is only an invalidation signal. Changes committed between the initial pull and
+  // the moment the subscription is live would otherwise wait for the next poll, so every
+  // (re)subscription triggers a catch-up pull. Failed channels are retried with backoff.
+  let realtimeHealthy = false
+  let disposed = false
+  let channel: ReturnType<typeof sb.channel> | null = null
+  let resubscribe: ReturnType<typeof setTimeout> | null = null
+  let attempts = 0
+  const subscribe = () => {
+    if (disposed) return
+    channel = sb
+      .channel(`sync:${user.id}:${attempts}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "habit_entries", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "habits", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "routine_calendar", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, onRemoteChange)
+      .subscribe((status) => {
+        if (disposed) return
+        if (status === "SUBSCRIBED") {
+          realtimeHealthy = true
+          attempts = 0
+          void engine.sync()
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          realtimeHealthy = false
+          const ch = channel
+          channel = null
+          if (ch) void sb.removeChannel(ch)
+          const delay = Math.min(30_000, 1000 * 2 ** Math.min(attempts++, 5))
+          if (resubscribe) clearTimeout(resubscribe)
+          resubscribe = setTimeout(subscribe, delay)
+        }
+      })
+  }
+  subscribe()
   window.addEventListener("online", onWake)
   window.addEventListener("focus", onWake)
   document.addEventListener("visibilitychange", onVisibility)
+  let lastPoll = Date.now()
   const poll = setInterval(() => {
-    if (document.visibilityState === "visible") void engine.sync()
-  }, POLL_MS)
+    const every = realtimeHealthy ? POLL_MS : DEGRADED_POLL_MS
+    if (document.visibilityState === "visible" && Date.now() - lastPoll >= every) {
+      lastPoll = Date.now()
+      void engine.sync()
+    }
+  }, DEGRADED_POLL_MS / 2)
   void engine.start()
 
   return {
@@ -115,7 +149,9 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       window.removeEventListener("online", onWake)
       window.removeEventListener("focus", onWake)
       document.removeEventListener("visibilitychange", onVisibility)
-      void sb.removeChannel(channel)
+      disposed = true
+      if (resubscribe) clearTimeout(resubscribe)
+      if (channel) void sb.removeChannel(channel)
       engine.stop()
     },
     actions: {
@@ -123,10 +159,18 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         const { state, today } = view()
         // Validate against the optimistic view so the UI gets an immediate, honest answer.
         const opId = uuidv4()
-        const at = now()
+        const at = engine.clientTime()
         const result = setEntry(state, { habitId, date, value, opId, now: at, today })
         if (result.ok && result.state !== state) {
-          submit({ type: "entry.set", op_id: opId, habit_id: habitId, local_date: date, value: value === false ? null : value, client_updated_at: at })
+          submit({
+            type: "entry.set",
+            op_id: opId,
+            habit_id: habitId,
+            local_date: date,
+            value: value === false ? null : value,
+            client_updated_at: at,
+            base_seq: engine.rowSeq("entry", habitId, date),
+          })
         }
         return result
       },
@@ -162,13 +206,28 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         submit({ type: "habit.restore", op_id: uuidv4(), habit_id: id })
       },
       setRestDay(date, rest) {
-        submit({ type: "rest_day.set", op_id: uuidv4(), local_date: date, rest, client_updated_at: now() })
+        submit({
+          type: "rest_day.set",
+          op_id: uuidv4(),
+          local_date: date,
+          rest,
+          client_updated_at: engine.clientTime(),
+          base_seq: engine.rowSeq("rest", date),
+        })
       },
       setTimezone(timezone) {
         submit({ type: "profile.update", op_id: uuidv4(), timezone })
       },
       exportJson() {
         return JSON.stringify({ exportedAt: now(), account: user.email, data: view().state }, null, 2)
+      },
+      async clearLocalCopy() {
+        // Stop first so nothing re-persists the cache after it is deleted.
+        engine.stop()
+        await clearUserCache(user.id)
+      },
+      diagnostics() {
+        return engine.diagnostics()
       },
       submitOps(ops) {
         for (const op of ops) submit(op)

@@ -33,6 +33,16 @@
 | D24 | Cookie de sesión | Nombre fijo `sb-top-auth-token` | Por defecto depende del host de la API, que difiere entre navegador (IP de la red local) y servidor. |
 | D25 | Arranque en frío | `allowedDevOrigins` para redes privadas y un aviso de arranque si la app no hidrata en 12 s | Causa de los bloques vacíos vistos desde el móvil (ver informe M2). |
 
+## M2.5
+
+| # | Tema | Decisión | Motivo |
+| --- | --- | --- | --- |
+| D26 | Conflictos v2 | `base_seq` decide las ediciones secuenciales; el reloj híbrido corregido con el servidor solo desempata las simultáneas; horas futuras limitadas | Requisito de no depender del reloj local (sustituye a D19). |
+| D27 | Cerrar sesión | Opción de borrar la copia local (IndexedDB y cola), con aviso si hay cambios pendientes; la nube no se toca | Dispositivos compartidos. |
+| D28 | Cloud | Cuenta Supabase separada (`danimendiar@gmail.com`), plan Free, UE; token solo por variable de entorno; guarda `cloud.mjs` con refs prohibidas | Separación absoluta respecto a Uría. |
+| D29 | Copias | Dump lógico cifrado (AES-256-GCM, scrypt), fuera del repo; simulacro en el stack local con huellas por tabla | Free no incluye copias. |
+| D30 | Cabeceras | CSP sin orígenes de terceros, HSTS en Vercel, `frame-ancestors 'none'`, nosniff, `Permissions-Policy` restrictiva | Preparación para el despliegue público HTTPS. |
+
 ## Decisiones abiertas (para ti)
 
 1. ~~Inicio de sesión~~: resuelto en M2, enlace mágico más código.

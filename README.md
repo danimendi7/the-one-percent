@@ -46,6 +46,10 @@ Para entrar: en `/login` usa `owner@theonepercent.local` (autorizado en `supabas
 | `npm run screenshots` | Regenera `docs/screenshots/` |
 | `npm run check` | typecheck + lint + test |
 | `npm run db:start` / `db:stop` / `db:reset` | Supabase local (`db:reset` borra los datos locales) |
+| `npm run smoke` | Pruebas de despliegue (local, o `BASE_URL=https://…`) |
+| `npm run cloud -- <check · link · push-dry · push · lint>` | Comandos cloud **con guarda del proyecto** (ver `docs/m2.5-plan.md`) |
+| `npm run backup -- --source <local · cloud>` | Copia lógica cifrada en `~/Documents/the-one-percent-backups` |
+| `npm run restore:drill -- <fichero>` | Restaura una copia en el stack local y la verifica tabla a tabla |
 
 ## Estructura
 

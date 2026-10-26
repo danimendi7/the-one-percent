@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   const fail = NextResponse.redirect(new URL("/login?error=link", request.url))
   if (!tokenHash || !type || !ALLOWED_TYPES.includes(type)) return fail
 
-  const supabase = await getSupabaseServer()
+  const supabase = await getSupabaseServer({ secure: url.protocol === "https:" })
   const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash })
   if (error) return fail
 

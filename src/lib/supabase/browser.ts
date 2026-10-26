@@ -10,7 +10,8 @@ let client: SupabaseClient | null = null
 export function getSupabaseBrowser(): SupabaseClient | null {
   if (!isSupabaseConfigured || typeof window === "undefined") return null
   client ??= createBrowserClient(resolveSupabaseUrl(window.location.hostname), SUPABASE_KEY, {
-    cookieOptions: { name: AUTH_COOKIE_NAME },
+    // Secure cookies whenever the page is served over HTTPS (production).
+    cookieOptions: { name: AUTH_COOKIE_NAME, secure: window.location.protocol === "https:" },
   })
   return client
 }

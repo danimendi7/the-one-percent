@@ -14,8 +14,10 @@ export type Op =
       local_date: LocalDate
       /** Desired state, never a toggle. null/false clears. */
       value: boolean | number | null
-      /** Device time of the intent: last-writer-wins key. ISO string. */
+      /** Hybrid, server-corrected time of the intent (tie-breaker for concurrent edits). ISO. */
       client_updated_at: string
+      /** server_seq of the row as this device last saw it (null if unseen). Sequential edits win. */
+      base_seq: number | null
     }
   | {
       type: "habit.create"
@@ -51,7 +53,7 @@ export type Op =
     }
   | { type: "habit.archive"; op_id: string; habit_id: string; archived_on: LocalDate }
   | { type: "habit.restore"; op_id: string; habit_id: string }
-  | { type: "rest_day.set"; op_id: string; local_date: LocalDate; rest: boolean; client_updated_at: string }
+  | { type: "rest_day.set"; op_id: string; local_date: LocalDate; rest: boolean; client_updated_at: string; base_seq: number | null }
   | { type: "profile.update"; op_id: string; timezone: string }
 
 export type OpType = Op["type"]
@@ -117,6 +119,8 @@ export interface WireRestDay {
 
 export interface PullPayload {
   server_today: LocalDate
+  /** Server clock (ISO), used to correct the device clock. */
+  server_time?: string
   full: boolean
   profile: { timezone: string; locale: string; server_seq: number } | null
   dimensions: { slug: DimensionId; name: string }[]

@@ -63,4 +63,6 @@ export const habitActions: HabitActions = {
   dismissNotice: (id) => active().dismissNotice?.(id),
   reapplyNotice: (id) => active().reapplyNotice?.(id),
   submitOps: (ops) => active().submitOps?.(ops),
+  clearLocalCopy: async () => active().clearLocalCopy?.(),
+  diagnostics: () => active().diagnostics?.() ?? { clockOffsetMs: 0, cursor: 0, deviceId: "", failures: 0 },
 }

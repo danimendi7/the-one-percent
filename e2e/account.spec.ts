@@ -14,13 +14,19 @@ test.afterEach(async () => {
   await removeAccount(account)
 })
 
-async function createHabit(page: Page, name: string) {
+async function createHabit(page: Page, name: string, userId?: string) {
   await page.goto("/habits")
   await page.getByRole("button", { name: "Crear hábito" }).click()
   const dialog = page.getByRole("dialog")
   await dialog.getByLabel("Nombre").fill(name)
   await dialog.getByRole("button", { name: "Crear hábito" }).click()
   await expect(dialog).toBeHidden()
+  // Optimistic UI is instant; when another device follows, wait for the server to confirm.
+  if (userId) {
+    await expect
+      .poll(() => countRows("select count(*)::int n from public.habits where user_id = $1 and title = $2", [userId, name]))
+      .toBe(1)
+  }
 }
 
 const todayButton = (page: Page, name: string) =>
@@ -107,8 +113,9 @@ test.describe("account mode", () => {
   })
 
   test("a mark on one device appears on another without duplicates (acceptance #2)", async ({ browser, page }, info) => {
+    test.slow() // two browser contexts plus realtime round-trips
     await signIn(page, account)
-    await createHabit(page, "Meditar")
+    await createHabit(page, "Meditar", account.id)
     const other: BrowserContext = await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL })
     const desktop = await other.newPage()
     await signIn(desktop, account)
@@ -182,8 +189,69 @@ test.describe("account mode", () => {
     await signIn(page, account)
     await page.goto("/settings")
     await page.getByRole("button", { name: "Cerrar sesión" }).click()
+    await page.getByRole("dialog").getByRole("button", { name: "Cerrar sesión" }).click()
     await expect(page).toHaveURL(/\/login$/)
     await page.goto("/analytics")
     await expect(page).toHaveURL(/\/login$/)
   })
+
+  test("signing out can wipe this device's copy while cloud data stays intact", async ({ page }) => {
+    await signIn(page, account)
+    await createHabit(page, "Escribir")
+    await todayButton(page, "Escribir").click()
+    await expect.poll(() => liveEntries(account.id)).toBe(1)
+    await expect.poll(() => localCopyExists(page, account.id)).toBe(true)
+
+    await page.goto("/settings")
+    await page.getByRole("button", { name: "Cerrar sesión" }).click()
+    const dialog = page.getByRole("dialog")
+    await dialog.getByRole("switch", { name: /Borrar los datos de este dispositivo/ }).click()
+    await dialog.getByRole("button", { name: "Cerrar sesión" }).click()
+    await expect(page).toHaveURL(/\/login$/)
+
+    expect(await localCopyExists(page, account.id)).toBe(false)
+    expect(await liveEntries(account.id)).toBe(1) // the cloud keeps everything
+    await signIn(page, account)
+    await page.goto("/habits")
+    await expect(todayButton(page, "Escribir")).toHaveAttribute("aria-pressed", "true")
+  })
+
+  test("a device whose clock is hours behind still wins a sequential edit", async ({ browser, page }, info) => {
+    test.skip(isMobile(info.project.name), "covered once")
+    test.slow()
+    await signIn(page, account)
+    await createHabit(page, "Estirar", account.id)
+    await todayButton(page, "Estirar").click()
+    await expect.poll(() => liveEntries(account.id)).toBe(1)
+
+    const late = await browser.newContext({ ...info.project.use })
+    const desktop = await late.newPage()
+    await desktop.clock.install({ time: Date.now() - 3 * 3_600_000 }) // device clock 3 h behind
+    await desktop.clock.resume()
+    await signIn(desktop, account)
+    await desktop.goto("/habits")
+    await expect(todayButton(desktop, "Estirar")).toHaveAttribute("aria-pressed", "true")
+    await todayButton(desktop, "Estirar").click() // the user unmarks after seeing the mark
+    await expect.poll(() => liveEntries(account.id)).toBe(0)
+    await expect(todayButton(page, "Estirar")).toHaveAttribute("aria-pressed", "false", { timeout: 15_000 })
+    await late.close()
+  })
 })
+
+async function localCopyExists(page: Page, userId: string): Promise<boolean> {
+  return page.evaluate(
+    (key) =>
+      new Promise<boolean>((resolve) => {
+        const req = indexedDB.open("the-one-percent")
+        req.onerror = () => resolve(false)
+        req.onsuccess = () => {
+          const db = req.result
+          if (!db.objectStoreNames.contains("sync")) return resolve(false)
+          const get = db.transaction("sync").objectStore("sync").get(key)
+          get.onsuccess = () => resolve(get.result !== undefined)
+          get.onerror = () => resolve(false)
+        }
+      }),
+    `v1:${userId}`
+  )
+}

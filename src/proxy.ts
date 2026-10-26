@@ -14,7 +14,7 @@ export async function proxy(request: NextRequest) {
 
   let response = NextResponse.next({ request })
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_KEY, {
-    cookieOptions: { name: AUTH_COOKIE_NAME },
+    cookieOptions: { name: AUTH_COOKIE_NAME, secure: request.nextUrl.protocol === "https:" },
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (list) => {

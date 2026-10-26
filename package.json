@@ -18,7 +18,11 @@
     "db:reset": "supabase db reset",
     "screenshots": "playwright test --grep @screens",
     "icons": "node scripts/generate-icons.mjs",
-    "test:integration": "vitest run --config vitest.integration.config.mts"
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "cloud": "node scripts/cloud.mjs",
+    "backup": "node scripts/backup.mjs",
+    "restore:drill": "node scripts/restore-drill.mjs",
+    "smoke": "playwright test --config playwright.smoke.config.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

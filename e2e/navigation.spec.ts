@@ -31,7 +31,7 @@ test.describe("navigation", () => {
     test.skip(!isMobile(info.project.name), "mobile only")
     await page.goto("/knowledge/library")
     await expect(page.getByRole("link", { name: "Más" })).toHaveAttribute("aria-current", "page")
-    await page.getByRole("link", { name: "Hábitos" }).click()
+    await page.getByRole("link", { name: "Hábitos", exact: true }).click()
     await expect(page).toHaveURL(/\/habits$/)
     await expect(page.getByRole("heading", { level: 1, name: "Hábitos" })).toBeVisible()
   })

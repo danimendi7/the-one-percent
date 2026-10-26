@@ -27,8 +27,28 @@ export class FakeServer {
   /** Count of times each op_id was actually applied (never > 1). */
   applied = new Map<string, number>()
 
-  constructor(today: LocalDate) {
+  /** Server clock (ms). Independent from device clocks in tests. */
+  serverNow: () => number
+
+  constructor(today: LocalDate, serverNow: () => number = Date.now) {
     this.today = today
+    this.serverNow = serverNow
+  }
+
+  /** Mirrors the SQL: clamp future device times; sequential edits (base_seq current) win. */
+  private resolve(
+    existing: { seq: number; data: { client_updated_at: string } } | undefined,
+    clientTime: string,
+    baseSeq: number | null
+  ): { win: boolean; time: string } {
+    let t = Math.min(Date.parse(clientTime), this.serverNow() + 60_000)
+    if (!existing) return { win: true, time: new Date(t).toISOString() }
+    const stored = Date.parse(existing.data.client_updated_at)
+    if (baseSeq !== null && existing.seq <= baseSeq) {
+      t = Math.max(t, stored + 1)
+      return { win: true, time: new Date(t).toISOString() }
+    }
+    return { win: stored <= t, time: new Date(t).toISOString() }
   }
 
   private next() {
@@ -85,7 +105,8 @@ export class FakeServer {
       case "entry.set": {
         const k = entryKey(op.habit_id, op.local_date)
         const existing = this.entries.get(k)
-        if (existing && existing.data.client_updated_at > op.client_updated_at) return { op_id: op.op_id, status: "superseded" }
+        const decision = this.resolve(existing, op.client_updated_at, op.base_seq)
+        if (!decision.win) return { op_id: op.op_id, status: "superseded" }
         const habit = this.habits.get(op.habit_id)
         if (!habit) return reject("habit_not_found")
         if (op.local_date > this.today) return reject("future_date")
@@ -105,7 +126,7 @@ export class FakeServer {
             value_numeric: typeof op.value === "number" ? op.value : null,
             deleted: clearing,
             client_op_id: op.op_id,
-            client_updated_at: op.client_updated_at,
+            client_updated_at: decision.time,
             server_seq: 0,
           },
         })
@@ -162,10 +183,11 @@ export class FakeServer {
       }
       case "rest_day.set": {
         const existing = this.rest.get(op.local_date)
-        if (existing && existing.data.client_updated_at > op.client_updated_at) return { op_id: op.op_id, status: "superseded" }
+        const decision = this.resolve(existing, op.client_updated_at, op.base_seq)
+        if (!decision.win) return { op_id: op.op_id, status: "superseded" }
         this.rest.set(op.local_date, {
           seq: this.next(),
-          data: { local_date: op.local_date, rest: op.rest, client_updated_at: op.client_updated_at },
+          data: { local_date: op.local_date, rest: op.rest, client_updated_at: decision.time },
         })
         return { op_id: op.op_id, status: "applied" }
       }
@@ -175,7 +197,7 @@ export class FakeServer {
     }
   }
 
-  applyOps(ops: Op[]): { results: OpResult[]; server_today: LocalDate } {
+  applyOps(ops: Op[]): { results: OpResult[]; server_today: LocalDate; server_time: string } {
     const results = ops.map((op) => {
       const prev = this.ledger.get(op.op_id)
       if (prev) return { op_id: op.op_id, status: "duplicate" as const, outcome: prev.status as never, code: prev.code }
@@ -184,7 +206,7 @@ export class FakeServer {
       if (r.status === "applied") this.applied.set(op.op_id, (this.applied.get(op.op_id) ?? 0) + 1)
       return r
     })
-    return { results, server_today: this.today }
+    return { results, server_today: this.today, server_time: new Date(this.serverNow()).toISOString() }
   }
 
   pull(since: number): PullPayload {
@@ -192,6 +214,7 @@ export class FakeServer {
     const pick = <T>(m: Map<string, Row<T>>) => [...m.values()].filter((r) => r.seq > since)
     return {
       server_today: this.today,
+      server_time: new Date(this.serverNow()).toISOString(),
       full,
       profile: { timezone: this.timezone, locale: "es-ES", server_seq: 0 },
       dimensions: [],
