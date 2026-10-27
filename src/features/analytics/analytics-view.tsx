@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Gauge, LineChart as LineIcon, Table2 } from "lucide-react"
+import { usePathname, useSearchParams } from "next/navigation"
+import { ChevronRight, Gauge, LineChart as LineIcon, Table2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { EmptyState } from "@/components/common/empty-state"
 import {
   Area,
@@ -23,10 +25,11 @@ import { cn } from "@/lib/utils"
 import {
   addDays,
   formatDate,
-
   startOfWeek,
   WEEKDAY_ABBR,
+  WEEKDAY_LONG,
   type LocalDate,
+  type Weekday,
 } from "@/features/habits/domain/dates"
 import {
   completion,
@@ -35,67 +38,111 @@ import {
   weekdayConsistency,
   weeklySeries,
 } from "@/features/habits/domain/metrics"
-import type { Habit } from "@/features/habits/domain/types"
+import type { DimensionId, Habit } from "@/features/habits/domain/types"
 import { Segmented } from "@/features/habits/components/habit-form-sheet"
 import { HabitIcon } from "@/features/habits/components/habit-icon"
 import { describeRule } from "@/features/habits/components/today-checklist"
 import { useHabitsModel, type HabitsModel } from "@/features/habits/components/use-habits-model"
+import { GENERAL_RULES, METRICS } from "./domain/catalog"
+import { parseFilter, periodRange, scopeHabits, serializeFilter, type AnalyticsFilter, type PeriodDays } from "./domain/filters"
+import { DrillSheet, type DrillRequest } from "./drill-sheet"
 
-type Period = "7" | "30" | "90"
+const DIMENSION_OPTIONS: { value: DimensionId | "all"; label: string }[] = [
+  { value: "all", label: "Todas las dimensiones" },
+  { value: "body", label: "Cuerpo" },
+  { value: "mind", label: "Mente" },
+  { value: "learn", label: "Aprendizaje" },
+  { value: "work", label: "Trabajo" },
+]
+
+type SetFilter = (patch: Partial<AnalyticsFilter>) => void
+
+/** Filters live in the URL (?periodo=&dimension=&habito=) so a view survives a reload and can be shared. */
+function useAnalyticsFilter(): [AnalyticsFilter, SetFilter] {
+  const params = useSearchParams()
+  const pathname = usePathname()
+  const filter = parseFilter(params)
+  const update: SetFilter = (patch) => window.history.replaceState(null, "", pathname + serializeFilter({ ...filter, ...patch }))
+  return [filter, update]
+}
 
 export function AnalyticsView() {
   const model = useHabitsModel()
-  const [period, setPeriod] = useState<Period>("30")
-  const [habitId, setHabitId] = useState<string | "all">("all")
+  const [filter, setFilter] = useAnalyticsFilter()
 
   return (
     <>
       <PageHeader
         title="Analítica"
         meta={<SourceBadge source={model?.source}>Demo · calculado de los registros de ejemplo</SourceBadge>}
-        description="Estadística descriptiva calculada a partir de los registros. Sin puntuaciones opacas: cada cifra indica su base."
-        actions={
-          <Segmented
-            label="Periodo"
-            value={period}
-            onChange={(v) => setPeriod(v as Period)}
-            options={[
-              { value: "7", label: "7 días" },
-              { value: "30", label: "30 días" },
-              { value: "90", label: "90 días" },
-            ]}
-            className="w-full md:w-72"
-          />
-        }
+        description="Estadística descriptiva calculada a partir de los registros. Sin puntuaciones opacas: cada cifra indica su base y se puede abrir para ver los registros que la componen."
       />
-      {!model ? (
-        <div className="grid gap-4" aria-busy="true" aria-label="Cargando analítica">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {Array.from({ length: 4 }, (_, i) => (
-              <div key={i} className="panel h-28 animate-pulse rounded-2xl" />
-            ))}
-          </div>
-          <div className="panel h-80 animate-pulse rounded-2xl" />
-        </div>
-      ) : (
-        <Content model={model} days={Number(period)} habitId={habitId} onHabit={setHabitId} />
-      )}
+      {!model ? <AnalyticsSkeleton /> : <Content model={model} filter={filter} setFilter={setFilter} />}
     </>
   )
 }
 
-function Content({
-  model,
-  days,
-  habitId,
-  onHabit,
-}: {
-  model: HabitsModel
-  days: number
-  habitId: string
-  onHabit: (id: string) => void
-}) {
-  const range = { from: addDays(model.today, -(days - 1)), to: model.today }
+export function AnalyticsSkeleton() {
+  return (
+    <div className="grid gap-4" aria-busy="true" aria-label="Cargando analítica">
+      <div className="panel h-12 animate-pulse rounded-2xl" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="panel h-28 animate-pulse rounded-2xl" />
+        ))}
+      </div>
+      <div className="panel h-80 animate-pulse rounded-2xl" />
+    </div>
+  )
+}
+
+function FilterBar({ model, filter, setFilter, habit }: { model: HabitsModel; filter: AnalyticsFilter; setFilter: SetFilter; habit: Habit | null }) {
+  return (
+    <div className="space-y-3" role="group" aria-label="Filtros de analítica">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Segmented
+          label="Periodo"
+          value={String(filter.period)}
+          onChange={(v) => setFilter({ period: Number(v) as PeriodDays })}
+          options={[
+            { value: "7", label: "7 días" },
+            { value: "30", label: "30 días" },
+            { value: "90", label: "90 días" },
+            { value: "365", label: "1 año" },
+          ]}
+          className="w-full sm:w-80"
+        />
+        <Select value={habit ? habit.dimensionId : filter.dimension} onValueChange={(v) => setFilter({ dimension: v as DimensionId | "all", habitId: "all" })}>
+          <SelectTrigger className="h-11! w-full sm:w-56" aria-label="Dimensión">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DIMENSION_OPTIONS.filter((o) => o.value === "all" || model.all.some((h) => h.dimensionId === o.value)).map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {habit && (
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-1.5 text-sm">
+          <HabitIcon icon={habit.icon} dimensionId={habit.dimensionId} size="sm" />
+          <span className="flex-1">
+            Filtrado por <strong className="font-semibold">{habit.name}</strong>
+          </span>
+          <button type="button" onClick={() => setFilter({ habitId: "all" })} className="h-10 rounded-lg px-3 text-text-secondary hover:bg-surface-raised hover:text-foreground">
+            Quitar filtro
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Content({ model, filter, setFilter }: { model: HabitsModel; filter: AnalyticsFilter; setFilter: SetFilter }) {
+  const [drill, setDrill] = useState<DrillRequest | null>(null)
+  const range = periodRange(model.today, filter.period)
   if (model.all.length === 0) {
     return (
       <div className="panel rounded-2xl">
@@ -112,72 +159,107 @@ function Content({
       </div>
     )
   }
-  const selected = habitId === "all" ? null : model.all.find((h) => h.id === habitId) ?? null
-  const scope = selected ? [selected] : model.all
-
+  const { scope, habit } = scopeHabits(model.all, filter)
   const summary = completion(scope, range, model.ctx)
   const daily = dailyRates(scope, range, model.ctx)
   const perfectDays = daily.filter((d) => d.applicable > 0 && d.fulfilled === d.applicable).length
   const daysWithData = daily.filter((d) => d.applicable > 0).length
+  const periodLabel = filter.period === 365 ? "el último año" : `los últimos ${filter.period} días`
 
   return (
     <div className="space-y-6">
-      {selected && (
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm">
-          <HabitIcon icon={selected.icon} dimensionId={selected.dimensionId} size="sm" />
-          <span className="flex-1">
-            Filtrado por <strong className="font-semibold">{selected.name}</strong>
-          </span>
-          <button type="button" onClick={() => onHabit("all")} className="rounded-lg px-2 py-1 text-text-secondary hover:bg-surface-raised hover:text-foreground">
-            Quitar filtro
-          </button>
+      <FilterBar model={model} filter={filter} setFilter={setFilter} habit={habit} />
+
+      {scope.length === 0 ? (
+        <div className="panel rounded-2xl">
+          <EmptyState icon={Gauge} title="Sin hábitos en esta dimensión" description="Elige otra dimensión o vuelve a «Todas las dimensiones»." />
         </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Stat
+              label={METRICS.completion.label}
+              value={pct(summary.rate)}
+              detail={`${summary.fulfilled} de ${summary.applicable} oportunidades`}
+              onOpen={() => setDrill({ title: `Cumplimiento en ${periodLabel}`, metric: "completion", target: { kind: "range", range } })}
+            />
+            <Stat label={METRICS.perfect_days.label} value={`${perfectDays}`} detail={`de ${daysWithData} días con hábitos programados`} />
+            <Stat
+              label={METRICS.exempt.label}
+              value={`${summary.exempt}`}
+              detail="oportunidades en días de descanso"
+              onOpen={summary.exempt > 0 ? () => setDrill({ title: "Oportunidades exentas", metric: "exempt", target: { kind: "range", range }, only: ["exempt"] }) : undefined}
+            />
+            <Stat
+              label={METRICS.in_progress.label}
+              value={`${summary.inProgress}`}
+              detail="fuera del denominador hasta cerrar la semana"
+              onOpen={
+                summary.inProgress > 0
+                  ? () => setDrill({ title: "Objetivos semanales en curso", metric: "in_progress", target: { kind: "range", range }, only: ["in_progress"] })
+                  : undefined
+              }
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+            <TrendPanel model={model} habits={scope} onDrill={setDrill} className="xl:col-span-3" />
+            <WeekdayPanel model={model} habits={scope} range={range} onDrill={setDrill} className="xl:col-span-2" />
+          </div>
+
+          <Heatmap model={model} habits={scope} />
+        </>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Cumplimiento" value={pct(summary.rate)} detail={`${summary.fulfilled} de ${summary.applicable} oportunidades`} />
-        <Stat label="Días completos" value={`${perfectDays}`} detail={`de ${daysWithData} días con hábitos programados`} />
-        <Stat label="Exentos" value={`${summary.exempt}`} detail="oportunidades en días de descanso" />
-        <Stat
-          label="Semanales en curso"
-          value={`${summary.inProgress}`}
-          detail="fuera del denominador hasta cerrar la semana"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-        <TrendPanel model={model} habits={scope} className="xl:col-span-3" />
-        <WeekdayPanel model={model} habits={scope} range={range} className="xl:col-span-2" />
-      </div>
-
-      <Heatmap model={model} habits={scope} />
-
-      <HabitTable model={model} range={range} selectedId={habitId} onSelect={onHabit} />
+      <HabitTable model={model} range={range} selectedId={filter.habitId} onSelect={(id) => setFilter({ habitId: id })} />
 
       <section className="panel rounded-2xl p-5" aria-labelledby="how-title">
         <h2 id="how-title" className="text-base font-semibold">
           Cómo se calcula
         </h2>
-        <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm leading-relaxed text-text-secondary md:grid-cols-2">
-          <li>Cumplimiento = oportunidades cumplidas / oportunidades aplicables. Si no hay ninguna aplicable se muestra N/D, nunca 0% ni 100%.</li>
-          <li>Solo cuentan los días programados según la versión de horario vigente ese día; cambiar un horario no recalcula el pasado.</li>
-          <li>Los objetivos «N veces por semana» se evalúan por semana completa, no por día.</li>
-          <li>Hoy cuenta como pendiente; los días de descanso y los días futuros no cuentan.</li>
-          <li>Un hábito numérico solo se cumple con un valor registrado: la ausencia de dato nunca es éxito.</li>
-          <li>Los hábitos archivados conservan su historial en estas cifras.</li>
+        <dl className="mt-3 grid gap-x-8 gap-y-3 text-sm leading-relaxed md:grid-cols-2">
+          {Object.values(METRICS).map((m) => (
+            <div key={m.id}>
+              <dt className="font-medium text-foreground">{m.label}</dt>
+              <dd className="text-text-secondary">{m.formula}</dd>
+            </div>
+          ))}
+        </dl>
+        <ul className="mt-4 grid gap-x-8 gap-y-2 border-t border-border/70 pt-4 text-sm leading-relaxed text-text-secondary md:grid-cols-2">
+          {GENERAL_RULES.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
         </ul>
       </section>
+
+      <DrillSheet request={drill} habits={scope} ctx={model.ctx} onOpenChange={(o) => !o && setDrill(null)} />
     </div>
   )
 }
 
-function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <div className="panel rounded-2xl p-4">
-      <p className="text-xs font-medium text-text-secondary">{label}</p>
+function Stat({ label, value, detail, onOpen }: { label: string; value: string; detail: string; onOpen?: () => void }) {
+  const body = (
+    <>
+      <p className="flex items-center justify-between text-xs font-medium text-text-secondary">
+        {label}
+        {onOpen && <ChevronRight className="size-3.5 text-text-tertiary" aria-hidden />}
+      </p>
       <p className="num mt-3 text-[1.75rem] leading-none font-semibold">{value}</p>
-      <p className="mt-2 text-xs leading-snug text-text-tertiary">{detail}</p>
-    </div>
+      <p className="mt-2 text-xs leading-snug text-text-tertiary">
+        {detail}
+        {onOpen && <span className="sr-only">. Ver detalle</span>}
+      </p>
+    </>
+  )
+  if (!onOpen) return <div className="panel rounded-2xl p-4">{body}</div>
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="panel rounded-2xl p-4 text-left transition-colors hover:bg-surface-raised/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.99]"
+    >
+      {body}
+    </button>
   )
 }
 
@@ -240,7 +322,13 @@ function ChartTooltip({
   )
 }
 
-function TrendPanel({ model, habits, className }: { model: HabitsModel; habits: Habit[]; className?: string }) {
+/** Recharts reports the hovered/clicked category index; map it back to our row. */
+function indexOf(state: { activeIndex?: number | string | null | undefined } | null | undefined): number | null {
+  const i = Number(state?.activeIndex)
+  return Number.isInteger(i) && i >= 0 ? i : null
+}
+
+function TrendPanel({ model, habits, onDrill, className }: { model: HabitsModel; habits: Habit[]; onDrill: (r: DrillRequest) => void; className?: string }) {
   const [table, setTable] = useState(false)
   const data = useMemo(
     () =>
@@ -256,6 +344,10 @@ function TrendPanel({ model, habits, className }: { model: HabitsModel; habits: 
       }),
     [habits, model]
   )
+  const drillWeek = (i: number | null) => {
+    const d = i === null ? undefined : data[i]
+    if (d && d.rate !== null) onDrill({ title: `Semana del ${d.label}`, metric: "weekly_trend", target: { kind: "week", weekStart: d.week } })
+  }
   return (
     <section className={cn("panel rounded-2xl p-4 sm:p-5", className)} aria-labelledby="trend-title">
       <PanelHeader title="Tendencia semanal" subtitle="Últimas 12 semanas · % de cumplimiento" showTable={table} onToggle={() => setTable(!table)} />
@@ -269,11 +361,12 @@ function TrendPanel({ model, habits, className }: { model: HabitsModel; habits: 
           caption="Cumplimiento por semana"
           head={["Semana del", "Cumplimiento", "Cumplidas / aplicables"]}
           rows={data.map((d) => [d.label, d.rate === null ? "N/D" : `${Math.round(d.rate)}%`, `${d.fulfilled}/${d.applicable}`])}
+          onRow={(i) => (data[i].rate === null ? undefined : () => drillWeek(i))}
         />
       ) : (
-        <div className="h-56" role="img" aria-label={`Tendencia semanal: ${data.map((d) => `${d.label} ${d.rate === null ? "N/D" : Math.round(d.rate) + "%"}`).join(", ")}`}>
+        <div className="h-56 cursor-pointer" role="img" aria-label={`Tendencia semanal: ${data.map((d) => `${d.label} ${d.rate === null ? "N/D" : Math.round(d.rate) + "%"}`).join(", ")}. Usa la vista de tabla para abrir el detalle de una semana.`}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+            <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -18 }} onClick={(s) => drillWeek(indexOf(s))}>
               <defs>
                 <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--signal)" stopOpacity={0.22} />
@@ -310,19 +403,27 @@ function WeekdayPanel({
   model,
   habits,
   range,
+  onDrill,
   className,
 }: {
   model: HabitsModel
   habits: Habit[]
   range: { from: LocalDate; to: LocalDate }
+  onDrill: (r: DrillRequest) => void
   className?: string
 }) {
   const [table, setTable] = useState(false)
   const data = weekdayConsistency(habits, range, model.ctx).map((r) => ({
+    weekday: r.weekday,
     label: WEEKDAY_ABBR[r.weekday],
     rate: r.rate === null ? null : Math.round(r.rate * 1000) / 10,
     applicable: r.applicable,
   }))
+  const drillDay = (i: number | null) => {
+    const d = i === null ? undefined : data[i]
+    if (d && d.rate !== null)
+      onDrill({ title: `Los ${WEEKDAY_LONG[d.weekday as Weekday].toLowerCase()} del periodo`, metric: "weekday", target: { kind: "weekday", weekday: d.weekday as Weekday, range } })
+  }
   return (
     <section className={cn("panel rounded-2xl p-4 sm:p-5", className)} aria-label="Constancia por día de la semana">
       <PanelHeader title="Por día de la semana" subtitle="% de cumplimiento en el periodo" showTable={table} onToggle={() => setTable(!table)} />
@@ -333,11 +434,12 @@ function WeekdayPanel({
           caption="Cumplimiento por día de la semana"
           head={["Día", "Cumplimiento", "Oportunidades"]}
           rows={data.map((d) => [d.label, d.rate === null ? "N/D" : `${Math.round(d.rate)}%`, String(d.applicable)])}
+          onRow={(i) => (data[i].rate === null ? undefined : () => drillDay(i))}
         />
       ) : (
-        <div className="h-56" role="img" aria-label={`Por día: ${data.map((d) => `${d.label} ${d.rate === null ? "N/D" : Math.round(d.rate) + "%"}`).join(", ")}`}>
+        <div className="h-56 cursor-pointer" role="img" aria-label={`Por día: ${data.map((d) => `${d.label} ${d.rate === null ? "N/D" : Math.round(d.rate) + "%"}`).join(", ")}. Usa la vista de tabla para abrir el detalle de un día.`}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: -18 }} barCategoryGap="28%">
+            <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: -18 }} barCategoryGap="28%" onClick={(s) => drillDay(indexOf(s))}>
               <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.6} />
               <XAxis dataKey="label" tick={axisTick} tickLine={false} axisLine={false} />
               <YAxis domain={[0, 100]} ticks={[0, 50, 100]} tick={axisTick} tickLine={false} axisLine={false} unit="%" />
@@ -510,7 +612,18 @@ function HabitTable({
   )
 }
 
-function DataTable({ caption, head, rows }: { caption: string; head: string[]; rows: string[][] }) {
+/** Accessible data view; when `onRow` returns a handler the row's first cell becomes a ≥44 px button that opens the drilldown. */
+function DataTable({
+  caption,
+  head,
+  rows,
+  onRow,
+}: {
+  caption: string
+  head: string[]
+  rows: string[][]
+  onRow?: (index: number) => (() => void) | undefined
+}) {
   return (
     <div className="max-h-56 overflow-y-auto">
       <table className="w-full text-sm">
@@ -525,15 +638,26 @@ function DataTable({ caption, head, rows }: { caption: string; head: string[]; r
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r[0]} className="border-b border-border/50 last:border-0">
-              {r.map((c, i) => (
-                <td key={i} className={cn("py-1.5", i > 0 ? "num text-right text-text-secondary" : "")}>
-                  {c}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {rows.map((r, rowIndex) => {
+            const open = onRow?.(rowIndex)
+            return (
+              <tr key={r[0]} className="border-b border-border/50 last:border-0">
+                {r.map((c, i) => (
+                  <td key={i} className={cn(open ? "py-0" : "py-1.5", i > 0 ? "num text-right text-text-secondary" : "")}>
+                    {i === 0 && open ? (
+                      <button type="button" onClick={open} className="flex min-h-11 w-full items-center gap-1 text-left font-medium text-foreground underline-offset-4 hover:underline">
+                        {c}
+                        <ChevronRight className="size-3.5 text-text-tertiary" aria-hidden />
+                        <span className="sr-only">: ver detalle</span>
+                      </button>
+                    ) : (
+                      c
+                    )}
+                  </td>
+                ))}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

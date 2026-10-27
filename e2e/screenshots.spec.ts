@@ -13,4 +13,12 @@ test.describe("@screens", () => {
       await page.screenshot({ path: `docs/screenshots/${info.project.name}-${name}.png`, fullPage: info.project.name === "desktop" })
     })
   }
+
+  test("capture analytics drilldown", async ({ page }, info) => {
+    await page.goto("/analytics")
+    await page.getByRole("button", { name: /^Cumplimiento.*Ver detalle$/ }).click()
+    await expect(page.getByRole("dialog")).toBeVisible()
+    await page.waitForTimeout(400) // sheet animation
+    await page.screenshot({ path: `docs/screenshots/${info.project.name}-analytics-drilldown.png` })
+  })
 })

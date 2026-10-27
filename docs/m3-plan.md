@@ -1,6 +1,15 @@
 # Plan M3 · Analítica fiable, objetivos, Deep Work, check-ins y revisiones
 
-Estado: **propuesta, no iniciada**. Se empieza solo tras tu aprobación de este plan y del informe de M2.5.
+Estado: **aprobado el 27/10/2026**. M3.0 en curso en local. Las migraciones y despliegues de M3 en producción requieren autorización expresa.
+
+## 0. Decisiones aprobadas y ajustes tras revisarlas
+| Decisión | Encaje con el plan | Ajuste |
+| --- | --- | --- |
+| Revisiones semanales y mensuales, manuales, con métricas congeladas | Compatible (§7) | Ninguno. `METRICS_VERSION` ya existe en `analytics/domain/catalog.ts` para fechar cada snapshot |
+| Deep Work alimenta opcionalmente hábitos de duración sin contar dos veces | **Incompatibilidad de modelo**: `habit_entries` admite un registro por hábito y día con un único `source_activity_id`, pero un día puede tener varias sesiones | El registro del día se **deriva en el servidor** como suma de las sesiones vinculadas, con `source_activity_type = 'focus_sessions'`, y se recalcula al terminar, editar o borrar una sesión. Si editas a mano ese día, el registro pasa a manual con un aviso, y las sesiones dejan de sumarse ese día hasta que lo restaures. Así nunca hay doble conteo |
+| Check-ins breves y personalizables: sueño, energía, ánimo, estrés y reflexión opcional | **Difiere** de §6, que proponía campos fijos por fase, «intención» y «logro» | Campos **iguales al spec** (`daily_checkins`: `sleep_hours`, `energy`, `mood`, `stress`, `note`). Personalizable significa activar o desactivar cada campo por fase en el perfil (`checkin_fields` jsonb). Por defecto: mañana con sueño, energía y ánimo; noche con energía, ánimo, estrés y reflexión. «Intención» y «logro» salen del alcance inicial. Campos inventados por ti (métricas propias) quedan fuera de M3: requieren otro modelo |
+| Objetivos: hábitos, numéricos e hitos | Compatible (§5) | Ninguno |
+| Revisiones en M3 | El spec las sitúa en M6 | Se adelanta solo la parte manual. Informes automáticos e IA siguen en M6 |
 
 ## 1. Alcance
 Según `IMPLEMENTATION_PLAN.md`, M3 incluye métricas fiables con tests, drilldowns y filtros, objetivos vinculados a hábitos, temporizador de enfoque y check-in AM/PM. Criterios de salida: cifras reproducibles, sin registros duplicados y N/A correcto.
@@ -24,7 +33,7 @@ Fuera de alcance: notificaciones push (M5), biblioteca y lectura (M4), IA (M6).
 | `goals` | `id, user_id, parent_goal_id?, dimension_id?, title, metric_type (habits/numeric/milestone), unit, baseline, target, direction (up/down), due_date, state (active/achieved/abandoned), version, server_seq, deleted_at` | Padre del mismo usuario y sin ciclos (trigger) |
 | `goal_habits` | `goal_id, habit_id, user_id, weight` | FK compuestas al mismo usuario |
 | `goal_measurements` | `id, goal_id, user_id, observed_on, value, note, server_seq, deleted_at` | `unique (goal_id, observed_on)` como estado deseado del día |
-| `daily_checkins` | `id, user_id, local_date, phase (am/pm), mood 1–5, energy 1–5, stress 1–5, sleep_hours, intention, win, note, server_seq, deleted_at` | `unique (user_id, local_date, phase)` |
+| `daily_checkins` | `id, user_id, local_date, phase (am/pm), sleep_hours, energy 1–5, mood 1–5, stress 1–5, note, server_seq, deleted_at` (+ `profiles.checkin_fields` jsonb con los campos activos por fase) | `unique (user_id, local_date, phase)` |
 | `reviews` | `id, user_id, period_kind (week/month), period_start, period_end, metrics_snapshot jsonb, metrics_version, reflection, keep jsonb, change jsonb, drop jsonb, version, server_seq, deleted_at` | `unique (user_id, period_kind, period_start)` |
 
 Las nuevas operaciones de `apply_op`, con auditoría y `pull_changes` ampliado:
@@ -56,8 +65,8 @@ Las nuevas operaciones de `apply_op`, con auditoría y `pull_changes` ampliado:
 - Jerarquía padre e hijo (por ejemplo, objetivo anual → trimestral). El progreso del padre solo se agrega si lo pides, sin sumas implícitas.
 
 ## 6. Check-ins AM/PM
-- **AM:** horas de sueño, energía, ánimo e intención del día.
-- **PM:** ánimo, energía, estrés, logro del día y nota.
+- Campos: sueño (horas), energía, ánimo y estrés (1–5) y reflexión opcional. Activables por fase en Ajustes.
+- **Por defecto mañana:** sueño, energía y ánimo. **Noche:** energía, ánimo, estrés y reflexión.
 - Uno de cada fase por día y estado deseado: editar sustituye al anterior.
 - Entrada en menos de 15 s desde Resumen, con zonas táctiles de 44 px y valores rápidos.
 - **Privacidad:** las notas y el ánimo nunca aparecen en notificaciones (requisito para M5).
@@ -91,11 +100,24 @@ Cada fase termina con `npm run check`, `npm run test:integration`, `npm run e2e`
 
 **Producción:** las migraciones cloud y cada push a `main` (que despliega en Vercel) siempre con tu autorización explícita y verificando el ref.
 
-## 10. Decisiones que necesito de ti antes de empezar
-1. ¿Incluimos las revisiones personales en M3 tal como se describe (manuales con snapshot), dejando los informes automáticos e IA para M6? *(Recomendado: sí.)*
-2. Deep Work y hábitos: ¿las sesiones alimentan automáticamente un hábito de duración que elijas? *(Recomendado: sí, vínculo opcional por hábito.)*
-3. Campos de los check-ins AM y PM: ¿te sirven los propuestos en §6 o quieres añadir o quitar alguno?
-4. Tipos de objetivo: ¿bastan hábitos, numérico e hito?
+## 10. Decisiones
+Resueltas el 27/10/2026; ver §0.
+
+## 12. M3.0 · Life Analytics (en local)
+Hecho:
+- Catálogo de métricas `analytics/domain/catalog.ts`: una definición por cifra y `METRICS_VERSION`. Lo usan la UI y las revisiones.
+- `drilldown()`: devuelve las oportunidades exactas detrás de cada cifra (periodo, día, día de la semana, semana) y su resumen se calcula con las mismas filas.
+- Tests que demuestran que el detalle reproduce exactamente:
+  - el cumplimiento, el calendario, el gráfico por día de la semana y la tendencia semanal;
+  - incluida la semana del cambio de hora y un cambio de horario a mitad de periodo.
+- Filtros de periodo (7, 30 y 90 días y 1 año), dimensión y hábito en una fila, guardados en la URL (`?periodo=&dimension=&habito=`), con validación defensiva.
+- La UI:
+  - las cifras abren el detalle;
+  - las tablas de los gráficos tienen filas pulsables de 44 px (camino táctil y accesible);
+  - pulsar un gráfico también abre el detalle;
+  - «Cómo se calcula» sale del catálogo.
+
+Sin migraciones ni cambios de servidor: M3.0 solo usa datos que ya existen.
 
 ## 11. Riesgos
 - **Más tipos de operación en `apply_op`:** se mitiga con una función por entidad y tests de idempotencia por cada op.
