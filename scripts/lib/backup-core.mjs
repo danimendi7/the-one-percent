@@ -46,8 +46,8 @@ export function dumpData(url) {
   return docker(["exec", CONTAINER, "pg_dump", url, "--data-only", "--no-owner", "--no-privileges", "--disable-triggers", ...tables])
 }
 
-export function manifest(url) {
-  const out = docker(["exec", CONTAINER, "psql", url, "-At", "-v", "ON_ERROR_STOP=1", "-c", MANIFEST_SQL])
+export function manifest(url, container = CONTAINER) {
+  const out = docker(["exec", container, "psql", url, "-At", "-v", "ON_ERROR_STOP=1", "-c", MANIFEST_SQL])
   return JSON.parse(out.trim())
 }
 

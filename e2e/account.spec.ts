@@ -17,7 +17,7 @@ test.afterEach(async () => {
 
 async function createHabit(page: Page, name: string, userId?: string) {
   await page.goto("/habits")
-  await page.getByRole("button", { name: "Crear hábito" }).click()
+  await page.getByRole("button", { name: /^(Nuevo|Crear) hábito$/ }).first().click()
   const dialog = page.getByRole("dialog")
   await dialog.getByLabel("Nombre").fill(name)
   await dialog.getByRole("button", { name: "Crear hábito" }).click()
@@ -196,6 +196,71 @@ test.describe("account mode", () => {
       [account.id]
     )
     expect(ops).toBe(1)
+  })
+
+  test("the offline queue survives closing the app and syncs once when it is reopened online (C6 #3-5)", async ({ page, context }) => {
+    await signIn(page, account)
+    await createHabit(page, "Respirar", account.id)
+    await createHabit(page, "Hidratarse", account.id)
+    await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ })).toBeVisible()
+
+    await context.setOffline(true)
+    await todayButton(page, "Respirar").click()
+    await todayButton(page, "Hidratarse").click()
+    await expect(page.getByRole("button", { name: /Estado de datos: Sin conexión/ })).toBeVisible()
+    // Give the durable queue a moment to reach IndexedDB, then "swipe the app away" while offline.
+    await page.waitForTimeout(500)
+    await page.close()
+    expect(await liveEntries(account.id)).toBe(0)
+
+    await context.setOffline(false)
+    const reopened = await context.newPage()
+    await reopened.goto("/habits")
+    await expect(todayButton(reopened, "Respirar")).toHaveAttribute("aria-pressed", "true")
+    await expect.poll(() => liveEntries(account.id), { timeout: 15_000 }).toBe(2)
+    await expect(reopened.getByRole("button", { name: /Estado de datos: Sincronizado/ })).toBeVisible({ timeout: 15_000 })
+    const ops = await countRows("select count(*)::int n from public.sync_operations where user_id = $1 and operation_type = 'entry.set'", [account.id])
+    expect(ops).toBe(2)
+  })
+
+  test("a concurrent rename shows the conflict notice and «Aplicar el mío» re-applies it on both devices (C6 #7)", async ({ browser, page }, info) => {
+    test.skip(isMobile(info.project.name), "covered once")
+    test.slow()
+    await signIn(page, account)
+    await createHabit(page, "Leer", account.id)
+    const other = await browser.newContext({ ...info.project.use })
+    const phone = await other.newPage()
+    await signIn(phone, account)
+    await phone.goto("/habits")
+    await expect(phone.getByRole("button", { name: "Editar Leer" }).first()).toBeVisible()
+
+    const rename = async (p: Page, from: string, to: string) => {
+      await p.getByRole("button", { name: `Editar ${from}` }).first().click()
+      const sheet = p.getByRole("dialog")
+      await sheet.getByLabel("Nombre").fill(to)
+      await sheet.getByRole("button", { name: "Guardar cambios" }).click()
+      await expect(sheet).toBeHidden()
+    }
+    const title = () => countRows("select count(*)::int n from public.habits where user_id = $1 and title = 'Leer en papel'", [account.id])
+
+    // The phone edits offline first; the desktop edits the same habit online afterwards.
+    await other.setOffline(true)
+    await rename(phone, "Leer", "Leer en papel")
+    await page.goto("/habits")
+    await rename(page, "Leer", "Leer 30 min")
+    await expect
+      .poll(() => countRows("select count(*)::int n from public.habits where user_id = $1 and title = 'Leer 30 min'", [account.id]))
+      .toBe(1)
+
+    // Reconnecting: the phone's edit was based on a stale version, so the newer one is kept and the phone is told.
+    await other.setOffline(false)
+    const notice = phone.getByText(/se editó en otro dispositivo/)
+    await expect(notice).toBeVisible({ timeout: 20_000 })
+    expect(await title()).toBe(0)
+    await phone.getByRole("button", { name: "Aplicar el mío" }).click()
+    await expect.poll(title, { timeout: 15_000 }).toBe(1)
+    await expect(page.getByRole("button", { name: "Editar Leer en papel" }).first()).toBeVisible({ timeout: 15_000 })
+    await other.close()
   })
 
   test("demo data is never imported automatically; the selective import skips seeded records", async ({ page, context, baseURL }) => {

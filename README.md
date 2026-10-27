@@ -49,7 +49,7 @@ Para entrar: en `/login` usa `owner@theonepercent.local` (autorizado en `supabas
 | `npm run smoke` | Pruebas de despliegue (local, o `BASE_URL=https://…`) |
 | `npm run cloud -- <check · link · push-dry · push · lint>` | Comandos cloud **con guarda del proyecto** (ver `docs/m2.5-plan.md`) |
 | `npm run backup -- --source <local · cloud>` | Copia lógica cifrada en `~/Documents/the-one-percent-backups` |
-| `npm run restore:drill -- <fichero>` | Restaura una copia en el stack local y la verifica tabla a tabla |
+| `npm run restore:drill -- <fichero>` | Restaura una copia en un stack local **aislado y desechable** (puertos 556xx), la verifica tabla a tabla y lo elimina. Con `--into-local-dev` sustituye los datos del stack de desarrollo, previa copia de seguridad |
 
 ## Estructura
 
