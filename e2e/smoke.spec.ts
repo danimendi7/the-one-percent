@@ -84,4 +84,49 @@ test.describe("deployment smoke", () => {
     await expect(sheet.getByTestId("drill-summary")).toContainText(`${fulfilled} cumplidas de ${applicable} aplicables`)
     expect(errors.filter((e) => /Content Security Policy|Refused to|Hydration/i.test(e))).toEqual([])
   })
+
+  test("Goals (demo): list, horizon filter, detail metrics and the Analytics filter", async ({ page }) => {
+    const errors: string[] = []
+    page.on("console", (m) => {
+      if (m.type() === "error") errors.push(m.text())
+    })
+    await page.goto("/login")
+    await page.getByRole("button", { name: "Explorar la demo sin cuenta" }).click()
+    await expect(page.getByRole("heading", { level: 1, name: "Resumen" })).toBeVisible()
+    await expect(page.getByRole("region", { name: "Objetivos activos" }).getByRole("link", { name: /Correr 10 km/ })).toBeVisible()
+
+    // List: primary/secondary and a horizon filter that lives in the URL.
+    await page.goto("/goals")
+    await expect(page.getByRole("region", { name: "Principales" }).getByRole("article")).toHaveCount(3)
+    await expect(page.getByRole("region", { name: "Secundarios" }).getByRole("article")).toHaveCount(3)
+    await page.getByRole("radio", { name: "Largo" }).click()
+    await expect(page).toHaveURL(/\/goals\?plazo=long$/)
+    await page.reload()
+    await expect(page.getByRole("radio", { name: "Largo" })).toHaveAttribute("aria-checked", "true")
+
+    // Detail: outcome, projection from real data, and an effort figure that opens its records.
+    await page.goto("/goals/demo-goal-10k")
+    await expect(page.getByRole("heading", { level: 1, name: /Correr 10 km/ })).toBeVisible()
+    await expect(page.getByRole("region", { name: "Resultado" })).toBeVisible()
+    await expect(page.getByText(/A este ritmo llegarías a la meta/)).toBeVisible()
+    const effort = page.getByRole("button", { name: /oportunidades cumplidas/ })
+    const [, fulfilled, applicable] = /(\d+) de (\d+) oportunidades/.exec(await effort.innerText())!
+    await effort.click()
+    const sheet = page.getByRole("dialog", { name: /Esfuerzo · Correr 10 km/ })
+    await expect(sheet.getByTestId("drill-summary")).toContainText(`${fulfilled} cumplidas de ${applicable} aplicables`)
+    await page.keyboard.press("Escape")
+
+    // Insufficient data is N/D, never 0 %.
+    await page.goto("/goals/demo-goal-savings")
+    await expect(page.getByRole("region", { name: "Resultado" }).getByText("N/D", { exact: true })).toBeVisible()
+
+    // Analytics filtered by the goal's habits, and back.
+    await page.goto("/goals/demo-goal-10k")
+    await page.getByRole("link", { name: "Ver estos hábitos en Análisis" }).click()
+    await expect(page).toHaveURL(/\/analytics\?objetivo=demo-goal-10k$/)
+    await expect(page.getByText(/Hábitos del objetivo/)).toBeVisible()
+    await page.getByRole("button", { name: "Quitar filtro" }).click()
+    await expect(page).toHaveURL(/\/analytics$/)
+    expect(errors.filter((e) => /Content Security Policy|Refused to|Hydration/i.test(e))).toEqual([])
+  })
 })
