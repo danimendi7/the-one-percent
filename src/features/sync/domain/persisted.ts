@@ -1,0 +1,46 @@
+import type { LocalDate } from "@/features/habits/domain/dates"
+import type { PersistedSync } from "../engine"
+import { emptyCache } from "./merge"
+import type { QueuedOp } from "./types"
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v)
+
+/**
+ * Bring a copy persisted by an older app version up to the current shape.
+ *
+ * Additive only: fields a newer version introduced get their empty default (e.g. M3.1 `goals`
+ * and `measurements` on an M3.0 copy); nothing that is present is dropped or rewritten, and
+ * every queued operation is kept, so pending offline work always reaches the server.
+ * Returns null only when there is nothing usable at all.
+ */
+export function upgradePersisted(raw: unknown, today: LocalDate): PersistedSync | null {
+  if (!isObject(raw)) return null
+  const queue = Array.isArray(raw.queue) ? (raw.queue.filter((q) => isObject(q) && isObject(q.op) && typeof q.op.op_id === "string") as QueuedOp[]) : []
+  if (!isObject(raw.cache) || !isObject(raw.cache.state)) {
+    return queue.length ? { cache: emptyCache(today), queue } : null
+  }
+  const base = emptyCache(today, typeof raw.cache.state.timezone === "string" ? raw.cache.state.timezone : undefined)
+  const s = raw.cache.state
+  const c = raw.cache
+  return {
+    cache: {
+      ...base,
+      ...c,
+      state: {
+        ...base.state,
+        ...s,
+        habits: Array.isArray(s.habits) ? s.habits : [],
+        entries: isObject(s.entries) ? s.entries : {},
+        restDays: Array.isArray(s.restDays) ? s.restDays : [],
+        dimensions: Array.isArray(s.dimensions) && s.dimensions.length ? s.dimensions : base.state.dimensions,
+        goals: Array.isArray(s.goals) ? s.goals : [],
+        measurements: isObject(s.measurements) ? s.measurements : {},
+      } as PersistedSync["cache"]["state"],
+      habitVersion: isObject(c.habitVersion) ? (c.habitVersion as Record<string, number>) : {},
+      rowSeq: isObject(c.rowSeq) ? (c.rowSeq as Record<string, number>) : {},
+      cursor: typeof c.cursor === "number" ? c.cursor : 0,
+      serverToday: typeof c.serverToday === "string" ? c.serverToday : today,
+    },
+    queue,
+  }
+}

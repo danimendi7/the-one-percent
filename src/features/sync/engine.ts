@@ -1,6 +1,7 @@
 import { localDateInZone, type LocalDate } from "@/features/habits/domain/dates"
 import type { HabitsState } from "@/features/habits/domain/types"
 import { emptyCache, mergePull } from "./domain/merge"
+import { upgradePersisted } from "./domain/persisted"
 import { enqueue, rebase } from "./domain/rebase"
 import type { Op, OpResult, PullPayload, QueuedOp, ServerCache, SyncNotice, SyncStatus } from "./domain/types"
 
@@ -95,7 +96,8 @@ export class SyncEngine {
 
   // ── public API ─────────────────────────────────────────────────────────
   async start(): Promise<void> {
-    const stored = await this.deps.storage.load().catch(() => null)
+    // A copy saved by an older version may lack newer fields (e.g. goals): upgrade it in place, never discard it.
+    const stored = upgradePersisted(await this.deps.storage.load().catch(() => null), this.localToday("Europe/Madrid"))
     if (stored) {
       this.cache = stored.cache
       this.queue = stored.queue
