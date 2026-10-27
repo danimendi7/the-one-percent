@@ -23,6 +23,8 @@ export interface HabitsSnapshot {
   source: DataSource
   /** Account mode only. */
   sync?: SyncInfo
+  /** False while the account's server lacks the goals migration; demo: always true. */
+  goals?: boolean
   account?: { userId: string; email: string | null }
 }
 

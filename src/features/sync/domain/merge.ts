@@ -1,5 +1,7 @@
 import type { LocalDate, Weekday } from "@/features/habits/domain/dates"
 import { entryKey, type Habit, type HabitEntry, type HabitsState, type ScheduleRule } from "@/features/habits/domain/types"
+import { measurementKey } from "@/features/goals/domain/types"
+import { toGoal, toMeasurement } from "./goal-wire"
 import type { PullPayload, ServerCache, WireEntry, WireHabit, WireVersion } from "./types"
 
 const DEFAULT_DIMENSIONS: HabitsState["dimensions"] = [
@@ -65,6 +67,8 @@ const seqKey = {
   habit: (id: string) => `h:${id}`,
   entry: (habitId: string, date: string) => `e:${habitId}:${date}`,
   rest: (date: string) => `r:${date}`,
+  goal: (id: string) => `g:${id}`,
+  measurement: (goalId: string, date: string) => `m:${goalId}:${date}`,
 }
 
 /**
@@ -79,6 +83,8 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
   const habits = new Map(base.state.habits.map((h) => [h.id, h]))
   const entries = { ...base.state.entries }
   const rest = new Set(base.state.restDays)
+  const goals = new Map(base.state.goals.map((g) => [g.id, g]))
+  const measurements = { ...base.state.measurements }
 
   const newer = (key: string, seq: number) => !(key in rowSeq) || seq > rowSeq[key]
 
@@ -104,6 +110,21 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
     if (w.rest) rest.add(w.local_date)
     else rest.delete(w.local_date)
   }
+  // A goal arrives whole (links + milestones), so it simply replaces the cached one.
+  for (const w of p.goals ?? []) {
+    const k = seqKey.goal(w.id)
+    if (!newer(k, w.server_seq)) continue
+    rowSeq[k] = w.server_seq
+    goals.set(w.id, toGoal(w))
+  }
+  for (const w of p.measurements ?? []) {
+    const k = seqKey.measurement(w.goal_id, w.observed_on)
+    if (!newer(k, w.server_seq)) continue
+    rowSeq[k] = w.server_seq
+    const mk = measurementKey(w.goal_id, w.observed_on)
+    if (w.deleted) delete measurements[mk]
+    else measurements[mk] = toMeasurement(w)
+  }
 
   return {
     state: {
@@ -116,10 +137,13 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
       entries,
       restDays: [...rest].sort(),
       seededOn: base.state.seededOn,
+      goals: [...goals.values()],
+      measurements,
     },
     habitVersion,
     rowSeq,
     cursor: Math.max(p.full ? 0 : cache.cursor, p.cursor),
     serverToday: p.server_today,
+    features: { goals: p.goals !== undefined },
   }
 }

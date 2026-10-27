@@ -2,6 +2,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { setEntry, type HabitInput } from "@/features/habits/domain/ops"
+import { setCheckpointDone, setMeasurement, validateGoal } from "@/features/goals/domain/ops"
+import { goalToWire } from "./domain/goal-wire"
 import { sameRule } from "@/features/habits/domain/schedule"
 import type { Backend, HabitsSnapshot } from "@/features/habits/store/types"
 import { uuidv4 } from "@/lib/ids"
@@ -46,6 +48,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         source: "account",
         sync: { status: e.status, pending: e.pending, lastSyncedAt: e.lastSyncedAt, lastError: e.lastError, notices: e.notices },
         account: { userId: user.id, email: user.email },
+        goals: e.goals,
       }
     }
     return snapshot
@@ -106,6 +109,8 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       .on("postgres_changes", { event: "*", schema: "public", table: "habits", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "routine_calendar", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "goals", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "goal_measurements", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .subscribe((status) => {
         if (disposed) return
         if (status === "SUBSCRIBED") {
@@ -215,6 +220,52 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
           base_seq: engine.rowSeq("rest", date),
         })
       },
+      // ── Goals (M3.1): same queue, same optimistic reducers as the demo ──
+      addGoal(input) {
+        const id = uuidv4()
+        if (Object.keys(validateGoal(input, view().state)).length) return id
+        const w = goalToWire(input)
+        submit({ type: "goal.create", op_id: uuidv4(), goal: { ...w.goal, id }, habits: w.habits, checkpoints: w.checkpoints })
+        return id
+      },
+      updateGoal(id, input) {
+        if (Object.keys(validateGoal(input, view().state, id)).length) return
+        const w = goalToWire(input)
+        submit({ type: "goal.update", op_id: uuidv4(), goal_id: id, base_version: engine.goalVersion(id), goal: w.goal, habits: w.habits, checkpoints: w.checkpoints })
+      },
+      setGoalState(id, state) {
+        submit({ type: "goal.set_state", op_id: uuidv4(), goal_id: id, state, on: view().today })
+      },
+      archiveGoal(id) {
+        submit({ type: "goal.archive", op_id: uuidv4(), goal_id: id, archived_on: view().today })
+      },
+      restoreGoal(id) {
+        submit({ type: "goal.restore", op_id: uuidv4(), goal_id: id })
+      },
+      setMeasurement(goalId, date, value, note) {
+        const { state, today } = view()
+        const opId = uuidv4()
+        const at = engine.clientTime()
+        const result = setMeasurement(state, { goalId, date, value, note, opId, now: at, today })
+        if (result.ok && result.state !== state) {
+          submit({
+            type: "goal.measure",
+            op_id: opId,
+            goal_id: goalId,
+            observed_on: date,
+            value,
+            note: note?.trim() || null,
+            client_updated_at: at,
+            base_seq: engine.rowSeq("measurement", goalId, date),
+          })
+        }
+        return result
+      },
+      setCheckpoint(goalId, checkpointId, doneOn) {
+        const { state, today } = view()
+        if (setCheckpointDone(state, goalId, checkpointId, doneOn, today) === state) return
+        submit({ type: "goal.checkpoint.set", op_id: uuidv4(), goal_id: goalId, checkpoint_id: checkpointId, done_on: doneOn })
+      },
       setTimezone(timezone) {
         submit({ type: "profile.update", op_id: uuidv4(), timezone })
       },
@@ -244,6 +295,8 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         if (notice?.op?.type === "habit.update") {
           // Re-base the user's edit on the current server version.
           submit({ ...notice.op, op_id: uuidv4(), base_version: engine.habitVersion(notice.op.habit_id) })
+        } else if (notice?.op?.type === "goal.update") {
+          submit({ ...notice.op, op_id: uuidv4(), base_version: engine.goalVersion(notice.op.goal_id) })
         }
       },
     },

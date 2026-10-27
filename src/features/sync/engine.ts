@@ -38,6 +38,8 @@ export interface EngineSnapshot {
   ready: boolean
   notices: SyncNotice[]
   persisted: boolean
+  /** The server has the goals migration (M3.1). */
+  goals: boolean
 }
 
 export interface EngineDeps {
@@ -121,6 +123,7 @@ export class SyncEngine {
         ready: this.ready,
         notices: this.notices,
         persisted: this.persisted,
+        goals: !!this.cache.features?.goals,
       }
     }
     return this.snapshot
@@ -137,9 +140,9 @@ export class SyncEngine {
     return new Date(t).toISOString()
   }
 
-  /** server_seq of a row as this device last saw it (entry: habitId+date, rest: date). */
-  rowSeq(kind: "entry" | "rest", habitIdOrDate: string, date?: string): number | null {
-    const key = kind === "entry" ? `e:${habitIdOrDate}:${date}` : `r:${habitIdOrDate}`
+  /** server_seq of a row as this device last saw it (entry: habitId+date, rest: date, measurement: goalId+date). */
+  rowSeq(kind: "entry" | "rest" | "measurement", idOrDate: string, date?: string): number | null {
+    const key = kind === "entry" ? `e:${idOrDate}:${date}` : kind === "measurement" ? `m:${idOrDate}:${date}` : `r:${idOrDate}`
     return this.cache.rowSeq[key] ?? null
   }
 
@@ -150,6 +153,11 @@ export class SyncEngine {
   /** Server version of a habit as last seen (for optimistic-concurrency edits). */
   habitVersion(habitId: string): number {
     return this.cache.habitVersion[habitId] ?? 1
+  }
+
+  /** Server version of a goal as last seen (the cache only holds server-confirmed state). */
+  goalVersion(goalId: string): number {
+    return this.cache.state.goals.find((g) => g.id === goalId)?.version ?? 1
   }
 
   /** Optimistically apply and queue an operation, then sync in the background. */
@@ -262,7 +270,11 @@ export class SyncEngine {
         ? this.cache.state.habits.find((h) => h.id === op.habit_id)?.name
         : op.type === "habit.create"
           ? op.habit.title
-          : undefined
+          : op.type === "goal.create"
+            ? op.goal.title
+            : "goal_id" in op
+              ? this.cache.state.goals.find((g) => g.id === op.goal_id)?.title
+              : undefined
     this.notices = [...this.notices, { id: op.op_id, kind, opType: op.type, subject, code, op }]
   }
 

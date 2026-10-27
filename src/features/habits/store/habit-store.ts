@@ -44,9 +44,9 @@ export function useHabits(): HabitsSnapshot | null {
   )
 }
 
-/** True when the active data source can store goals. */
+/** True when the active data source can store goals (and, for an account, its server has them). */
 export function goalsEnabled(): boolean {
-  return !!backend?.actions.addGoal
+  return !!backend?.actions.addGoal && backend.getSnapshot()?.goals !== false
 }
 
 function need<T>(fn: T | undefined): T {

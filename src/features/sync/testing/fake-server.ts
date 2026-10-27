@@ -9,7 +9,10 @@ import { entryKey, type HabitsState } from "@/features/habits/domain/types"
 import type { LocalDate } from "@/features/habits/domain/dates"
 import { NetworkError, type SyncTransport } from "../engine"
 import { applyOp } from "../domain/rebase"
-import type { Op, OpResult, PullPayload, WireEntry, WireHabit } from "../domain/types"
+import type { Op, OpResult, PullPayload, WireEntry, WireHabit, WireMeasurement } from "../domain/types"
+import { goalToWireRow } from "../domain/goal-wire"
+import { setMeasurement } from "@/features/goals/domain/ops"
+import { measurementKey, type Goal } from "@/features/goals/domain/types"
 
 interface Row<T> {
   data: T
@@ -24,6 +27,8 @@ export class FakeServer {
   private entries = new Map<string, Row<WireEntry>>()
   private rest = new Map<string, Row<{ local_date: LocalDate; rest: boolean; client_updated_at: string }>>()
   private timezone = "Europe/Madrid"
+  private goals = new Map<string, Row<Goal>>()
+  private measures = new Map<string, Row<WireMeasurement>>()
   /** Count of times each op_id was actually applied (never > 1). */
   applied = new Map<string, number>()
 
@@ -96,8 +101,15 @@ export class FakeServer {
       entries,
       restDays: [...this.rest.values()].filter((r) => r.data.rest).map((r) => r.data.local_date),
       seededOn: this.today,
-      goals: [],
-      measurements: {},
+      goals: [...this.goals.values()].map((r) => r.data),
+      measurements: Object.fromEntries(
+        [...this.measures.values()]
+          .filter((r) => !r.data.deleted)
+          .map(({ data: m }) => [
+            measurementKey(m.goal_id, m.observed_on),
+            { goalId: m.goal_id, date: m.observed_on, value: Number(m.value), note: m.note, opId: m.client_op_id, updatedAt: m.client_updated_at },
+          ])
+      ),
     }
   }
 
@@ -196,6 +208,41 @@ export class FakeServer {
       case "profile.update":
         this.timezone = op.timezone
         return { op_id: op.op_id, status: "applied" }
+      case "goal.measure": {
+        const k = measurementKey(op.goal_id, op.observed_on)
+        const existing = this.measures.get(k)
+        const decision = this.resolve(existing, op.client_updated_at, op.base_seq)
+        if (!decision.win) return { op_id: op.op_id, status: "superseded" }
+        const r = setMeasurement(this.state(), { goalId: op.goal_id, date: op.observed_on, value: op.value, note: op.note, opId: op.op_id, now: decision.time, today: this.today })
+        if (!r.ok && op.value !== null) return reject(r.reason)
+        this.measures.set(k, {
+          seq: this.next(),
+          data: { goal_id: op.goal_id, observed_on: op.observed_on, value: op.value, note: op.note, deleted: op.value === null, client_op_id: op.op_id, client_updated_at: decision.time, server_seq: 0 },
+        })
+        return { op_id: op.op_id, status: "applied" }
+      }
+      case "goal.create":
+      case "goal.update":
+      case "goal.set_state":
+      case "goal.archive":
+      case "goal.restore":
+      case "goal.checkpoint.set": {
+        const id = op.type === "goal.create" ? op.goal.id : op.goal_id
+        const existing = this.goals.get(id)
+        if (op.type === "goal.create" && existing) return { op_id: op.op_id, status: "applied" }
+        if (op.type !== "goal.create" && !existing) return reject("goal_not_found")
+        if (op.type === "goal.update" && existing!.data.version !== op.base_version) return { op_id: op.op_id, status: "conflict" }
+        const before = this.state()
+        const after = applyOp(before, op, this.today)
+        const goal = after.goals.find((g) => g.id === id)
+        if (!goal || (after === before && op.type === "goal.create")) return reject("invalid_goal")
+        if (after !== before) {
+          // Like the SQL: every definition/state change bumps the version.
+          const bump = op.type === "goal.set_state" || op.type === "goal.archive" || op.type === "goal.restore"
+          this.goals.set(id, { seq: this.next(), data: bump ? { ...goal, version: (existing?.data.version ?? 1) + 1 } : goal })
+        }
+        return { op_id: op.op_id, status: "applied" }
+      }
     }
   }
 
@@ -226,6 +273,10 @@ export class FakeServer {
         .map((r) => ({ ...r.data, server_seq: r.seq })),
       rest_days: pick(this.rest)
         .filter((r) => !full || r.data.rest)
+        .map((r) => ({ ...r.data, server_seq: r.seq })),
+      goals: pick(this.goals).map((r) => goalToWireRow(r.data, r.seq)),
+      measurements: pick(this.measures)
+        .filter((r) => !full || !r.data.deleted)
         .map((r) => ({ ...r.data, server_seq: r.seq })),
       cursor: Math.max(since, this.seq),
     }

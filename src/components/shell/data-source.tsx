@@ -60,6 +60,13 @@ const REJECTION: Record<string, string> = {
   habit_not_found: "el hábito ya no existe",
   invalid_effective_date: "los cambios de frecuencia solo se aplican desde hoy",
   history_immutable: "el historial no se puede reescribir",
+  goal_not_found: "el objetivo ya no existe",
+  not_manual: "ese objetivo se alimenta de un hábito",
+  before_start: "la fecha es anterior al inicio del objetivo",
+  goal_cycle: "un objetivo no puede depender de sus subobjetivos",
+  source_habit_not_numeric: "el hábito elegido no tiene valores numéricos",
+  checkpoint_not_found: "el hito ya no existe",
+  unknown_op_type: "el servidor aún no admite este cambio",
 }
 
 /** Turns sync conflicts and server rejections into actionable, non-alarming toasts. */
