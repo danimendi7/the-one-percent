@@ -64,4 +64,24 @@ test.describe("deployment smoke", () => {
     await expect(page.getByText("Demo", { exact: true }).first()).toBeVisible()
     expect(supabaseCalls.filter((u) => !u.includes("/auth/v1/user"))).toEqual([])
   })
+
+  test("Life Analytics (demo): figures open their records and filters live in the URL", async ({ page }) => {
+    const errors: string[] = []
+    page.on("console", (m) => {
+      if (m.type() === "error") errors.push(m.text())
+    })
+    await page.goto("/login")
+    await page.getByRole("button", { name: "Explorar la demo sin cuenta" }).click()
+    await expect(page.getByRole("heading", { level: 1, name: "Resumen" })).toBeVisible()
+    await page.goto("/analytics?periodo=90")
+    await expect(page.getByRole("heading", { level: 1, name: "Analítica" })).toBeVisible()
+    await expect(page.getByRole("radio", { name: "90 días" })).toHaveAttribute("aria-checked", "true")
+
+    const stat = page.getByRole("button", { name: /^Cumplimiento.*Ver detalle$/ })
+    const [, fulfilled, applicable] = /(\d+) de (\d+) oportunidades/.exec(await stat.innerText())!
+    await stat.click()
+    const sheet = page.getByRole("dialog", { name: /Cumplimiento en los últimos 90 días/ })
+    await expect(sheet.getByTestId("drill-summary")).toContainText(`${fulfilled} cumplidas de ${applicable} aplicables`)
+    expect(errors.filter((e) => /Content Security Policy|Refused to|Hydration/i.test(e))).toEqual([])
+  })
 })
