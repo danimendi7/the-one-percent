@@ -16,6 +16,7 @@
  *   organization, region or the local link do not match supabase/cloud-project.json.
  */
 import { existsSync, readFileSync } from "node:fs"
+import { BACKUP_DIR, listDrillRecords, pickVerifiedBackup, PRE_MIGRATION_MAX_AGE_H } from "./lib/backup-ledger.mjs"
 import { evaluateCloudTarget } from "./lib/cloud-guard.mjs"
 import { loadLocalSecrets, SECRETS_FILE } from "./lib/local-secrets.mjs"
 import { supabaseCli } from "./lib/supabase-cli.mjs"
@@ -86,6 +87,14 @@ switch (command) {
     const t = verify({ requireLink: true })
     const i = args.indexOf("--confirm")
     if (i < 0 || args[i + 1] !== t.ref) fail(`Para aplicar migraciones repite el ref exacto: npm run cloud -- push --confirm ${t.ref}`)
+    // Pre-migration rule: a fresh cloud backup whose restore drill passed.
+    const safe = pickVerifiedBackup(listDrillRecords(), { ref: t.ref })
+    if (!safe)
+      fail(
+        `No hay una copia cloud verificada de las últimas ${PRE_MIGRATION_MAX_AGE_H} h en ${BACKUP_DIR}.\n` +
+          '  Antes de migrar: npm run backup -- --source cloud  y  npm run restore:drill -- "<fichero>"'
+      )
+    console.log(`✔ Copia previa verificada: ${safe.file} (${safe.startedAt})`)
     supabase(["db", "push", "--linked"])
     console.log("✔ Migraciones aplicadas.")
     break

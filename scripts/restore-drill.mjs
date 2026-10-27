@@ -11,6 +11,7 @@
  */
 import { readFileSync } from "node:fs"
 import { assertContainer, compareManifests, CONTAINER, decrypt, docker, LOCAL_URL_IN_CONTAINER, manifest } from "./lib/backup-core.mjs"
+import { recordDrill } from "./lib/backup-ledger.mjs"
 import { DRILL_CONTAINER, startDrillStack, stopDrillStack } from "./lib/drill-stack.mjs"
 import { runBackup } from "./backup.mjs"
 import { supabaseCli } from "./lib/supabase-cli.mjs"
@@ -64,4 +65,5 @@ if (intoDev) {
 for (const r of report) console.log(`${r.ok ? "✔" : "✖"} ${r.table.padEnd(34)} ${String(r.rows).padStart(6)} filas${r.ok ? "" : `  (restauradas: ${r.restoredRows})`}`)
 const bad = report.filter((r) => !r.ok)
 if (bad.length) fail(`${bad.length} tablas no coinciden.`)
+recordDrill(file, backup.meta, report)
 console.log(`\n✔ Restauración verificada: ${report.length} tablas idénticas a la copia.`)
