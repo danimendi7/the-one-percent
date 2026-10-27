@@ -1,116 +1,219 @@
 "use client"
 
-import { Check, Flag } from "lucide-react"
-import { DemoBadge, DemoNote } from "@/components/common/demo-note"
+import { useState } from "react"
+import { usePathname, useSearchParams } from "next/navigation"
+import { ChevronDown, Flag, Gauge, ListChecks, Plus, Target } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { SourceBadge } from "@/components/common/demo-note"
 import { EmptyState } from "@/components/common/empty-state"
-import { pct } from "@/components/common/format"
 import { PageHeader } from "@/components/shell/page-header"
-import { cn } from "@/lib/utils"
-import { addDays, formatDate } from "@/features/habits/domain/dates"
-import { completion } from "@/features/habits/domain/metrics"
-import { HabitIcon } from "@/features/habits/components/habit-icon"
-import { useHabitsModel } from "@/features/habits/components/use-habits-model"
-import { GOALS } from "./fixtures"
+import { Segmented } from "@/features/habits/components/habit-form-sheet"
+import { goalsEnabled } from "@/features/habits/store/habit-store"
+import type { GoalEvaluation } from "./domain/progress"
+import { MAX_PRIMARY, type Goal, type Horizon } from "./domain/types"
+import { GoalCard } from "./components/goal-card"
+import { GoalFormSheet } from "./components/goal-form-sheet"
+import { HORIZON_HINT, useGoalsModel } from "./components/goal-ui"
+import { MeasureSheet } from "./components/measure-sheet"
 
-/** GoalProgress: effort (habits, computed) and outcome (measurements) are shown separately (PRD §3.4). */
+type HorizonFilter = Horizon | "all"
+const HORIZONS: HorizonFilter[] = ["all", "short", "medium", "long"]
+
+/** ?plazo= in the URL, like the Analytics filters: survives a reload and the back button. */
+function useHorizonFilter(): [HorizonFilter, (h: HorizonFilter) => void] {
+  const params = useSearchParams()
+  const pathname = usePathname()
+  const raw = params.get("plazo")
+  const value = (HORIZONS as string[]).includes(raw ?? "") ? (raw as HorizonFilter) : "all"
+  return [value, (h) => window.history.replaceState(null, "", h === "all" ? pathname : `${pathname}?plazo=${h}`)]
+}
+
 export function GoalsView() {
-  const model = useHabitsModel()
-  if (model?.source === "account") {
-    return (
-      <>
-        <PageHeader title="Objetivos" description="Visión → objetivo → sistema → hábitos, con esfuerzo y resultado medidos por separado." />
-        <div className="panel rounded-2xl">
-          <EmptyState
-            icon={Flag}
-            title="Los objetivos de tu cuenta llegan en M3"
-            description="Podrás definir métricas, valores de partida, metas y fechas, y vincular hábitos sin registros duplicados. Mientras tanto, la demo muestra cómo se verán."
-          />
-        </div>
-      </>
-    )
-  }
+  const gm = useGoalsModel()
+  const [horizon, setHorizon] = useHorizonFilter()
+  const [formOpen, setFormOpen] = useState(false)
+  const [measureId, setMeasureId] = useState<string | null>(null)
+  const enabled = gm ? goalsEnabled() : false
+
   return (
     <>
       <PageHeader
         title="Objetivos"
-        meta={<DemoBadge />}
-        description="Visión → objetivo → sistema → hábitos. El esfuerzo y el resultado se miden por separado: cumplir hábitos no mueve el resultado automáticamente."
+        meta={<SourceBadge source={gm?.model.source}>Demo · objetivos y mediciones de ejemplo</SourceBadge>}
+        description="Resultado y esfuerzo por separado, calculados con tus registros reales."
+        actions={
+          enabled && gm && gm.goals.length > 0 ? (
+            <Button onClick={() => setFormOpen(true)}>
+              <Plus />
+              Nuevo objetivo
+            </Button>
+          ) : null
+        }
       />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {GOALS.map((g) => {
-          const habits = model ? model.all.filter((h) => g.habitIds.includes(h.id)) : []
-          const effort = model
-            ? completion(habits, { from: addDays(model.today, -29), to: model.today }, model.ctx)
-            : null
-          return (
-            <article key={g.id} className="panel flex flex-col rounded-2xl p-5" aria-labelledby={`${g.id}-t`}>
-              <p className="flex items-center gap-1.5 text-xs text-text-tertiary">
-                <Flag className="size-3.5" aria-hidden />
-                {g.vision}
-              </p>
-              <h2 id={`${g.id}-t`} className="mt-2 text-lg leading-snug font-semibold text-balance">
-                {g.title}
-              </h2>
-              <p className="mt-1 text-xs text-text-tertiary">
-                Fecha límite: {formatDate(g.due, { day: "numeric", month: "long", year: "numeric" })}
-              </p>
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-border p-3">
-                  <p className="text-xs text-text-secondary">Resultado</p>
-                  <p className="num mt-1.5 text-xl font-semibold">{pct(g.outcome)}</p>
-                  <p className="num mt-0.5 text-[0.6875rem] text-text-tertiary">
-                    {g.baseline} → {g.current} / {g.target}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border p-3">
-                  <p className="text-xs text-text-secondary">Esfuerzo 30 d</p>
-                  <p className="num mt-1.5 text-xl font-semibold">{effort ? pct(effort.rate) : "…"}</p>
-                  <p className="num mt-0.5 text-[0.6875rem] text-text-tertiary">
-                    {effort ? `${effort.fulfilled}/${effort.applicable} hábitos` : ""}
-                  </p>
-                </div>
-              </div>
+      {!gm ? (
+        <GoalsSkeleton />
+      ) : !enabled ? (
+        <div className="panel rounded-2xl">
+          <EmptyState
+            icon={Flag}
+            title="Los objetivos de tu cuenta se activan con la sincronización"
+            description="Ya funcionan en la demo. En tu cuenta llegarán cuando se sincronicen entre dispositivos, sin datos de ejemplo."
+          />
+        </div>
+      ) : gm.goals.length === 0 ? (
+        <FirstGoal onCreate={() => setFormOpen(true)} />
+      ) : (
+        <GoalList gm={gm} horizon={horizon} setHorizon={setHorizon} onMeasure={setMeasureId} />
+      )}
 
-              <ol className="mt-5 space-y-2" aria-label="Hitos">
-                {g.checkpoints.map((c) => (
-                  <li key={c.label} className="flex items-center gap-2.5 text-sm">
-                    <span
-                      className={cn(
-                        "grid size-5 place-items-center rounded-full border",
-                        c.done ? "border-transparent bg-signal text-signal-foreground" : "border-border"
-                      )}
-                      aria-hidden
-                    >
-                      {c.done && <Check className="size-3" strokeWidth={3} />}
-                    </span>
-                    <span className={cn(c.done ? "text-text-secondary" : "text-foreground")}>
-                      {c.label}
-                      <span className="sr-only">{c.done ? " (completado)" : " (pendiente)"}</span>
-                    </span>
-                  </li>
-                ))}
-              </ol>
-
-              <div className="mt-auto pt-5">
-                <p className="mb-2 text-xs text-text-tertiary">Sistema: hábitos vinculados</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {habits.map((h) => (
-                    <span key={h.id} className="flex items-center gap-1.5 rounded-full border border-border py-1 pr-2.5 pl-1 text-xs">
-                      <HabitIcon icon={h.icon} dimensionId={h.dimensionId} size="sm" className="size-5 rounded-full" />
-                      {h.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </article>
-          )
-        })}
-      </div>
-      <DemoNote className="mt-6">
-        El resultado procede de mediciones de ejemplo. El esfuerzo se calcula con tus registros locales de hábitos. Crear y editar
-        objetivos llega en M3.
-      </DemoNote>
+      {gm && enabled && (
+        <>
+          <GoalFormSheet open={formOpen} onOpenChange={setFormOpen} />
+          <MeasureSheet
+            goal={gm.goals.find((g) => g.id === measureId) ?? null}
+            today={gm.model.today}
+            measurements={gm.model.state.measurements}
+            onOpenChange={(o) => !o && setMeasureId(null)}
+          />
+        </>
+      )}
     </>
+  )
+}
+
+export function GoalsSkeleton() {
+  return (
+    <div className="grid gap-4" aria-busy="true" aria-label="Cargando objetivos">
+      <div className="panel h-12 animate-pulse rounded-2xl" />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }, (_, i) => (
+          <div key={i} className="panel h-52 animate-pulse rounded-2xl" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function FirstGoal({ onCreate }: { onCreate: () => void }) {
+  const kinds = [
+    { icon: Gauge, title: "Numérico", text: "Una cifra que mover: peso, tiempo, km del año. Puede alimentarse de un hábito." },
+    { icon: ListChecks, title: "Por hitos", text: "Un proyecto dividido en pasos que marcas al cumplirlos." },
+    { icon: Target, title: "Por hábitos", text: "Sostener un sistema: cumplir tus hábitos por encima de un umbral." },
+  ]
+  return (
+    <div className="panel rounded-2xl">
+      <EmptyState
+        icon={Flag}
+        title="Define tu primer objetivo"
+        description="Elige qué quieres conseguir y cómo se mide. El progreso se calcula solo a partir de tus registros: nada que teclear dos veces."
+        action={
+          <Button onClick={onCreate}>
+            <Plus />
+            Crear objetivo
+          </Button>
+        }
+      />
+      <ul className="grid gap-px border-t border-border sm:grid-cols-3">
+        {kinds.map((k) => (
+          <li key={k.title} className="flex gap-3 px-5 py-4">
+            <k.icon className="mt-0.5 size-4 shrink-0 text-text-tertiary" aria-hidden />
+            <div>
+              <p className="text-sm font-medium">{k.title}</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">{k.text}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function byDue(a: GoalEvaluation, b: GoalEvaluation) {
+  return a.goal.dueDate < b.goal.dueDate ? -1 : a.goal.dueDate > b.goal.dueDate ? 1 : 0
+}
+
+function GoalList({
+  gm,
+  horizon,
+  setHorizon,
+  onMeasure,
+}: {
+  gm: NonNullable<ReturnType<typeof useGoalsModel>>
+  horizon: HorizonFilter
+  setHorizon: (h: HorizonFilter) => void
+  onMeasure: (id: string) => void
+}) {
+  const all = gm.goals.map((g) => gm.evals.get(g.id)!).filter(Boolean)
+  const open = (g: Goal) => g.state === "active" && !g.archivedOn
+  const inScope = all.filter((e) => open(e.goal) && (horizon === "all" || e.horizon === horizon)).sort(byDue)
+  const primary = inScope.filter((e) => e.goal.priority === "primary")
+  const secondary = inScope.filter((e) => e.goal.priority === "secondary")
+  const closed = all.filter((e) => !open(e.goal)).sort(byDue)
+  const totalPrimary = all.filter((e) => open(e.goal) && e.goal.priority === "primary").length
+  const today = gm.model.today
+
+  return (
+    <div className="space-y-7">
+      <Segmented
+        label="Plazo"
+        value={horizon}
+        onChange={(v) => setHorizon(v as HorizonFilter)}
+        options={[
+          { value: "all", label: "Todos" },
+          { value: "short", label: "Corto" },
+          { value: "medium", label: "Medio" },
+          { value: "long", label: "Largo" },
+        ]}
+        className="w-full sm:w-96"
+      />
+
+      {inScope.length === 0 && (
+        <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-text-secondary">
+          No hay objetivos activos a {horizon === "short" ? "corto" : horizon === "medium" ? "medio" : "largo"} plazo ({horizon !== "all" && HORIZON_HINT[horizon]}).
+        </p>
+      )}
+
+      {primary.length > 0 && (
+        <Section title="Principales" hint={totalPrimary > MAX_PRIMARY ? `Tienes ${totalPrimary}: el Resumen muestra los ${MAX_PRIMARY} más próximos.` : "Los que ves en el Resumen."}>
+          {primary.map((e) => (
+            <GoalCard key={e.goal.id} e={e} today={today} onMeasure={onMeasure} />
+          ))}
+        </Section>
+      )}
+      {secondary.length > 0 && (
+        <Section title="Secundarios" hint="Siguen midiéndose, sin ocupar el Resumen.">
+          {secondary.map((e) => (
+            <GoalCard key={e.goal.id} e={e} today={today} onMeasure={onMeasure} />
+          ))}
+        </Section>
+      )}
+
+      {closed.length > 0 && (
+        <details className="group panel rounded-2xl">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between rounded-2xl px-4 text-sm font-medium sm:px-5 [&::-webkit-details-marker]:hidden">
+            Cerrados y archivados ({closed.length})
+            <ChevronDown className="size-4 text-text-tertiary transition-transform group-open:rotate-180" aria-hidden />
+          </summary>
+          <div className="grid grid-cols-1 gap-3 border-t border-border p-3 md:grid-cols-2 xl:grid-cols-3">
+            {closed.map((e) => (
+              <GoalCard key={e.goal.id} e={e} today={today} compact />
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  )
+}
+
+function Section({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
+  return (
+    <section aria-label={title}>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="text-base font-semibold">{title}</h2>
+        <p className="text-right text-xs text-text-tertiary">{hint}</p>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">{children}</div>
+    </section>
   )
 }

@@ -1,4 +1,5 @@
 import type { LocalDate, Weekday } from "./dates"
+import type { Goal, MeasurementMap } from "@/features/goals/domain/types"
 
 export type HabitType = "binary" | "numeric" | "duration"
 export type TargetDirection = "at_least" | "at_most"
@@ -63,6 +64,9 @@ export interface HabitsState {
   /** Global planned rest days: exempt from every denominator. */
   restDays: LocalDate[]
   seededOn: LocalDate
+  /** Goals live in the same dataset as habits (one authoritative dataset, PRD §1). */
+  goals: Goal[]
+  measurements: MeasurementMap
 }
 
 export function entryKey(habitId: string, date: LocalDate): string {

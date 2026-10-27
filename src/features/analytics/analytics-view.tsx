@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
-import { ChevronRight, Gauge, LineChart as LineIcon, Table2 } from "lucide-react"
+import { ChevronRight, Flag, Gauge, LineChart as LineIcon, Table2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { EmptyState } from "@/components/common/empty-state"
@@ -96,7 +96,19 @@ export function AnalyticsSkeleton() {
   )
 }
 
-function FilterBar({ model, filter, setFilter, habit }: { model: HabitsModel; filter: AnalyticsFilter; setFilter: SetFilter; habit: Habit | null }) {
+function FilterBar({
+  model,
+  filter,
+  setFilter,
+  habit,
+  goalTitle,
+}: {
+  model: HabitsModel
+  filter: AnalyticsFilter
+  setFilter: SetFilter
+  habit: Habit | null
+  goalTitle: string | null
+}) {
   return (
     <div className="space-y-3" role="group" aria-label="Filtros de analítica">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -112,7 +124,7 @@ function FilterBar({ model, filter, setFilter, habit }: { model: HabitsModel; fi
           ]}
           className="w-full sm:w-80"
         />
-        <Select value={habit ? habit.dimensionId : filter.dimension} onValueChange={(v) => setFilter({ dimension: v as DimensionId | "all", habitId: "all" })}>
+        <Select value={habit ? habit.dimensionId : filter.dimension} onValueChange={(v) => setFilter({ dimension: v as DimensionId | "all", habitId: "all", goalId: "all" })}>
           <SelectTrigger className="h-11! w-full sm:w-56" aria-label="Dimensión">
             <SelectValue />
           </SelectTrigger>
@@ -132,6 +144,17 @@ function FilterBar({ model, filter, setFilter, habit }: { model: HabitsModel; fi
             Filtrado por <strong className="font-semibold">{habit.name}</strong>
           </span>
           <button type="button" onClick={() => setFilter({ habitId: "all" })} className="h-10 rounded-lg px-3 text-text-secondary hover:bg-surface-raised hover:text-foreground">
+            Quitar filtro
+          </button>
+        </div>
+      )}
+      {!habit && goalTitle && (
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-1.5 text-sm">
+          <Flag className="size-4 shrink-0 text-text-tertiary" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">
+            Hábitos del objetivo <strong className="font-semibold">{goalTitle}</strong>
+          </span>
+          <button type="button" onClick={() => setFilter({ goalId: "all" })} className="h-10 shrink-0 rounded-lg px-3 text-text-secondary hover:bg-surface-raised hover:text-foreground">
             Quitar filtro
           </button>
         </div>
@@ -159,7 +182,7 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
       </div>
     )
   }
-  const { scope, habit } = scopeHabits(model.all, filter)
+  const { scope, habit, goal } = scopeHabits(model.all, filter, model.state.goals)
   const summary = completion(scope, range, model.ctx)
   const daily = dailyRates(scope, range, model.ctx)
   const perfectDays = daily.filter((d) => d.applicable > 0 && d.fulfilled === d.applicable).length
@@ -168,11 +191,15 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
 
   return (
     <div className="space-y-6">
-      <FilterBar model={model} filter={filter} setFilter={setFilter} habit={habit} />
+      <FilterBar model={model} filter={filter} setFilter={setFilter} habit={habit} goalTitle={goal?.title ?? null} />
 
       {scope.length === 0 ? (
         <div className="panel rounded-2xl">
-          <EmptyState icon={Gauge} title="Sin hábitos en esta dimensión" description="Elige otra dimensión o vuelve a «Todas las dimensiones»." />
+          {goal ? (
+            <EmptyState icon={Gauge} title="Este objetivo no tiene hábitos vinculados" description="Vincula hábitos al objetivo para ver aquí su esfuerzo." />
+          ) : (
+            <EmptyState icon={Gauge} title="Sin hábitos en esta dimensión" description="Elige otra dimensión o vuelve a «Todas las dimensiones»." />
+          )}
         </div>
       ) : (
         <>

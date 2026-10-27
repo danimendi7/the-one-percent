@@ -1,8 +1,14 @@
 import type { Metadata } from "next"
-import { GoalsView } from "@/features/goals/goals-view"
+import { Suspense } from "react"
+import { GoalsSkeleton, GoalsView } from "@/features/goals/goals-view"
 
 export const metadata: Metadata = { title: "Objetivos" }
 
+// The horizon filter lives in the URL (useSearchParams), so the view renders behind this boundary.
 export default function GoalsPage() {
-  return <GoalsView />
+  return (
+    <Suspense fallback={<GoalsSkeleton />}>
+      <GoalsView />
+    </Suspense>
+  )
 }

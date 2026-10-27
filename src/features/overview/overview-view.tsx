@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { ArrowRight, BarChart3, Brain, Check, CloudUpload, Compass, Flag, ListChecks, Plus, Timer } from "lucide-react"
+import { ArrowRight, BarChart3, Brain, Check, CloudUpload, Compass, ListChecks, Plus, Timer } from "lucide-react"
 import { EmptyState } from "@/components/common/empty-state"
 import { useHasDemoData } from "@/features/habits/store/demo-store"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,7 @@ import { DIMENSION_COLOR } from "@/features/habits/components/habit-icon"
 import { computeHeadline } from "@/features/habits/components/habit-metrics"
 import { TodayChecklist } from "@/features/habits/components/today-checklist"
 import { useHabitsModel, type HabitsModel } from "@/features/habits/components/use-habits-model"
-import { GOALS } from "@/features/goals/fixtures"
+import { ActiveGoals } from "@/features/goals/components/active-goals"
 import { FEATURED_TOPIC } from "@/features/discover/fixtures"
 import { RECALL_CARDS } from "@/features/brain/fixtures"
 
@@ -81,33 +81,7 @@ export function OverviewView() {
               Ver todos
             </Link>
           </div>
-          {model?.source === "account" ? (
-            <div className="panel rounded-2xl">
-              <EmptyState
-                icon={Flag}
-                title="Tus objetivos llegarán en M3"
-                description="Podrás definir visión, objetivos y métricas, y vincularlos a tus hábitos sin registros duplicados."
-                className="py-8"
-              />
-            </div>
-          ) : (
-          <ul className="panel divide-y divide-border/70 rounded-2xl">
-            {GOALS.map((g) => (
-              <li key={g.id} className="px-4 py-3.5">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="truncate text-sm font-medium">{g.title}</p>
-                  <span className="num shrink-0 text-xs text-text-secondary">{pct(g.outcome)}</span>
-                </div>
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-raised" aria-hidden>
-                  <div className="h-full rounded-full bg-foreground/70" style={{ width: `${g.outcome * 100}%` }} />
-                </div>
-                <p className="mt-1.5 text-xs text-text-tertiary">
-                  {g.current} de {g.target} · {g.metric.toLowerCase()}
-                </p>
-              </li>
-            ))}
-          </ul>
-          )}
+          <ActiveGoals />
         </section>
       </div>
     </>

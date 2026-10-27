@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -8,10 +9,24 @@ import { BrandMark, BrandWordmark } from "./brand-mark"
 import { isActive, SETTINGS_NAV, SIDEBAR_NAV, type NavItem } from "./nav-config"
 import { SyncStatus } from "./sync-status"
 
-/** Desktop sidebar (≥1024px, 240px) that collapses to an icon rail on tablet (768–1023px). */
+/**
+ * Desktop sidebar (≥1024px, 240px) that collapses to an icon rail on tablet (768–1023px).
+ * The active item resolves behind Suspense: on routes with a runtime param the pathname is unknown
+ * while prerendering, and the fallback is the same sidebar without an active item.
+ */
 export function SideNav() {
-  const pathname = usePathname()
+  return (
+    <Suspense fallback={<Sidebar pathname="" />}>
+      <ActiveSidebar />
+    </Suspense>
+  )
+}
 
+function ActiveSidebar() {
+  return <Sidebar pathname={usePathname()} />
+}
+
+function Sidebar({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="Navegación principal"

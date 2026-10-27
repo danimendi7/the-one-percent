@@ -6,7 +6,7 @@
  * engine + Supabase). The backend is chosen by <DataSourceProvider>.
  */
 import { useSyncExternalStore } from "react"
-import type { Backend, HabitActions, HabitsSnapshot } from "./types"
+import type { Backend, GoalActions, HabitActions, HabitsSnapshot } from "./types"
 
 export type { HabitsSnapshot, DataSource, SyncInfo } from "./types"
 
@@ -44,12 +44,22 @@ export function useHabits(): HabitsSnapshot | null {
   )
 }
 
+/** True when the active data source can store goals. */
+export function goalsEnabled(): boolean {
+  return !!backend?.actions.addGoal
+}
+
+function need<T>(fn: T | undefined): T {
+  if (!fn) throw new Error("This data source does not support goals yet")
+  return fn
+}
+
 function active(): HabitActions {
   if (!backend) throw new Error("No data source is active yet")
   return backend.actions
 }
 
-export const habitActions: HabitActions = {
+export const habitActions: HabitActions & GoalActions = {
   setEntry: (...a) => active().setEntry(...a),
   addHabit: (...a) => active().addHabit(...a),
   updateHabit: (...a) => active().updateHabit(...a),
@@ -57,6 +67,13 @@ export const habitActions: HabitActions = {
   restoreHabit: (...a) => active().restoreHabit(...a),
   setRestDay: (...a) => active().setRestDay(...a),
   exportJson: () => active().exportJson(),
+  addGoal: (input) => need(active().addGoal)(input),
+  updateGoal: (...a) => need(active().updateGoal)(...a),
+  setGoalState: (...a) => need(active().setGoalState)(...a),
+  archiveGoal: (...a) => need(active().archiveGoal)(...a),
+  restoreGoal: (...a) => need(active().restoreGoal)(...a),
+  setMeasurement: (...a) => need(active().setMeasurement)(...a),
+  setCheckpoint: (...a) => need(active().setCheckpoint)(...a),
   resetDemo: () => active().resetDemo?.(),
   syncNow: () => active().syncNow?.(),
   setTimezone: (tz) => active().setTimezone?.(tz),

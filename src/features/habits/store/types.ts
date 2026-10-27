@@ -1,6 +1,8 @@
 import type { LocalDate } from "../domain/dates"
 import type { HabitInput, SetEntryResult } from "../domain/ops"
 import type { HabitsState } from "../domain/types"
+import type { GoalInput, MeasureResult } from "@/features/goals/domain/ops"
+import type { GoalState } from "@/features/goals/domain/types"
 import type { Op, SyncNotice, SyncStatus } from "@/features/sync/domain/types"
 
 export type DataSource = "demo" | "account"
@@ -24,7 +26,18 @@ export interface HabitsSnapshot {
   account?: { userId: string; email: string | null }
 }
 
-export interface HabitActions {
+/** Goals (M3.1). Optional on a backend until it supports them; screens check `goalsEnabled()`. */
+export interface GoalActions {
+  addGoal(input: GoalInput): string
+  updateGoal(id: string, input: GoalInput): void
+  setGoalState(id: string, state: GoalState): void
+  archiveGoal(id: string): void
+  restoreGoal(id: string): void
+  setMeasurement(goalId: string, date: LocalDate, value: number | null, note?: string | null): MeasureResult
+  setCheckpoint(goalId: string, checkpointId: string, doneOn: LocalDate | null): void
+}
+
+export interface HabitActions extends Partial<GoalActions> {
   setEntry(habitId: string, date: LocalDate, value: boolean | number | null): SetEntryResult
   addHabit(input: HabitInput): string
   updateHabit(id: string, input: HabitInput): void

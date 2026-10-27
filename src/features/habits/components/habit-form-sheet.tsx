@@ -1,7 +1,8 @@
 "use client"
 
 import { useId, useState } from "react"
-import { Archive, Minus, Plus } from "lucide-react"
+import Link from "next/link"
+import { Archive, Flag, Minus, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
@@ -24,6 +25,7 @@ import type { HabitInput } from "../domain/ops"
 import type { DimensionId, Habit, HabitType, ScheduleRule, TargetDirection } from "../domain/types"
 import { habitActions, useHabits } from "../store/habit-store"
 import { DIMENSION_COLOR, HABIT_ICONS } from "./habit-icon"
+import { goalsForHabit } from "@/features/goals/domain/ops"
 
 const DIMENSIONS: { id: DimensionId; name: string }[] = [
   { id: "body", name: "Cuerpo" },
@@ -179,6 +181,7 @@ function HabitForm({ habit, onDone }: { habit: Habit | null; onDone: () => void 
       </SheetHeader>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+        {habit && <ContributesTo habitId={habit.id} />}
         <div className="space-y-2">
           <Label htmlFor={ids.name}>Nombre</Label>
           <Input
@@ -391,6 +394,27 @@ function HabitForm({ habit, onDone }: { habit: Habit | null; onDone: () => void 
         </Dialog>
       )}
     </form>
+  )
+}
+
+/** Goals this habit feeds (effort link or numeric source). Read-only: links are edited from the goal. */
+function ContributesTo({ habitId }: { habitId: string }) {
+  const goals = goalsForHabit(useHabits()?.state ?? { goals: [] }, habitId)
+  if (goals.length === 0) return null
+  return (
+    <div className="rounded-xl border border-border bg-surface-raised/40 px-3.5 py-3">
+      <p className="text-xs font-medium text-text-secondary">Contribuye a</p>
+      <ul className="mt-1">
+        {goals.map((g) => (
+          <li key={g.id}>
+            <Link href={`/goals/${g.id}`} className="flex min-h-11 items-center gap-2 text-sm hover:underline">
+              <Flag className="size-3.5 shrink-0 text-text-tertiary" aria-hidden />
+              <span className="truncate">{g.title}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

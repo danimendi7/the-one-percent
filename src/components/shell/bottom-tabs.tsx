@@ -1,13 +1,29 @@
 "use client"
 
+import { Suspense } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { BOTTOM_TABS, isActive } from "./nav-config"
 
-/** Mobile bottom navigation (<768px): five tabs, safe-area aware. */
+/**
+ * Mobile bottom navigation (<768px): five tabs, safe-area aware.
+ * On routes with a runtime param (/goals/[id]) the pathname is unknown while prerendering, so the
+ * active tab resolves behind Suspense; the fallback is the same bar without an active tab.
+ */
 export function BottomTabs() {
-  const pathname = usePathname()
+  return (
+    <Suspense fallback={<Tabs pathname="" />}>
+      <ActiveTabs />
+    </Suspense>
+  )
+}
+
+function ActiveTabs() {
+  return <Tabs pathname={usePathname()} />
+}
+
+function Tabs({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="Navegación principal"

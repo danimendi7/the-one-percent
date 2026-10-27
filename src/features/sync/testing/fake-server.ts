@@ -96,6 +96,8 @@ export class FakeServer {
       entries,
       restDays: [...this.rest.values()].filter((r) => r.data.rest).map((r) => r.data.local_date),
       seededOn: this.today,
+      goals: [],
+      measurements: {},
     }
   }
 

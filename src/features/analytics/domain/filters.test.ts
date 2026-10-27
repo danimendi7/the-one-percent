@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { makeHabit } from "@/features/habits/domain/test-helpers"
+import type { Goal } from "@/features/goals/domain/types"
 import { DEFAULT_FILTER, parseFilter, periodRange, scopeHabits, serializeFilter } from "./filters"
 
 const p = (q: string) => new URLSearchParams(q)
@@ -11,7 +12,7 @@ describe("analytics filters in the URL", () => {
   })
 
   it("round-trips a full filter", () => {
-    const f = { period: 90, dimension: "mind", habitId: "abc-123" } as const
+    const f = { period: 90, dimension: "mind", habitId: "abc-123", goalId: "g-1" } as const
     expect(parseFilter(p(serializeFilter(f).slice(1)))).toEqual(f)
   })
 
@@ -31,11 +32,19 @@ describe("scopeHabits", () => {
   })
 
   it("a habit filter wins over the dimension", () => {
-    expect(scopeHabits(all, { ...DEFAULT_FILTER, dimension: "mind", habitId: "a" })).toEqual({ scope: [a], habit: a })
+    expect(scopeHabits(all, { ...DEFAULT_FILTER, dimension: "mind", habitId: "a" })).toEqual({ scope: [a], habit: a, goal: null })
   })
 
   it("an unknown habit id falls back to the dimension scope", () => {
-    expect(scopeHabits(all, { ...DEFAULT_FILTER, habitId: "gone" })).toEqual({ scope: all, habit: null })
+    expect(scopeHabits(all, { ...DEFAULT_FILTER, habitId: "gone" })).toEqual({ scope: all, habit: null, goal: null })
+  })
+
+  it("a goal filter scopes to its linked habits and its numeric source; a habit filter still wins", () => {
+    const c = makeHabit({ id: "c", dimensionId: "work" })
+    const goal = { id: "g", habits: [{ habitId: "a", weight: 1 }], numeric: { habitId: "c" } } as unknown as Goal
+    expect(scopeHabits([a, b, c], { ...DEFAULT_FILTER, goalId: "g" }, [goal])).toEqual({ scope: [a, c], habit: null, goal })
+    expect(scopeHabits([a, b, c], { ...DEFAULT_FILTER, goalId: "g", habitId: "b" }, [goal]).scope).toEqual([b])
+    expect(scopeHabits([a, b, c], { ...DEFAULT_FILTER, goalId: "gone" }, [goal]).scope).toEqual([a, b, c])
   })
 })
 

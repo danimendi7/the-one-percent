@@ -18,6 +18,16 @@ import {
 } from "../domain/ops"
 import type { HabitsState } from "../domain/types"
 import { createDemoState } from "../fixtures/demo"
+import { createDemoGoals } from "@/features/goals/fixtures"
+import {
+  archiveGoal,
+  createGoal,
+  restoreGoal,
+  setCheckpointDone,
+  setGoalState,
+  setMeasurement,
+  updateGoal,
+} from "@/features/goals/domain/ops"
 import { uuidv4 } from "@/lib/ids"
 import { habitsStateSchema } from "./schema"
 import type { Backend, HabitsSnapshot } from "./types"
@@ -38,7 +48,11 @@ export function readDemoState(): HabitsState | null {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = habitsStateSchema.safeParse(JSON.parse(raw))
-    return parsed.success ? (parsed.data as HabitsState) : null
+    if (!parsed.success) return null
+    const data = parsed.data as Omit<HabitsState, "goals" | "measurements"> & Partial<Pick<HabitsState, "goals" | "measurements">>
+    if (data.goals && data.measurements) return data as HabitsState
+    // Demo saved before goals existed (M3.1): add the demo goals relative to when it was seeded.
+    return { ...data, ...createDemoGoals(data.seededOn) }
   } catch {
     return null
   }
@@ -162,6 +176,36 @@ export const demoBackend: Backend = {
     },
     setRestDay(date, rest) {
       commit(setRestDay(getSnapshot().state, date, rest))
+    },
+    addGoal(input) {
+      const s = getSnapshot()
+      const id = uuidv4()
+      commit(createGoal(s.state, input, { id, now: new Date().toISOString() }))
+      return id
+    },
+    updateGoal(id, input) {
+      commit(updateGoal(getSnapshot().state, id, input, new Date().toISOString()))
+    },
+    setGoalState(id, goalState) {
+      const s = getSnapshot()
+      commit(setGoalState(s.state, id, goalState, s.today, new Date().toISOString()))
+    },
+    archiveGoal(id) {
+      const s = getSnapshot()
+      commit(archiveGoal(s.state, id, s.today))
+    },
+    restoreGoal(id) {
+      commit(restoreGoal(getSnapshot().state, id))
+    },
+    setMeasurement(goalId, date, value, note) {
+      const s = getSnapshot()
+      const r = setMeasurement(s.state, { goalId, date, value, note, opId: uuidv4(), now: new Date().toISOString(), today: s.today })
+      if (r.ok) commit(r.state)
+      return r
+    },
+    setCheckpoint(goalId, checkpointId, doneOn) {
+      const s = getSnapshot()
+      commit(setCheckpointDone(s.state, goalId, checkpointId, doneOn, s.today))
     },
     resetDemo() {
       const s = getSnapshot()

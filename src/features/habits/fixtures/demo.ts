@@ -4,6 +4,7 @@
  */
 import { addDays, eachDay, isoWeekday, startOfWeek, type LocalDate } from "../domain/dates"
 import { isEligibleDay } from "../domain/schedule"
+import { createDemoGoals } from "@/features/goals/fixtures"
 import {
   entryKey,
   type Dimension,
@@ -218,6 +219,7 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
     entries,
     restDays,
     seededOn: today,
+    ...createDemoGoals(today),
   }
 }
 

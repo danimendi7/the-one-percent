@@ -40,5 +40,7 @@ export function makeState(habits: Habit[], map: EntryMap = {}, rest: LocalDate[]
     entries: map,
     restDays: rest,
     seededOn: "2026-10-01",
+    goals: [],
+    measurements: {},
   }
 }

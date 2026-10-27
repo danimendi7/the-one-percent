@@ -1,6 +1,6 @@
 # Plan M3 · Analítica fiable, objetivos, Deep Work, check-ins y revisiones
 
-Estado: **aprobado el 27/10/2026**. M3.0 en curso en local. Las migraciones y despliegues de M3 en producción requieren autorización expresa.
+Estado: **aprobado el 27/10/2026**. M3.0 desplegado el 27/10/2026. Orden cambiado el 27/10/2026: M3.1 = Objetivos, M3.2 = Deep Work. Las migraciones y despliegues de M3 en producción requieren autorización expresa.
 
 ## 0. Decisiones aprobadas y ajustes tras revisarlas
 | Decisión | Encaje con el plan | Ajuste |
@@ -90,8 +90,8 @@ Las nuevas operaciones de `apply_op`, con auditoría y `pull_changes` ampliado:
 | Fase | Contenido | Salida verificable |
 | --- | --- | --- |
 | **M3.0** | Catálogo de métricas puras + drilldown y filtros sobre los hábitos actuales | Tests de métricas (DST, N/A, versiones); cifras iguales entre UI y recálculo |
-| **M3.1** | Migración y ops de `focus_sessions`; temporizador persistente | E2E: iniciar offline, cerrar la app, reabrir y terminar; una única sesión activa entre 2 dispositivos; registro de hábito derivado sin duplicar |
-| **M3.2** | Objetivos, vínculos y mediciones | Integración: no se puede vincular un hábito de otro usuario; progreso N/A correcto; E2E crear, medir y ver el progreso |
+| **M3.1** | Objetivos, vínculos y mediciones (plan detallado: `m3.1-goals-plan.md`) | Integración: no se puede vincular un hábito de otro usuario; progreso N/A correcto; E2E crear, medir y ver el progreso |
+| **M3.2** | Migración y ops de `focus_sessions`; temporizador persistente | E2E: iniciar offline, cerrar la app, reabrir y terminar; una única sesión activa entre 2 dispositivos; registro de hábito derivado sin duplicar |
 | **M3.3** | Check-ins AM/PM | Único por día y fase; edición desde 2 dispositivos converge; entrada rápida en móvil |
 | **M3.4** | Revisiones con snapshot congelado | La snapshot no cambia al editar datos pasados; conflicto de edición con aviso |
 | **M3.5** | Despliegue cloud y validación real | Copia cifrada + simulacro **antes** de migrar; `push-dry` revisado; migración con tu autorización; smoke 12/12; pruebas en móvil y ordenador |
