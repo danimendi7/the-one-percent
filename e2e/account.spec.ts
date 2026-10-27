@@ -1,5 +1,6 @@
 import type { BrowserContext, Page } from "@playwright/test"
 import { expect, isMobile, test } from "./fixtures"
+import { adminClient, db } from "../tests/integration/setup"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
 
 test.use({ mode: "account" })
@@ -81,6 +82,49 @@ test.describe("account mode", () => {
     await page.getByRole("button", { name: "Entrar" }).click()
     await expect(page).toHaveURL(/\/$/)
     await expect(page.getByText("Empieza por tu primer hábito")).toBeVisible()
+  })
+
+  test("first access of a new allowlisted email gets the Spanish confirmation email with link and code", async ({ page }, info) => {
+    test.skip(isMobile(info.project.name), "covered once")
+    // No auth user yet: Auth sends the "confirmation" template, not the magic link (cloud parity).
+    const email = `e2e-first-${Date.now()}@theonepercent.local`
+    await db((c) => c.query("insert into private.allowed_emails (email, note) values ($1, 'e2e')", [email]))
+    try {
+      await page.goto("/login")
+      await page.getByLabel("Email").fill(email)
+      await page.getByRole("button", { name: "Enviar enlace de acceso" }).click()
+      await expect(page.getByText("Revisa tu correo")).toBeVisible()
+      let msg: { Subject: string; HTML: string } | undefined
+      await expect
+        .poll(async () => {
+          const list = await (await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`)).json()
+          if (!list.messages?.length) return false
+          msg = await (await fetch(`${MAILPIT}/api/v1/message/${list.messages[0].ID}`)).json()
+          return true
+        }, { timeout: 15_000 })
+        .toBe(true)
+      expect(msg!.Subject).toBe("Confirma tu acceso a THE ONE PERCENT")
+      expect(msg!.HTML).toMatch(/href="[^"]+\/auth\/confirm\?token_hash=[^"]+&(amp;)?type=email"/)
+      const code = /monospace">(\d{6})</.exec(msg!.HTML)?.[1]
+      expect(code).toBeDefined()
+      await page.getByLabel("¿Tienes el código del correo?").fill(code!)
+      await page.getByRole("button", { name: "Entrar" }).click()
+      await expect(page).toHaveURL(/\/$/)
+      await expect(page.getByText("Empieza por tu primer hábito")).toBeVisible()
+    } finally {
+      const id = await db(async (c) => (await c.query("select id from auth.users where email = $1", [email])).rows[0]?.id as string | undefined)
+      if (id) await adminClient().auth.admin.deleteUser(id)
+      await db((c) => c.query("delete from private.allowed_emails where email = $1", [email]))
+    }
+  })
+
+  test("email credentials that land on the bare site URL or carry an Auth error go to login with an explanation", async ({ page }, info) => {
+    test.skip(isMobile(info.project.name), "covered once")
+    for (const path of ["/?code=not-a-real-code", "/?token_hash=invalid&type=email", "/auth/confirm?error=access_denied&error_code=otp_expired"]) {
+      await page.goto(path)
+      await expect(page).toHaveURL(/\/login\?error=link$/)
+    }
+    await expect(page.getByRole("alert").filter({ hasText: "no es válido" })).toBeVisible()
   })
 
   test("a new account shows informative empty states and no demo labels", async ({ page, consoleErrors }) => {

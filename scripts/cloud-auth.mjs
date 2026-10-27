@@ -5,9 +5,11 @@
  *   npm run cloud:auth                                   show current Auth settings (read-only)
  *   npm run cloud:auth -- --site-url https://<app>       show the planned diff (read-only)
  *   npm run cloud:auth -- --site-url https://<app> [--preview-pattern "https://the-one-percent-*-<scope>.vercel.app/**"]
- *                         [--disable-signup] --apply --confirm <ref>     apply
+ *                         [--smtp resend] [--disable-signup] --apply --confirm <ref>     apply
  *
- * Uses SUPABASE_ACCESS_TOKEN from the environment or the git-ignored .env.cloud.local.
+ * Uses SUPABASE_ACCESS_TOKEN (and SMTP_PASS with --smtp) from the environment or the git-ignored .env.cloud.local.
+ * Free projects cannot change email templates on Supabase's built-in mailer: without a custom
+ * SMTP (current or --smtp) the templates are left out of the plan and a warning is shown.
  * Verifies the target with the same guard as npm run cloud before reading or writing.
  */
 import { readFileSync } from "node:fs"
@@ -29,7 +31,7 @@ function fail(msg) {
   process.exit(1)
 }
 
-loadLocalSecrets(["SUPABASE_ACCESS_TOKEN"])
+loadLocalSecrets(["SUPABASE_ACCESS_TOKEN", "SMTP_PASS"])
 const token = process.env.SUPABASE_ACCESS_TOKEN
 if (!token) fail("Falta SUPABASE_ACCESS_TOKEN (variable de entorno o .env.cloud.local).")
 
@@ -71,7 +73,11 @@ const KEYS = [
   "mailer_otp_exp",
   "mailer_subjects_magic_link",
   "mailer_templates_magic_link_content",
+  "mailer_subjects_confirmation",
+  "mailer_templates_confirmation_content",
+  "mailer_autoconfirm",
   "smtp_host",
+  "smtp_admin_email",
   "rate_limit_email_sent",
   "jwt_exp",
   "refresh_token_rotation_enabled",
@@ -93,22 +99,41 @@ async function plan(siteUrl) {
 
 if (!/^https:\/\/[a-z0-9.-]+$/i.test(siteUrl)) fail("--site-url debe ser https://dominio, sin barra final.")
 const preview = opt("--preview-pattern")
+const SMTP_PRESETS = {
+  // Resend without an own domain only delivers to the account owner's address, which is all this app needs.
+  resend: { smtp_host: "smtp.resend.com", smtp_port: "465", smtp_user: "resend", smtp_admin_email: "onboarding@resend.dev" },
+}
+const smtpName = opt("--smtp")
+if (smtpName && !SMTP_PRESETS[smtpName]) fail(`--smtp admite: ${Object.keys(SMTP_PRESETS).join(", ")}`)
+if (smtpName && !process.env.SMTP_PASS) fail("Falta SMTP_PASS (clave del proveedor) en .env.cloud.local.")
+const smtp = smtpName
+  ? { ...SMTP_PRESETS[smtpName], smtp_pass: process.env.SMTP_PASS, smtp_sender_name: "THE ONE PERCENT", rate_limit_email_sent: 30 }
+  : {}
+const canEditTemplates = Boolean(smtpName || current.smtp_host)
+const templates = {
+  mailer_subjects_magic_link: "Tu enlace de acceso a THE ONE PERCENT",
+  mailer_templates_magic_link_content: readFileSync("supabase/templates/magic-link.html", "utf8"),
+  mailer_subjects_confirmation: "Confirma tu acceso a THE ONE PERCENT",
+  mailer_templates_confirmation_content: readFileSync("supabase/templates/confirm-signup.html", "utf8"),
+}
 const desired = {
   site_url: siteUrl,
   uri_allow_list: [siteUrl, `${siteUrl}/**`, ...(preview ? [preview] : []), "http://localhost:3000", "http://localhost:3000/**"].join(","),
   external_email_enabled: true,
   mailer_otp_length: 6,
   mailer_otp_exp: 3600,
-  mailer_subjects_magic_link: "Tu enlace de acceso a THE ONE PERCENT",
-  mailer_templates_magic_link_content: readFileSync("supabase/templates/magic-link.html", "utf8"),
   refresh_token_rotation_enabled: true,
+  ...smtp,
+  ...(canEditTemplates ? templates : {}),
   ...(flag("--disable-signup") ? { disable_signup: true } : {}),
 }
 
 const changes = Object.entries(desired).filter(([k, v]) => JSON.stringify(current[k]) !== JSON.stringify(v))
 console.log("\nCambios planificados:")
 if (!changes.length) console.log("  (ninguno: ya está configurado)")
-for (const [k, v] of changes) console.log(`  ${k.padEnd(38)} ${show(current[k])}  →  ${show(v)}`)
+for (const [k, v] of changes) console.log(`  ${k.padEnd(38)} ${k === "smtp_pass" ? "(oculto)" : `${show(current[k])}  →  ${show(v)}`}`)
+if (!canEditTemplates)
+  console.log("\n⚠ Sin SMTP propio: las plantillas en español (enlace + código) quedan fuera; el plan Free no permite cambiarlas con el correo integrado. Añade --smtp resend.")
 
 if (!flag("--apply")) {
   console.log(`\nModo lectura. Para aplicar: añade --apply --confirm ${ref}`)

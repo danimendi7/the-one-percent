@@ -42,6 +42,7 @@
 | D28 | Cloud | Cuenta Supabase separada (`danimendiar@gmail.com`), plan Free, UE; token solo por variable de entorno; guarda `cloud.mjs` con refs prohibidas | Separación absoluta respecto a Uría. |
 | D29 | Copias | Dump lógico cifrado (AES-256-GCM, scrypt), fuera del repo; simulacro en el stack local con huellas por tabla | Free no incluye copias. |
 | D30 | Cabeceras | CSP sin orígenes de terceros, HSTS en Vercel, `frame-ancestors 'none'`, nosniff, `Permissions-Policy` restrictiva | Preparación para el despliegue público HTTPS. |
+| D31 | Primer acceso y plantillas | El primer acceso de un email nuevo recibe la plantilla «Confirm signup», no la de enlace mágico: las dos usan el enlace con `token_hash` y el código `{{ .Token }}`. En local, `enable_confirmations = true` como en el cloud. `/auth/confirm` acepta también el `code` PKCE de las plantillas por defecto, y el proxy redirige al callback las credenciales que lleguen a `/` | El plan Free no permite cambiar plantillas con el correo integrado de Supabase, así que hace falta un SMTP propio. El primer intento real llegó con la plantilla por defecto, se redirigió a `localhost:3000` y no abrió sesión. |
 
 ## Decisiones abiertas (para ti)
 

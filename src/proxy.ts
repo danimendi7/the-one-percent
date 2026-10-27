@@ -12,6 +12,15 @@ const PUBLIC_PATHS = ["/login", "/auth/"]
 export async function proxy(request: NextRequest) {
   if (!isSupabaseConfigured) return NextResponse.next()
 
+  // Auth falls back to the bare Site URL when a redirect is not allowlisted: route
+  // email credentials that land on "/" to the confirm handler instead of dropping them.
+  const params = request.nextUrl.searchParams
+  if (request.nextUrl.pathname === "/" && (params.has("token_hash") || params.has("code"))) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/auth/confirm"
+    return NextResponse.redirect(url)
+  }
+
   let response = NextResponse.next({ request })
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_KEY, {
     cookieOptions: { name: AUTH_COOKIE_NAME, secure: request.nextUrl.protocol === "https:" },
