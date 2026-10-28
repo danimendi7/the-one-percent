@@ -121,6 +121,7 @@ describe("check-ins over the sync engine", () => {
     w.clock.now += 1000
     // The desk never saw the phone's reflection.
     desk.engine.submit(set(desk.engine, w, { note: "Escrito en el ordenador" }, "pm"))
+    await desk.engine.sync() // the offline attempt ends
     desk.transport.online = true
     await desk.engine.sync()
     const snap = desk.engine.getSnapshot()
@@ -195,5 +196,158 @@ describe("check-ins over the sync engine", () => {
     expect(q[0].op).toMatchObject({ fields: { note: "x", energy: 3 }, base_note_seq: 7 })
     // An op already in flight is never merged into.
     expect(enqueue(enqueue([], op1, 0, new Set()), op2, 1, new Set([op1.op_id]))).toHaveLength(2)
+  })
+})
+
+/**
+ * D47 · a reflection that lost a conflict waits for the user's decision durably (with the user's
+ * IndexedDB copy): closing, reloading or another tab never loses it, and nothing is overwritten silently.
+ */
+describe("pending reflections survive closing and reopening", () => {
+  type CheckinOp = Extract<Op, { type: "checkin.set" }>
+
+  /** The phone writes a reflection; the desk, offline and unaware, writes another one (plus extra fields). */
+  async function conflict(w: ReturnType<typeof world>, extra: CheckinOp["fields"] = {}, opts: { failPull?: boolean } = {}) {
+    const phone = await device(w)
+    const storage = memoryStorage()
+    const desk = await device(w, storage)
+    desk.transport.online = false
+    phone.engine.submit(set(phone.engine, w, { note: "Escrito en el móvil" }, "pm"))
+    await phone.engine.sync()
+    w.clock.now += 1000
+    desk.engine.submit(set(desk.engine, w, { note: "Escrito en el ordenador", ...extra }, "pm"))
+    await desk.engine.sync()
+    desk.transport.online = true
+    desk.transport.failNextPull = !!opts.failPull
+    await desk.engine.sync()
+    return { phone, desk, storage }
+  }
+
+  /** What «Aplicar la mía» does (account-backend reapplyNotice). */
+  function applyMine(e: SyncEngine, w: ReturnType<typeof world>, noticeId: string) {
+    const notice = e.getSnapshot().notices.find((n) => n.id === noticeId)!
+    const op = notice.op as CheckinOp
+    e.dismissNotice(noticeId)
+    e.submit({ ...op, op_id: id("re"), at: iso(w.clock.now), base_note_seq: e.checkinNoteSeq(op.local_date, op.phase) })
+  }
+
+  it("the pending reflection is saved at once with the user's copy, even if the connection drops right after", async () => {
+    const w = world()
+    const { desk, storage } = await conflict(w, {}, { failPull: true })
+    expect(desk.engine.getSnapshot().status).toBe("offline")
+    expect(storage.data!.pendingNotes).toHaveLength(1)
+    expect(storage.data!.pendingNotes![0]).toMatchObject({
+      code: "note_conflict",
+      op: { type: "checkin.set", local_date: TODAY, phase: "pm", fields: { note: "Escrito en el ordenador" } },
+    })
+  })
+
+  it("closing the app without deciding and reopening shows the same decision again; nothing was overwritten", async () => {
+    const w = world()
+    const { phone, desk, storage } = await conflict(w)
+    const before = desk.engine.getSnapshot().notices[0]
+    desk.engine.stop() // app closed, no decision
+    const reopened = await device(w, storage)
+    const snap = reopened.engine.getSnapshot()
+    expect(snap.notices).toEqual([before])
+    expect(checkinFor(snap.state, TODAY, "pm")!.note).toBe("Escrito en el móvil")
+    // Reopening again keeps it: only a decision removes it.
+    reopened.engine.stop()
+    expect((await device(w, storage)).engine.getSnapshot().notices).toHaveLength(1)
+    await phone.engine.sync()
+    expect(checkinFor(phone.engine.getSnapshot().state, TODAY, "pm")!.note).toBe("Escrito en el móvil")
+  })
+
+  it("after reopening, «Aplicar la mía» recovers the reflection on every device and the decision is not asked again", async () => {
+    const w = world()
+    const { phone, desk, storage } = await conflict(w)
+    desk.engine.stop()
+    const reopened = await device(w, storage)
+    w.clock.now += 1000
+    applyMine(reopened.engine, w, reopened.engine.getSnapshot().notices[0].id)
+    await reopened.engine.sync()
+    await phone.engine.sync()
+    for (const d of [phone, reopened]) expect(checkinFor(d.engine.getSnapshot().state, TODAY, "pm")!.note).toBe("Escrito en el ordenador")
+    expect(storage.data!.pendingNotes).toEqual([])
+    reopened.engine.stop()
+    expect((await device(w, storage)).engine.getSnapshot().notices).toEqual([])
+  })
+
+  it("«Mantener la otra» is a decision too: kept durably, the other reflection stays", async () => {
+    const w = world()
+    const { desk, storage } = await conflict(w)
+    desk.engine.dismissNotice(desk.engine.getSnapshot().notices[0].id)
+    await desk.engine.sync()
+    desk.engine.stop()
+    const reopened = await device(w, storage)
+    expect(reopened.engine.getSnapshot().notices).toEqual([])
+    expect(checkinFor(reopened.engine.getSnapshot().state, TODAY, "pm")!.note).toBe("Escrito en el móvil")
+  })
+
+  it("the other indicators of the refused write are not lost: they are re-sent alone and decided field by field", async () => {
+    const w = world()
+    const { phone, desk } = await conflict(w, { energy: 2, stress: 4 })
+    await desk.engine.sync()
+    await phone.engine.sync()
+    for (const d of [phone, desk]) {
+      expect(checkinFor(d.engine.getSnapshot().state, TODAY, "pm")).toMatchObject({ energy: 2, stress: 4, note: "Escrito en el móvil" })
+    }
+    // The pending decision holds the reflection only, so applying it never re-sends old values.
+    expect((desk.engine.getSnapshot().notices[0].op as CheckinOp).fields).toEqual({ note: "Escrito en el ordenador" })
+  })
+
+  it("closed before the answer was saved: the write is re-sent and the server's stored answer raises one notice only", async () => {
+    const w = world()
+    const phone = await device(w)
+    const storage = memoryStorage()
+    const desk = await device(w, storage)
+    desk.transport.online = false
+    phone.engine.submit(set(phone.engine, w, { note: "Escrito en el móvil" }, "pm"))
+    await phone.engine.sync()
+    desk.engine.submit(set(desk.engine, w, { note: "Escrito en el ordenador" }, "pm"))
+    await desk.engine.sync()
+    // The server answers «conflict» but the device never receives it (closed meanwhile).
+    desk.transport.online = true
+    desk.transport.dropNextResponse = true
+    await desk.engine.sync()
+    expect(desk.engine.getSnapshot().notices).toEqual([])
+    desk.engine.stop()
+    const reopened = await device(w, storage)
+    await reopened.engine.sync()
+    expect(reopened.engine.getSnapshot().notices).toHaveLength(1)
+    expect(reopened.engine.getSnapshot().pending).toBe(0)
+    expect(storage.data!.pendingNotes).toHaveLength(1)
+  })
+
+  it("two tabs of the same user: one tab's save never drops the other's pending reflection, and a decision reaches both", async () => {
+    const w = world()
+    const { desk, storage } = await conflict(w)
+    // A second tab of the same user (same stored copy), already running before the conflict was saved.
+    const tab = await device(w, memoryStorage())
+    const tab2 = new SyncEngine({ transport: tab.transport, storage, deviceId: id("tab"), now: () => w.clock.now, schedule: () => () => {} })
+    tab2.submit(set(tab2, w, { mood: 4 }, "am"))
+    await tab2.sync()
+    expect(storage.data!.pendingNotes).toHaveLength(1)
+    expect(tab2.getSnapshot().notices).toHaveLength(1) // adopted, so this tab shows it too
+    // Deciding in the first tab is not undone by the second tab's next save.
+    desk.engine.dismissNotice(desk.engine.getSnapshot().notices[0].id)
+    await desk.engine.sync()
+    tab2.submit(set(tab2, w, { mood: 5 }, "am"))
+    await tab2.sync()
+    expect(storage.data!.pendingNotes).toEqual([])
+    expect(tab2.getSnapshot().notices).toEqual([])
+  })
+
+  it("a copy saved before D47 (no pending field) and damaged entries are upgraded without losing anything", async () => {
+    const w = world()
+    const a = await device(w)
+    a.engine.submit(set(a.engine, w, { energy: 3 }))
+    await a.engine.sync()
+    const old = memoryStorage({ ...structuredClone(a.storage.data!), pendingNotes: undefined, resolvedNotes: undefined })
+    expect((await device(w, old)).engine.getSnapshot().notices).toEqual([])
+    const damaged = memoryStorage({ ...structuredClone(a.storage.data!), pendingNotes: [null, { id: 1 }, "x"] as never, resolvedNotes: [3] as never })
+    const b = await device(w, damaged)
+    expect(b.engine.getSnapshot().notices).toEqual([])
+    expect(checkinFor(b.engine.getSnapshot().state, TODAY, "am")!.energy).toBe(3)
   })
 })

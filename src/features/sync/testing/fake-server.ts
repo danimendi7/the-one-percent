@@ -484,6 +484,8 @@ export function fakeTransport(server: FakeServer) {
     online: true,
     /** Apply on the server but drop the response (lost ack). */
     dropNextResponse: false,
+    /** The next pull fails (e.g. the connection drops right after the push was answered). */
+    failNextPull: false,
     calls: 0,
     async applyOps(_device: string, ops: Op[]) {
       t.calls++
@@ -497,6 +499,10 @@ export function fakeTransport(server: FakeServer) {
     },
     async pull(since: number) {
       if (!t.online) throw new NetworkError("offline")
+      if (t.failNextPull) {
+        t.failNextPull = false
+        throw new NetworkError("pull failed")
+      }
       return structuredClone(server.pull(since))
     },
   }

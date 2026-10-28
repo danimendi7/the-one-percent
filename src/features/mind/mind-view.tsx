@@ -18,6 +18,7 @@ import { checkinSummary, dayLabel } from "./components/mind-ui"
 import { MindTrends, type TrendPeriod } from "./components/mind-trends"
 import { useMindModel, type MindModel } from "./use-mind"
 import { useNow } from "@/features/focus/use-focus"
+import { habitActions } from "@/features/habits/store/habit-store"
 
 /**
  * Mind & Energy (docs/m3.3-mind-energy-plan.md §2.2): today's two check-ins, the last 7 days,
@@ -76,6 +77,7 @@ function Content({ m }: { m: MindModel }) {
           <p>Tu cuenta aún no guarda check-ins: el servidor todavía no tiene Mente y energía. No se muestra ningún dato de ejemplo.</p>
         </div>
       )}
+      <PendingReflections m={m} />
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[360px_1fr]">
         <div className="space-y-6">
           <Today m={m} onOpen={setTarget} />
@@ -88,6 +90,52 @@ function Content({ m }: { m: MindModel }) {
       </div>
       <CheckinSheet m={m} target={target} onOpenChange={(o) => !o && setTarget(null)} />
     </div>
+  )
+}
+
+const quote = (s: string | null | undefined) => (s ? `«${s.length > 280 ? `${s.slice(0, 280)}…` : s}»` : "(vacía)")
+
+/**
+ * Reflections that lost a conflict with another device (D47). They are kept on this device until
+ * the user decides, so a closed toast or a reload never loses them; nothing is overwritten silently.
+ */
+function PendingReflections({ m }: { m: MindModel }) {
+  const pending = (m.snap.sync?.notices ?? []).filter((n) => n.code === "note_conflict" && n.op?.type === "checkin.set")
+  if (pending.length === 0) return null
+  return (
+    <section aria-labelledby="mind-pending-title" data-testid="mind-pending-reflections" className="space-y-3 rounded-2xl border border-warning/40 bg-warning/8 p-4 sm:p-5">
+      <h2 id="mind-pending-title" className="text-base font-semibold text-warning">
+        {pending.length === 1 ? "Una reflexión espera tu decisión" : `${pending.length} reflexiones esperan tu decisión`}
+      </h2>
+      <ul className="space-y-3">
+        {pending.map((n) => {
+          if (n.op?.type !== "checkin.set") return null
+          const { local_date, phase } = n.op
+          const current = checkinFor(m.state, local_date, phase)?.note
+          return (
+            <li key={n.id} className="space-y-2 rounded-xl border border-border bg-background/40 p-3 text-sm">
+              <p className="font-medium">
+                {PHASE_LABEL[phase]} del {dayLabel(local_date)}
+              </p>
+              <p className="leading-relaxed text-text-secondary">
+                <span className="text-text-tertiary">Tu versión, guardada en este dispositivo: </span>
+                <span className="whitespace-pre-line">{quote(n.op.fields.note)}</span>
+              </p>
+              <p className="leading-relaxed text-text-secondary">
+                <span className="text-text-tertiary">La que hay ahora: </span>
+                <span className="whitespace-pre-line">{quote(current)}</span>
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button onClick={() => habitActions.reapplyNotice?.(n.id)}>Aplicar la mía</Button>
+                <Button variant="outline" onClick={() => habitActions.dismissNotice?.(n.id)}>
+                  Mantener la otra
+                </Button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

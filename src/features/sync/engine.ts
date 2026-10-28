@@ -1,5 +1,6 @@
 import { localDateInZone, type LocalDate } from "@/features/habits/domain/dates"
 import type { HabitsState } from "@/features/habits/domain/types"
+import { uuidv4 } from "@/lib/ids"
 import { emptyCache, mergePull } from "./domain/merge"
 import { upgradePersisted } from "./domain/persisted"
 import { enqueue, rebase } from "./domain/rebase"
@@ -21,7 +22,18 @@ export interface SyncTransport {
 export interface PersistedSync {
   cache: ServerCache
   queue: QueuedOp[]
+  /**
+   * Reflections that lost a conflict and wait for the user's decision (M3.3). Stored with the
+   * user's copy (one IndexedDB record per user) so closing or reloading the app never loses them.
+   */
+  pendingNotes?: SyncNotice[]
+  /** Ids decided recently, so another tab's older copy cannot bring a decided reflection back. */
+  resolvedNotes?: string[]
 }
+
+/** A reflection conflict: kept durably until the user chooses «Aplicar el mío» or «Mantener la otra». */
+export const isNoteConflict = (n: SyncNotice) => n.kind === "conflict" && n.code === "note_conflict" && n.op?.type === "checkin.set"
+const RESOLVED_KEEP = 100
 
 export interface SyncStorage {
   load(): Promise<PersistedSync | null>
@@ -71,6 +83,7 @@ export class SyncEngine {
   private ready = false
   private persisted = true
   private notices: SyncNotice[] = []
+  private resolvedNotes: string[] = []
   private listeners = new Set<() => void>()
   private snapshot: EngineSnapshot | null = null
   private running: Promise<void> | null = null
@@ -105,6 +118,9 @@ export class SyncEngine {
     if (stored) {
       this.cache = stored.cache
       this.queue = stored.queue
+      this.resolvedNotes = stored.resolvedNotes ?? []
+      // Reflections still waiting for a decision come back on reopening.
+      this.notices = (stored.pendingNotes ?? []).filter((n) => !this.resolvedNotes.includes(n.id))
       this.ready = true
       this.invalidate()
     }
@@ -196,7 +212,13 @@ export class SyncEngine {
   }
 
   dismissNotice(id: string): void {
+    const notice = this.notices.find((n) => n.id === id)
     this.notices = this.notices.filter((n) => n.id !== id)
+    if (notice && isNoteConflict(notice)) {
+      // A decided reflection: forget it durably (and in other tabs' copies).
+      this.resolvedNotes = [...this.resolvedNotes.filter((r) => r !== id), id].slice(-RESOLVED_KEEP)
+      void this.persist()
+    }
     this.invalidate()
   }
 
@@ -265,6 +287,7 @@ export class SyncEngine {
   /** Send pending ops in order. Returns the ids the server has answered. */
   private async push(): Promise<Set<string>> {
     const acked = new Set<string>()
+    let raisedNote = false
     let offset = 0
     while (offset < this.queue.length) {
       const batch = this.queue.slice(offset, offset + this.batchSize)
@@ -283,14 +306,35 @@ export class SyncEngine {
         const status = r.status === "duplicate" ? r.outcome : r.status
         const q = batch.find((b) => b.op.op_id === r.op_id)
         if (!q) continue
-        if (status === "conflict" || status === "rejected") this.addNotice(status, q.op, r.code ?? null)
+        if (status === "conflict" && r.code === "note_conflict" && q.op.type === "checkin.set") {
+          this.noteConflict(q.op)
+          raisedNote = true
+        } else if (status === "conflict" || status === "rejected") this.addNotice(status, q.op, r.code ?? null)
       }
       offset += batch.length
     }
+    // Saved at once, not after the pull: the user's reflection must survive the app closing now.
+    if (raisedNote) await this.persist()
     return acked
   }
 
+  /**
+   * The server refused the whole check-in write because its reflection changed meanwhile elsewhere.
+   * The reflection waits for the user's decision (durably); the other indicators of the same write
+   * are re-sent on their own with their original time, so per-field last-writer-wins still decides.
+   */
+  private noteConflict(op: Extract<Op, { type: "checkin.set" }>) {
+    if (this.notices.some((n) => n.id === op.op_id) || this.resolvedNotes.includes(op.op_id)) return
+    const { note, ...rest } = op.fields
+    if (Object.keys(rest).length > 0) {
+      this.queue = enqueue(this.queue, { ...op, op_id: uuidv4(), fields: rest, base_note_seq: null }, this.now(), this.inFlight)
+    }
+    this.addNotice("conflict", { ...op, fields: { note } }, "note_conflict")
+  }
+
   private addNotice(kind: "conflict" | "rejected", op: Op, code: string | null) {
+    // A re-sent op (e.g. the app closed before its answer was saved) answers again: one notice only.
+    if (this.notices.some((n) => n.id === op.op_id)) return
     // Focus ops first: focus.edit also carries a habit_id, but its subject is the session.
     const subject =
       op.type === "checkin.set"
@@ -325,10 +369,30 @@ export class SyncEngine {
   private async persist(): Promise<void> {
     if (this.stopped) return
     try {
-      await this.deps.storage.save({ cache: this.cache, queue: this.queue })
+      await this.mergeStoredNotes()
+      const pendingNotes = this.notices.filter(isNoteConflict)
+      await this.deps.storage.save({ cache: this.cache, queue: this.queue, pendingNotes, resolvedNotes: this.resolvedNotes })
       this.persisted = true
     } catch {
       this.persisted = false
+    }
+  }
+
+  /**
+   * Another tab of the same user may have raised or decided reflection conflicts since this one
+   * loaded: adopt them before writing, so one tab's save never drops another's pending reflection.
+   */
+  private async mergeStoredNotes(): Promise<void> {
+    const stored = await this.deps.storage.load().catch(() => null)
+    if (!stored) return
+    const resolved = [...new Set([...this.resolvedNotes, ...(stored.resolvedNotes ?? [])])].slice(-RESOLVED_KEEP)
+    const known = new Set(this.notices.map((n) => n.id))
+    const adopted = (stored.pendingNotes ?? []).filter((n) => !known.has(n.id))
+    const notices = [...this.notices, ...adopted].filter((n) => !isNoteConflict(n) || !resolved.includes(n.id))
+    this.resolvedNotes = resolved
+    if (adopted.length > 0 || notices.length !== this.notices.length) {
+      this.notices = notices
+      this.invalidate()
     }
   }
 

@@ -92,6 +92,12 @@ function SyncNotices() {
       shown.current.add(n.id)
       showNotice(n)
     }
+    // Decided elsewhere (Mind & Energy's panel or another tab): its toast goes too.
+    for (const id of shown.current) {
+      if (notices?.some((n) => n.id === id)) continue
+      shown.current.delete(id)
+      toast.dismiss(id)
+    }
   }, [notices])
 
   return null
@@ -112,12 +118,13 @@ function showNotice(n: SyncNotice) {
   }
   if (n.kind === "conflict" && n.op?.type === "checkin.set") {
     // Reflections are never overwritten silently: the notice stays until the user decides and shows their text.
+    // Theirs is kept on this device (D47): closing the toast or the app does not decide, and it comes back on reopening.
     const mine = n.op.fields.note ?? ""
     toast(`La reflexión del ${subject} cambió en otro dispositivo`, {
       id: n.id,
-      description: `Se muestra la otra versión. La tuya no se ha guardado: «${mine.length > 140 ? `${mine.slice(0, 140)}…` : mine}».`,
+      description: `Se muestra la otra versión. La tuya se conserva en este dispositivo hasta que decidas: «${mine.length > 140 ? `${mine.slice(0, 140)}…` : mine}».`,
       duration: Infinity,
-      action: { label: "Aplicar el mío", onClick: () => habitActions.reapplyNotice?.(n.id) },
+      action: { label: "Aplicar la mía", onClick: () => habitActions.reapplyNotice?.(n.id) },
       cancel: { label: "Mantener la otra", onClick: () => habitActions.dismissNotice?.(n.id) },
     })
     return

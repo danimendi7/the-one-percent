@@ -2,7 +2,7 @@ import type { LocalDate } from "@/features/habits/domain/dates"
 import type { PersistedSync } from "../engine"
 import { emptyCache } from "./merge"
 import { normalizeConfig } from "@/features/mind/domain/ops"
-import type { QueuedOp } from "./types"
+import type { QueuedOp, SyncNotice } from "./types"
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v)
 
@@ -17,8 +17,14 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 export function upgradePersisted(raw: unknown, today: LocalDate): PersistedSync | null {
   if (!isObject(raw)) return null
   const queue = Array.isArray(raw.queue) ? (raw.queue.filter((q) => isObject(q) && isObject(q.op) && typeof q.op.op_id === "string") as QueuedOp[]) : []
+  // Reflections waiting for the user's decision (M3.3): kept whatever else the copy lacks.
+  const pendingNotes = Array.isArray(raw.pendingNotes)
+    ? (raw.pendingNotes.filter((n) => isObject(n) && typeof n.id === "string" && isObject(n.op) && n.op.type === "checkin.set") as SyncNotice[])
+    : []
+  const resolvedNotes = Array.isArray(raw.resolvedNotes) ? raw.resolvedNotes.filter((r): r is string => typeof r === "string") : []
+  const notes = { pendingNotes, resolvedNotes }
   if (!isObject(raw.cache) || !isObject(raw.cache.state)) {
-    return queue.length ? { cache: emptyCache(today), queue } : null
+    return queue.length || pendingNotes.length ? { cache: emptyCache(today), queue, ...notes } : null
   }
   const base = emptyCache(today, typeof raw.cache.state.timezone === "string" ? raw.cache.state.timezone : undefined)
   const s = raw.cache.state
@@ -46,5 +52,6 @@ export function upgradePersisted(raw: unknown, today: LocalDate): PersistedSync 
       serverToday: typeof c.serverToday === "string" ? c.serverToday : today,
     },
     queue,
+    ...notes,
   }
 }

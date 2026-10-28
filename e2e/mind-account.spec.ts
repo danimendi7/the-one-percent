@@ -94,7 +94,7 @@ test.describe("mind & energy · account mode", () => {
     await b.ctx.close()
   })
 
-  test("a reflection written meanwhile on another device is never lost: notice with «Aplicar el mío»", async ({ browser, page }, info) => {
+  test("a reflection written meanwhile on another device is never lost, not even closing the app: decision kept until «Aplicar la mía» (D47)", async ({ browser, page }, info) => {
     test.skip(isMobile(info.project.name), "covered once")
     test.slow()
     await signIn(page, account)
@@ -124,12 +124,31 @@ test.describe("mind & energy · account mode", () => {
     await b.ctx.setOffline(false)
     const notice = b.page.getByText(/La reflexión del «Check-in de mañana del .*» cambió en otro dispositivo/)
     await expect(notice).toBeVisible({ timeout: 20_000 })
-    await expect(b.page.getByText(/La tuya no se ha guardado: «Escrito en el portátil»/)).toBeVisible()
+    await expect(b.page.getByText(/La tuya se conserva en este dispositivo hasta que decidas: «Escrito en el portátil»/)).toBeVisible()
     // Not silently dropped: the notice stays until the user decides.
     await b.page.waitForTimeout(13_000)
     await expect(notice).toBeVisible()
-    await b.page.getByRole("button", { name: "Aplicar el mío" }).click()
+
+    // The app is closed without deciding, and reopened: the decision is still there, nothing was overwritten.
+    await b.page.close()
+    const reopened = await b.ctx.newPage()
+    await reopened.goto("/mind")
+    const panel = reopened.getByTestId("mind-pending-reflections")
+    await expect(panel).toBeVisible({ timeout: 15_000 })
+    await expect(panel).toContainText("Tu versión, guardada en este dispositivo: «Escrito en el portátil»")
+    await expect(panel).toContainText("La que hay ahora: «Escrito en el móvil»")
+    await expect(reopened.getByText(/La reflexión del «Check-in de mañana del .*» cambió en otro dispositivo/)).toBeVisible()
+    expect(await countRows("select count(*)::int n from public.daily_checkins where user_id = $1 and note = 'Escrito en el móvil'", [account.id])).toBe(1)
+
+    await panel.getByRole("button", { name: "Aplicar la mía" }).click()
     await expect.poll(() => countRows("select count(*)::int n from public.daily_checkins where user_id = $1 and note = 'Escrito en el portátil'", [account.id]), { timeout: 15_000 }).toBe(1)
+    await expect(panel).toHaveCount(0)
+    // The toast goes with the decision.
+    await expect(reopened.getByText(/cambió en otro dispositivo/)).toHaveCount(0)
+    // Decided once: reopening again does not ask again.
+    await reopened.reload()
+    await synced(reopened)
+    await expect(reopened.getByTestId("mind-pending-reflections")).toHaveCount(0)
     await b.ctx.close()
   })
 

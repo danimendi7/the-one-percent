@@ -132,7 +132,12 @@ function AccountSection() {
       </Group>
 
       <SyncDiagnostics />
-      <SignOutDialog open={confirmOut} onOpenChange={setConfirmOut} pending={sync.pending} />
+      <SignOutDialog
+        open={confirmOut}
+        onOpenChange={setConfirmOut}
+        pending={sync.pending}
+        undecided={sync.notices.filter((n) => n.code === "note_conflict").length}
+      />
     </>
   )
 }
@@ -141,10 +146,21 @@ function AccountSection() {
  * Sign out, optionally deleting this device's copy (IndexedDB cache and queue).
  * Cloud data is never touched. Unsent changes are surfaced before they could be lost.
  */
-function SignOutDialog({ open, onOpenChange, pending }: { open: boolean; onOpenChange: (v: boolean) => void; pending: number }) {
+function SignOutDialog({
+  open,
+  onOpenChange,
+  pending,
+  undecided,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  pending: number
+  /** Reflections waiting for a decision after a conflict (D47): they live only on this device. */
+  undecided: number
+}) {
   const [wipe, setWipe] = useState(false)
   const [busy, setBusy] = useState(false)
-  const loses = wipe && pending > 0
+  const loses = wipe && (pending > 0 || undecided > 0)
 
   async function confirm() {
     setBusy(true)
@@ -174,8 +190,16 @@ function SignOutDialog({ open, onOpenChange, pending }: { open: boolean; onOpenC
         </div>
         {loses && (
           <p role="alert" className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
-            Se perderán {pending} {pending === 1 ? "cambio que no ha llegado" : "cambios que no han llegado"} a la nube. Sincroniza primero
-            si quieres conservarlos.
+            {pending > 0 && (
+              <>
+                Se perderán {pending} {pending === 1 ? "cambio que no ha llegado" : "cambios que no han llegado"} a la nube. Sincroniza primero
+                si quieres conservarlos.{" "}
+              </>
+            )}
+            {undecided > 0 &&
+              (undecided === 1
+                ? "Hay una reflexión tuya pendiente de decidir que solo está en este dispositivo: decide en Mente y energía si quieres conservarla."
+                : `Hay ${undecided} reflexiones tuyas pendientes de decidir que solo están en este dispositivo: decide en Mente y energía si quieres conservarlas.`)}
           </p>
         )}
         <DialogFooter>

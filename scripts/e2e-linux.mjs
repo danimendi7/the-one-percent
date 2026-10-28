@@ -104,8 +104,8 @@ const head = execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "
 const dirty = execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim()
 docker(["version", "--format", "{{.Server.Version}}"])
 // Leftovers of an earlier run that was killed before its cleanup: only this script's label.
-for (const c of docker(["ps", "-aq", "--filter", `label=${LABEL}`]).stdout.split(/s+/).filter(Boolean)) docker(["rm", "-f", c], { allowFail: true })
-for (const n of docker(["network", "ls", "-q", "--filter", `label=${LABEL}`]).stdout.split(/s+/).filter(Boolean)) docker(["network", "rm", n], { allowFail: true })
+for (const c of docker(["ps", "-aq", "--filter", `label=${LABEL}`]).stdout.split(/\s+/).filter(Boolean)) docker(["rm", "-f", c], { allowFail: true })
+for (const n of docker(["network", "ls", "-q", "--filter", `label=${LABEL}`]).stdout.split(/\s+/).filter(Boolean)) docker(["network", "rm", n], { allowFail: true })
 for (const d of readdirSync(tmpdir()).filter((d) => d.startsWith("top-e2e-linux-"))) {
   const full = join(tmpdir(), d)
   if (Date.now() - statSync(full).mtimeMs > 3600_000) rmSync(full, { recursive: true, force: true })

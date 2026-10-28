@@ -68,6 +68,7 @@
 | D44 | Métricas | Catálogo v4: cobertura, medias con n, cambio frente al periodo anterior (≥ 7 días en ambos), comparaciones con ≥ 5 días por grupo y la etiqueta «Descriptivo, no causal». Sin rachas ni puntuación de bienestar | Decisión 5 y PRD §3.6 |
 | D45 | Sesión pausada | Se pregunta «Continuar / Terminar con X min / Descartar» si la pausa supera 30 min o cruza la medianoche (zona del perfil). Se pregunta una vez por pausa en cada pestaña y nunca se cierra sola | Decisión 6 |
 | D46 | Validación Linux | `npm run e2e:linux`: contenedor desechable con la imagen oficial de Playwright de la versión exacta. Solo reenvía los puertos 55321, 55322 y 55324, copia solo los valores públicos, revisa los registros por si contienen secretos y borra siempre el contenedor y la red | Decisión 7; los procesos Node de este Windows caen con `0xC0000409` bajo carga |
+| D47 | Reflexiones en conflicto | La reflexión que pierde un conflicto se guarda en la copia del usuario en IndexedDB (`pendingNotes`, registro `v1:<usuario>`, con día y fase) en el mismo momento en que llega la respuesta, antes del pull. Vuelve al reabrir (aviso y panel en Mente y energía) hasta que el usuario elige «Aplicar la mía» o «Mantener la otra»; las decididas quedan en `resolvedNotes` para que otra pestaña no las reviva. Los demás indicadores de esa escritura se reenvían solos con su hora original. Cerrar sesión borrando el dispositivo avisa antes de perderlas | Riesgo 1 del informe M3.3; solo cliente, sin cambios en la migración |
 
 ## Decisiones abiertas (para ti)
 

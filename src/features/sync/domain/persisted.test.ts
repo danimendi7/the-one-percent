@@ -59,6 +59,8 @@ describe("upgradePersisted (copies saved by older versions)", () => {
         state: { ...m30Copy().cache.state, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG },
         features: { goals: true, focus: true, checkins: true },
       },
+      pendingNotes: [],
+      resolvedNotes: [],
     }
     expect(upgradePersisted(structuredClone(current), TODAY)).toEqual(current)
   })
@@ -129,5 +131,27 @@ describe("engine started from an M3.0 copy", () => {
     expect(engine.getSnapshot()).toMatchObject({ status: "synced", pending: 0, goals: true })
     expect(storage.data!.cache.state.goals).toEqual([])
     expect(storage.data!.queue).toEqual([])
+  })
+})
+
+describe("upgradePersisted keeps reflections waiting for a decision (D47)", () => {
+  const pending = {
+    id: "op-1",
+    kind: "conflict",
+    opType: "checkin.set",
+    code: "note_conflict",
+    op: { type: "checkin.set", op_id: "op-1", local_date: "2026-10-20", phase: "pm", fields: { note: "Mía" }, at: "2026-10-20T20:00:00.000Z", base_note_seq: 3 },
+  }
+
+  it("carries them over as they are, dropping only malformed entries", () => {
+    const up = upgradePersisted({ ...m30Copy(), pendingNotes: [pending, null, { id: "x" }], resolvedNotes: ["op-0", 7] }, TODAY)!
+    expect(up.pendingNotes).toEqual([pending])
+    expect(up.resolvedNotes).toEqual(["op-0"])
+  })
+
+  it("never discards a copy whose only content is a pending reflection", () => {
+    const up = upgradePersisted({ pendingNotes: [pending] }, TODAY)
+    expect(up?.pendingNotes).toEqual([pending])
+    expect(up?.queue).toEqual([])
   })
 })
