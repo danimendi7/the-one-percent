@@ -120,6 +120,8 @@ test.describe("demo · update over copies saved by older versions", () => {
   test("an old demo copy without goals opens and gets the demo goals, keeping its own records", async ({ page, consoleErrors }) => {
     await page.goto("/habits")
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    // The demo store writes its copy right after hydration: wait for it before rewriting it.
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("the-one-percent:demo:habits:v1") !== null)).toBe(true)
     const kept = await page.evaluate(() => {
       const key = "the-one-percent:demo:habits:v1"
       const state = JSON.parse(localStorage.getItem(key)!)
@@ -140,6 +142,8 @@ test.describe("demo · update over copies saved by older versions", () => {
   test("an old demo copy without focus sessions (M3.1) gets the demo sessions and keeps its own records and goals", async ({ page, consoleErrors }) => {
     await page.goto("/habits")
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    // The demo store writes its copy right after hydration: wait for it before rewriting it.
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("the-one-percent:demo:habits:v1") !== null)).toBe(true)
     const kept = await page.evaluate(() => {
       const key = "the-one-percent:demo:habits:v1"
       const state = JSON.parse(localStorage.getItem(key)!)

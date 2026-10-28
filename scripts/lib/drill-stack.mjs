@@ -5,7 +5,7 @@
  */
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { supabaseCli } from "./supabase-cli.mjs"
 
 export const DRILL_PROJECT = "the-one-percent-drill"
@@ -23,9 +23,21 @@ export function drillConfig(toml) {
   return out
 }
 
-export function startDrillStack() {
+/**
+ * Pure: whether a migration file belongs to a schema version. A pre-migration drill must restore
+ * onto the schema the backup was taken from: a later migration (e.g. one adding columns) changes
+ * the per-row fingerprints even when the data is identical. Exported for tests.
+ */
+export function migrationUpTo(file, schemaAt) {
+  if (!schemaAt) return true
+  const m = /^(\d{14})_/.exec(basename(file))
+  return !m || m[1] <= schemaAt
+}
+
+/** @param {string | null} schemaAt  latest migration version to apply (default: all). */
+export function startDrillStack(schemaAt = null) {
   const dir = mkdtempSync(join(tmpdir(), "top-drill-"))
-  cpSync("supabase/migrations", join(dir, "supabase", "migrations"), { recursive: true })
+  cpSync("supabase/migrations", join(dir, "supabase", "migrations"), { recursive: true, filter: (src) => migrationUpTo(src, schemaAt) })
   cpSync("supabase/templates", join(dir, "supabase", "templates"), { recursive: true })
   writeFileSync(join(dir, "supabase", "config.toml"), drillConfig(readFileSync("supabase/config.toml", "utf8")))
   const r = supabaseCli(["start", "--workdir", dir, "-x", EXCLUDE], { stdio: ["ignore", "ignore", "inherit"] })

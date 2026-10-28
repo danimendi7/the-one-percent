@@ -4,6 +4,9 @@
  *
  *   npm run restore:drill -- <file.topbak>                 isolated (default): throwaway stack, dev data untouched
  *   npm run restore:drill -- <file.topbak> --into-local-dev   replaces the dev stack's data (safety backup first)
+ *   npm run restore:drill -- <file.topbak> --schema-at 20261028090000
+ *        isolated, on the schema up to that migration (the one the backed-up database has):
+ *        needed before migrating, when the repo already holds the next migration
  *
  * Isolated mode starts a separate Supabase stack (the-one-percent-drill, ports 556xx, own volumes)
  * from this repo's migrations, loads the backup there, compares row counts and checksums per table
@@ -23,6 +26,9 @@ function fail(msg) {
 
 const file = process.argv[2]
 const intoDev = process.argv.includes("--into-local-dev")
+const schemaAtArg = process.argv.indexOf("--schema-at")
+const schemaAt = schemaAtArg > 0 ? process.argv[schemaAtArg + 1] : null
+if (schemaAtArg > 0 && !/^\d{14}$/.test(schemaAt ?? "")) fail("--schema-at necesita una versión de migración (14 dígitos).")
 if (!file || file.startsWith("--")) fail("Uso: npm run restore:drill -- <fichero .topbak> [--into-local-dev]")
 if (!process.env.BACKUP_PASSPHRASE) fail("Define BACKUP_PASSPHRASE en esta terminal.")
 
@@ -52,8 +58,8 @@ if (intoDev) {
   report = load(CONTAINER)
   console.log(`  Para volver al estado local anterior: npm run restore:drill -- "${safety.file}" --into-local-dev`)
 } else {
-  console.log("Arrancando un stack aislado y desechable (the-one-percent-drill, puertos 556xx)…")
-  const dir = startDrillStack()
+  console.log(`Arrancando un stack aislado y desechable (the-one-percent-drill, puertos 556xx)${schemaAt ? `, esquema hasta ${schemaAt}` : ""}…`)
+  const dir = startDrillStack(schemaAt)
   try {
     report = load(DRILL_CONTAINER)
   } finally {
