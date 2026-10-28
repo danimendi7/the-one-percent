@@ -35,7 +35,8 @@ function CloseForm({ fm, session, onDone }: { fm: FocusModel; session: FocusSess
   const [frozenAt] = useState(() => fm.api.clockNow())
   const realSeconds = Math.floor(activeMs(session.segments, frozenAt) / 1000)
   const realMinutes = Math.floor(realSeconds / 60)
-  const [minutes, setMinutes] = useState(String(Math.max(1, Math.round(realSeconds / 60))))
+  // Capped at the 12 h limit, so a forgotten timer can be saved by cutting it.
+  const [minutes, setMinutes] = useState(String(Math.min(720, Math.max(1, Math.round(realSeconds / 60)))))
   const [actual, setActual] = useState("")
   const [rating, setRating] = useState<number | null>(null)
   const [confirmDiscard, setConfirmDiscard] = useState(false)

@@ -14,6 +14,7 @@ import {
 } from "./time"
 import {
   ACTUAL_OUTPUT_MAX,
+  MAX_ACTIVE_SECONDS,
   MAX_PLANNED_MINUTES,
   MIN_ACTIVE_SECONDS,
   PLANNED_OUTPUT_MAX,
@@ -174,6 +175,8 @@ export function finishSession(state: HabitsState, id: string, input: FinishInput
   let segments = pauseSegments(s.segments, Date.parse(input.at))
   if (input.trimTo) segments = trimSegments(segments, Date.parse(input.trimTo))
   if (activeSeconds(segments) < MIN_ACTIVE_SECONDS) return no(state, "too_short")
+  // Same cap as the server: a forgotten timer must be cut («Terminar a las HH:MM» or fewer minutes).
+  if (activeSeconds(segments) > MAX_ACTIVE_SECONDS) return no(state, "segments_too_long")
   const next: FocusSession = {
     ...s,
     state: "finished",

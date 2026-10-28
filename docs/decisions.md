@@ -44,6 +44,18 @@
 | D30 | Cabeceras | CSP sin orígenes de terceros, HSTS en Vercel, `frame-ancestors 'none'`, nosniff, `Permissions-Policy` restrictiva | Preparación para el despliegue público HTTPS. |
 | D31 | Primer acceso y plantillas | El primer acceso de un email nuevo recibe la plantilla «Confirm signup», no la de enlace mágico: las dos usan el enlace con `token_hash` y el código `{{ .Token }}`. En local, `enable_confirmations = true` como en el cloud. `/auth/confirm` acepta también el `code` PKCE de las plantillas por defecto, y el proxy redirige al callback las credenciales que lleguen a `/` | El plan Free no permite cambiar plantillas con el correo integrado de Supabase, así que hace falta un SMTP propio. El primer intento real llegó con la plantilla por defecto, se redirigió a `localhost:3000` y no abrió sesión. |
 
+## M3.2 · Deep Work
+
+| # | Tema | Decisión | Motivo |
+| --- | --- | --- | --- |
+| D32 | Tiempo de una sesión | Tramos `[{start, end}]` con instantes del reloj híbrido; los minutos se calculan siempre a partir de ellos, en el cliente y en el servidor | No depender de contadores ni de que la app esté abierta; mismas cifras en todos los dispositivos. |
+| D33 | Hábito alimentado por Enfoque | `habits.activity_source = 'focus'` desde `activity_source_from`; el día se materializa en `habit_entries` en la misma transacción. El registro manual se rechaza (`derived_entry`), también al escribir directamente en la tabla | Decisión 1 aprobada: Análisis, Objetivos y M5 leen `habit_entries` sin conocer Enfoque y nada se registra dos veces. |
+| D34 | Día de una sesión | El día local, en la zona del perfil, en que empezó | Decisión 2 aprobada. |
+| D35 | Sesión activa única | Índice único parcial por usuario. El segundo `focus.start` es un `conflict` con `session_active` y ese dispositivo se une a la sesión existente. Terminar o pausar una sesión ya cerrada da `superseded`, sin aviso | Decisión 5 aprobada. |
+| D36 | Recuperación | «¿Sigue en curso?» si la sesión supera lo previsto en más de 30 min. Opciones: continuar, terminar a la hora prevista o descartar. Nunca se cierra sola | Decisión 5 aprobada. |
+| D37 | Salvaguarda de despliegue | Con `features.focus = false`, el temporizador funciona solo en memoria y avisa de que no guarda | Permite desplegar el código y la migración en cualquier orden. |
+| D38 | Copias persistidas antiguas | `upgradePersisted` añade `focusSessions: []` a las copias de M3.1. `e2e/upgrade.spec.ts` cubre las formas de M3.0 y de M3.1, cada una con una operación pendiente | Lección del incidente del 27/10. |
+
 ## Decisiones abiertas (para ti)
 
 1. ~~Inicio de sesión~~: resuelto en M2, enlace mágico más código.

@@ -93,6 +93,12 @@ describe("finish and discard (decision 3)", () => {
     expect(activeSeconds(done.focusSessions[0].segments)).toBe(50 * 60)
   })
 
+  it("over 12 effective hours must be cut before saving (same cap as the server)", () => {
+    const s = must(startSession(base(), { id: "a", habitId: null, project: null, plannedOutput: null, plannedMinutes: 50, at: at("09:00", "2026-10-20") }))
+    expect(finishSession(s, "a", { at: at("22:00") })).toMatchObject({ ok: false, reason: "segments_too_long" })
+    expect(finishSession(s, "a", { at: at("22:00"), trimTo: at("09:50", "2026-10-20") }).ok).toBe(true)
+  })
+
   it("rejects ratings outside 1–5", () => {
     const s = must(startSession(base(), { id: "a", habitId: null, project: null, plannedOutput: null, plannedMinutes: 25, at: at("09:00") }))
     expect(finishSession(s, "a", { at: at("09:30"), rating: 6 })).toMatchObject({ reason: "invalid_rating" })

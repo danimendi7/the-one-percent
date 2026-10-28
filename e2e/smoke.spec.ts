@@ -129,4 +129,34 @@ test.describe("deployment smoke", () => {
     await expect(page).toHaveURL(/\/analytics$/)
     expect(errors.filter((e) => /Content Security Policy|Refused to|Hydration/i.test(e))).toEqual([])
   })
+
+  test("Focus (demo): timer from timestamps, pause, finish, derived habit and Analytics", async ({ page }) => {
+    const errors: string[] = []
+    page.on("console", (m) => {
+      if (m.type() === "error") errors.push(m.text())
+    })
+    // The demo lives in this browser only: the clock is moved locally, nothing reaches a server.
+    const t0 = new Date("2026-10-21T18:30:00+02:00")
+    await page.clock.setFixedTime(t0)
+    await page.goto("/login")
+    await page.getByRole("button", { name: "Explorar la demo sin cuenta" }).click()
+    await page.goto("/focus")
+    await page.getByRole("button", { name: /^Empezar/ }).click()
+    await expect(page.getByTestId("focus-clock")).toHaveText("50:00")
+    await page.clock.setFixedTime(new Date(t0.getTime() + 20 * 60_000))
+    await expect(page.getByTestId("focus-clock")).toHaveText("30:00")
+    await page.getByRole("button", { name: "Pausar" }).click()
+    await page.reload()
+    await expect(page.getByRole("button", { name: "Reanudar" })).toBeVisible()
+    await page.getByRole("button", { name: "Terminar" }).click()
+    await expect(page.getByRole("dialog").getByLabel("Minutos efectivos")).toHaveValue("20")
+    await page.getByRole("dialog").getByRole("button", { name: "Guardar" }).click()
+    await expect(page.getByTestId("focus-today-minutes")).toHaveText("20 min")
+
+    await page.goto("/habits")
+    await expect(page.getByText("Se alimenta de Enfoque · 20 de 90 min")).toBeVisible()
+    await page.goto("/analytics?proyecto=Escritura")
+    await expect(page.getByRole("region", { name: /^Enfoque/ }).getByText("Pocos datos", { exact: true })).toBeVisible()
+    expect(errors.filter((e) => /Content Security Policy|Refused to|Hydration/i.test(e))).toEqual([])
+  })
 })
