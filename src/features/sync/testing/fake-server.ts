@@ -9,10 +9,14 @@ import { entryKey, type HabitsState } from "@/features/habits/domain/types"
 import type { LocalDate } from "@/features/habits/domain/dates"
 import { NetworkError, type SyncTransport } from "../engine"
 import { applyOp } from "../domain/rebase"
-import type { Op, OpResult, PullPayload, WireEntry, WireHabit, WireMeasurement } from "../domain/types"
+import type { Op, OpResult, PullPayload, WireEntry, WireFocusSession, WireHabit, WireMeasurement } from "../domain/types"
 import { goalToWireRow } from "../domain/goal-wire"
 import { setMeasurement } from "@/features/goals/domain/ops"
 import { measurementKey, type Goal } from "@/features/goals/domain/types"
+import { isFocusFed } from "@/features/habits/domain/ops"
+import { activeSession, discardSession, editSession, finishSession, pauseSession, resumeSession, setHabitSource, startSession, type FocusResult } from "@/features/focus/domain/ops"
+import { activeSeconds } from "@/features/focus/domain/time"
+import type { FocusSession } from "@/features/focus/domain/types"
 
 interface Row<T> {
   data: T
@@ -29,6 +33,9 @@ export class FakeServer {
   private timezone = "Europe/Madrid"
   private goals = new Map<string, Row<Goal>>()
   private measures = new Map<string, Row<WireMeasurement>>()
+  private sessions = new Map<string, Row<{ session: FocusSession; deleted: boolean }>>()
+  /** false: behave like a server without the focus migration (no focus_sessions in pulls). */
+  focusSupported = true
   /** Count of times each op_id was actually applied (never > 1). */
   applied = new Map<string, number>()
 
@@ -97,6 +104,8 @@ export class FakeServer {
         startDate: w.start_date,
         archivedOn: w.archived_on,
         createdAt: w.created_at,
+        activitySource: w.activity_source ?? null,
+        activitySourceFrom: w.activity_source_from ?? null,
       })),
       entries,
       restDays: [...this.rest.values()].filter((r) => r.data.rest).map((r) => r.data.local_date),
@@ -110,7 +119,7 @@ export class FakeServer {
             { goalId: m.goal_id, date: m.observed_on, value: Number(m.value), note: m.note, opId: m.client_op_id, updatedAt: m.client_updated_at },
           ])
       ),
-      focusSessions: [],
+      focusSessions: [...this.sessions.values()].filter((r) => !r.data.deleted).map((r) => r.data.session),
     }
   }
 
@@ -124,6 +133,7 @@ export class FakeServer {
         if (!decision.win) return { op_id: op.op_id, status: "superseded" }
         const habit = this.habits.get(op.habit_id)
         if (!habit) return reject("habit_not_found")
+        if (isFocusFed(this.state().habits.find((h) => h.id === op.habit_id)!, op.local_date)) return reject("derived_entry")
         if (op.local_date > this.today) return reject("future_date")
         const clearing = op.value === null || op.value === false
         if (!clearing) {
@@ -244,6 +254,94 @@ export class FakeServer {
         }
         return { op_id: op.op_id, status: "applied" }
       }
+      case "habit.set_source": {
+        const row = this.habits.get(op.habit_id)
+        if (!row) return reject("habit_not_found")
+        if (op.source && row.data.habit_type !== "duration") return reject("not_duration_habit")
+        const after = setHabitSource(this.state(), op.habit_id, op.source, op.from < row.data.start_date ? row.data.start_date : op.from)
+        const h = after.habits.find((x) => x.id === op.habit_id)!
+        if ((row.data.activity_source ?? null) !== (h.activitySource ?? null))
+          this.habits.set(op.habit_id, {
+            seq: this.next(),
+            data: { ...row.data, activity_source: h.activitySource ?? null, activity_source_from: h.activitySourceFrom ?? null, version: row.data.version + 1 },
+          })
+        return { op_id: op.op_id, status: "applied" }
+      }
+      case "focus.start":
+      case "focus.pause":
+      case "focus.resume":
+      case "focus.finish":
+      case "focus.edit":
+      case "focus.discard":
+        return this.applyFocus(op)
+    }
+  }
+
+  /** Mirrors private.apply_focus_op: server clamps, conflicts and the derived habit day. */
+  private applyFocus(op: Extract<Op, { type: `focus.${string}` }>): OpResult {
+    const done = (status: OpResult["status"], code?: string): OpResult => ({ op_id: op.op_id, status, ...(code ? { code } : {}) })
+    const clamp = (t: string) => new Date(Math.min(Date.parse(t), this.serverNow() + 60_000)).toISOString()
+    const nowIso = new Date(this.serverNow()).toISOString()
+    const before = this.state()
+    let r: FocusResult
+    if (op.type === "focus.start") {
+      if (this.sessions.has(op.session.id)) return done("applied")
+      if (activeSession(before)) return done("conflict", "session_active")
+      const s = op.session
+      r = startSession(before, { id: s.id, habitId: s.habit_id, project: s.project, plannedOutput: s.planned_output, plannedMinutes: s.planned_minutes, at: clamp(s.started_at) })
+    } else {
+      const row = this.sessions.get(op.session_id)
+      if (!row) return done("rejected", "session_not_found")
+      if (op.type === "focus.discard") {
+        if (row.data.deleted) return done("applied")
+        r = { ok: true, state: discardSession(before, op.session_id, nowIso) }
+      } else if (op.type === "focus.edit") {
+        if (row.data.deleted) return done("rejected", "session_not_found")
+        if (row.data.session.state !== "finished") return done("rejected", "not_finished")
+        if ((row.data.session.version ?? 1) !== op.base_version) return done("conflict")
+        const input = { segments: op.segments, habitId: op.habit_id, project: op.project, plannedOutput: op.planned_output, actualOutput: op.actual_output, rating: op.rating }
+        r = editSession(before, op.session_id, input, nowIso)
+      } else {
+        if (row.data.deleted || row.data.session.state === "finished") return done("superseded", "not_active")
+        r =
+          op.type === "focus.pause"
+            ? pauseSession(before, op.session_id, clamp(op.at))
+            : op.type === "focus.resume"
+              ? resumeSession(before, op.session_id, clamp(op.at))
+              : finishSession(before, op.session_id, { at: clamp(op.at), trimTo: op.trim_to, actualOutput: op.actual_output, rating: op.rating })
+      }
+    }
+    if (!r.ok) return done("rejected", r.reason)
+    this.commitFocus(before, r.state)
+    return done("applied")
+  }
+
+  /** Write back changed sessions (with tombstones) and the derived entries they produced. */
+  private commitFocus(before: HabitsState, after: HabitsState) {
+    const afterIds = new Set(after.focusSessions.map((f) => f.id))
+    for (const prev of before.focusSessions) {
+      if (!afterIds.has(prev.id)) this.sessions.set(prev.id, { seq: this.next(), data: { session: { ...prev, version: (prev.version ?? 1) + 1 }, deleted: true } })
+    }
+    const prevById = new Map(before.focusSessions.map((f) => [f.id, f]))
+    for (const f of after.focusSessions) if (prevById.get(f.id) !== f) this.sessions.set(f.id, { seq: this.next(), data: { session: f, deleted: false } })
+    for (const k of new Set([...Object.keys(before.entries), ...Object.keys(after.entries)])) {
+      const a = after.entries[k]
+      const b = before.entries[k]
+      if (a?.value === b?.value) continue
+      const e = (a ?? b)!
+      this.entries.set(k, {
+        seq: this.next(),
+        data: {
+          habit_id: e.habitId,
+          local_date: e.date,
+          value_bool: null,
+          value_numeric: a ? Number(a.value) : null,
+          deleted: !a,
+          client_op_id: `focus:${this.seq}`,
+          client_updated_at: new Date(this.serverNow()).toISOString(),
+          server_seq: 0,
+        },
+      })
     }
   }
 
@@ -279,6 +377,33 @@ export class FakeServer {
       measurements: pick(this.measures)
         .filter((r) => !full || !r.data.deleted)
         .map((r) => ({ ...r.data, server_seq: r.seq })),
+      ...(this.focusSupported
+        ? {
+            focus_sessions: pick(this.sessions)
+              .filter((r) => !full || !r.data.deleted)
+              .map((r): WireFocusSession => {
+                const f = r.data.session
+                return {
+                  id: f.id,
+                  habit_id: f.habitId,
+                  project: f.project,
+                  planned_output: f.plannedOutput,
+                  actual_output: f.actualOutput,
+                  planned_minutes: f.plannedMinutes,
+                  segments: f.segments,
+                  state: f.state,
+                  active_seconds: activeSeconds(f.segments),
+                  local_date: f.localDate,
+                  rating: f.rating,
+                  version: f.version ?? 1,
+                  created_at: f.createdAt,
+                  updated_at: f.updatedAt,
+                  deleted: r.data.deleted,
+                  server_seq: r.seq,
+                }
+              }),
+          }
+        : {}),
       cursor: Math.max(since, this.seq),
     }
   }

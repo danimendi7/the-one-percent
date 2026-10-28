@@ -18,6 +18,7 @@ import {
   setMeasurement,
   updateGoal,
 } from "@/features/goals/domain/ops"
+import { discardSession, editSession, finishSession, pauseSession, resumeSession, setHabitSource, startSession } from "@/features/focus/domain/ops"
 import { wireToInput } from "./goal-wire"
 import type { Op, QueuedOp } from "./types"
 
@@ -107,6 +108,33 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
         now: op.client_updated_at,
         today,
       }).state
+    // ── Focus (M3.2): an op the reducers refuse (e.g. a second active session) changes nothing ──
+    case "focus.start":
+      return startSession(state, {
+        id: op.session.id,
+        habitId: op.session.habit_id,
+        project: op.session.project,
+        plannedOutput: op.session.planned_output,
+        plannedMinutes: op.session.planned_minutes,
+        at: op.session.started_at,
+      }).state
+    case "focus.pause":
+      return pauseSession(state, op.session_id, op.at).state
+    case "focus.resume":
+      return resumeSession(state, op.session_id, op.at).state
+    case "focus.finish":
+      return finishSession(state, op.session_id, { at: op.at, trimTo: op.trim_to, actualOutput: op.actual_output, rating: op.rating }).state
+    case "focus.edit":
+      return editSession(
+        state,
+        op.session_id,
+        { segments: op.segments, habitId: op.habit_id, project: op.project, plannedOutput: op.planned_output, actualOutput: op.actual_output, rating: op.rating },
+        op.at
+      ).state
+    case "focus.discard":
+      return discardSession(state, op.session_id, new Date(0).toISOString())
+    case "habit.set_source":
+      return setHabitSource(state, op.habit_id, op.source, op.from)
   }
 }
 

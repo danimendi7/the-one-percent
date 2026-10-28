@@ -67,6 +67,16 @@ const REJECTION: Record<string, string> = {
   source_habit_not_numeric: "el hábito elegido no tiene valores numéricos",
   checkpoint_not_found: "el hito ya no existe",
   unknown_op_type: "el servidor aún no admite este cambio",
+  derived_entry: "ese hábito se alimenta de Enfoque",
+  not_duration_habit: "solo los hábitos de duración pueden alimentarse de Enfoque",
+  session_not_found: "la sesión ya no existe",
+  not_finished: "la sesión aún no ha terminado",
+  too_short: "dura menos de 1 minuto efectivo",
+  invalid_habit: "solo se pueden vincular hábitos de duración",
+  segments_future: "las horas no pueden estar en el futuro",
+  segments_overlap: "los tramos de la sesión se solapan",
+  segments_too_long: "una sesión dura como máximo 12 horas",
+  segments_order: "la hora de fin es anterior a la de inicio",
 }
 
 /** Turns sync conflicts and server rejections into actionable, non-alarming toasts. */
@@ -88,6 +98,17 @@ function SyncNotices() {
 
 function showNotice(n: SyncNotice) {
   const subject = n.subject ? `«${n.subject}»` : "Un cambio"
+  if (n.kind === "conflict" && n.opType === "focus.start") {
+    // Decision 5: the first device to reach the server wins; this one joins its session.
+    toast("Ya había un bloque en curso en otro dispositivo", {
+      id: n.id,
+      description: "Se muestra ese bloque aquí: puedes pausarlo o terminarlo desde cualquier dispositivo.",
+      duration: 10_000,
+      onDismiss: () => habitActions.dismissNotice?.(n.id),
+      onAutoClose: () => habitActions.dismissNotice?.(n.id),
+    })
+    return
+  }
   if (n.kind === "conflict") {
     toast(`${subject} se editó en otro dispositivo`, {
       id: n.id,

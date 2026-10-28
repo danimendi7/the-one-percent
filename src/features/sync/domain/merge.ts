@@ -2,7 +2,8 @@ import type { LocalDate, Weekday } from "@/features/habits/domain/dates"
 import { entryKey, type Habit, type HabitEntry, type HabitsState, type ScheduleRule } from "@/features/habits/domain/types"
 import { measurementKey } from "@/features/goals/domain/types"
 import { toGoal, toMeasurement } from "./goal-wire"
-import type { PullPayload, ServerCache, WireEntry, WireHabit, WireVersion } from "./types"
+import type { FocusSession } from "@/features/focus/domain/types"
+import type { PullPayload, ServerCache, WireEntry, WireFocusSession, WireHabit, WireVersion } from "./types"
 
 const DEFAULT_DIMENSIONS: HabitsState["dimensions"] = [
   { id: "body", name: "Cuerpo" },
@@ -50,6 +51,25 @@ export function toHabit(w: WireHabit): Habit {
     startDate: w.start_date,
     archivedOn: w.archived_on,
     createdAt: w.created_at,
+    ...(w.activity_source ? { activitySource: w.activity_source, activitySourceFrom: w.activity_source_from ?? null } : {}),
+  }
+}
+
+export function toFocusSession(w: WireFocusSession): FocusSession {
+  return {
+    id: w.id,
+    habitId: w.habit_id,
+    project: w.project,
+    plannedOutput: w.planned_output,
+    actualOutput: w.actual_output,
+    plannedMinutes: w.planned_minutes,
+    segments: w.segments.map((s) => ({ start: s.start, end: s.end ?? null })),
+    state: w.state,
+    localDate: w.local_date,
+    rating: w.rating,
+    version: w.version,
+    createdAt: w.created_at,
+    updatedAt: w.updated_at,
   }
 }
 
@@ -69,6 +89,7 @@ const seqKey = {
   rest: (date: string) => `r:${date}`,
   goal: (id: string) => `g:${id}`,
   measurement: (goalId: string, date: string) => `m:${goalId}:${date}`,
+  focus: (id: string) => `f:${id}`,
 }
 
 /**
@@ -85,6 +106,7 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
   const rest = new Set(base.state.restDays)
   const goals = new Map(base.state.goals.map((g) => [g.id, g]))
   const measurements = { ...base.state.measurements }
+  const focus = new Map(base.state.focusSessions.map((f) => [f.id, f]))
 
   const newer = (key: string, seq: number) => !(key in rowSeq) || seq > rowSeq[key]
 
@@ -126,6 +148,14 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
     else measurements[mk] = toMeasurement(w)
   }
 
+  for (const w of p.focus_sessions ?? []) {
+    const k = seqKey.focus(w.id)
+    if (!newer(k, w.server_seq)) continue
+    rowSeq[k] = w.server_seq
+    if (w.deleted) focus.delete(w.id)
+    else focus.set(w.id, toFocusSession(w))
+  }
+
   return {
     state: {
       ...base.state,
@@ -139,11 +169,12 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
       seededOn: base.state.seededOn,
       goals: [...goals.values()],
       measurements,
+      focusSessions: [...focus.values()],
     },
     habitVersion,
     rowSeq,
     cursor: Math.max(p.full ? 0 : cache.cursor, p.cursor),
     serverToday: p.server_today,
-    features: { goals: p.goals !== undefined },
+    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined },
   }
 }

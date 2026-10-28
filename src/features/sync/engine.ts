@@ -41,6 +41,8 @@ export interface EngineSnapshot {
   persisted: boolean
   /** The server has the goals migration (M3.1). */
   goals: boolean
+  /** The server has the focus migration (M3.2). */
+  focus: boolean
 }
 
 export interface EngineDeps {
@@ -126,6 +128,7 @@ export class SyncEngine {
         notices: this.notices,
         persisted: this.persisted,
         goals: !!this.cache.features?.goals,
+        focus: !!this.cache.features?.focus,
       }
     }
     return this.snapshot
@@ -140,6 +143,14 @@ export class SyncEngine {
     const t = Math.max(Math.round(this.now() + this.clockOffset), this.lastHybrid + 1)
     this.lastHybrid = t
     return new Date(t).toISOString()
+  }
+
+  /**
+   * Server-corrected device clock for display (timers). Unlike clientTime() it has no side
+   * effects, so it can be read on every frame.
+   */
+  serverNow(): number {
+    return Math.round(this.now() + this.clockOffset)
   }
 
   /** server_seq of a row as this device last saw it (entry: habitId+date, rest: date, measurement: goalId+date). */
@@ -160,6 +171,11 @@ export class SyncEngine {
   /** Server version of a goal as last seen (the cache only holds server-confirmed state). */
   goalVersion(goalId: string): number {
     return this.cache.state.goals.find((g) => g.id === goalId)?.version ?? 1
+  }
+
+  /** Server version of a focus session as last seen (edits use optimistic concurrency). */
+  focusVersion(sessionId: string): number {
+    return this.cache.state.focusSessions.find((f) => f.id === sessionId)?.version ?? 1
   }
 
   /** Optimistically apply and queue an operation, then sync in the background. */
@@ -267,16 +283,21 @@ export class SyncEngine {
   }
 
   private addNotice(kind: "conflict" | "rejected", op: Op, code: string | null) {
+    // Focus ops first: focus.edit also carries a habit_id, but its subject is the session.
     const subject =
-      "habit_id" in op
-        ? this.cache.state.habits.find((h) => h.id === op.habit_id)?.name
-        : op.type === "habit.create"
-          ? op.habit.title
-          : op.type === "goal.create"
-            ? op.goal.title
-            : "goal_id" in op
-              ? this.cache.state.goals.find((g) => g.id === op.goal_id)?.title
-              : undefined
+      op.type === "focus.start"
+        ? (op.session.project ?? "El bloque de enfoque")
+        : "session_id" in op
+          ? (this.cache.state.focusSessions.find((f) => f.id === op.session_id)?.project ?? "La sesión de enfoque")
+          : "habit_id" in op
+            ? this.cache.state.habits.find((h) => h.id === op.habit_id)?.name
+            : op.type === "habit.create"
+              ? op.habit.title
+              : op.type === "goal.create"
+                ? op.goal.title
+                : "goal_id" in op
+                  ? this.cache.state.goals.find((g) => g.id === op.goal_id)?.title
+                  : undefined
     this.notices = [...this.notices, { id: op.op_id, kind, opType: op.type, subject, code, op }]
   }
 

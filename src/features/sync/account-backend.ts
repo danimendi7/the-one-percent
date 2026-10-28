@@ -3,6 +3,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { setEntry, type HabitInput } from "@/features/habits/domain/ops"
 import { setCheckpointDone, setMeasurement, validateGoal } from "@/features/goals/domain/ops"
+import { cleanText, editSession, finishSession, pauseSession, resumeSession, startSession } from "@/features/focus/domain/ops"
+import { ACTUAL_OUTPUT_MAX, PLANNED_OUTPUT_MAX, PROJECT_MAX } from "@/features/focus/domain/types"
 import { goalToWire } from "./domain/goal-wire"
 import { sameRule } from "@/features/habits/domain/schedule"
 import type { Backend, HabitsSnapshot } from "@/features/habits/store/types"
@@ -49,6 +51,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         sync: { status: e.status, pending: e.pending, lastSyncedAt: e.lastSyncedAt, lastError: e.lastError, notices: e.notices },
         account: { userId: user.id, email: user.email },
         goals: e.goals,
+        focus: e.focus,
       }
     }
     return snapshot
@@ -111,6 +114,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "goals", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "goal_measurements", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "focus_sessions", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .subscribe((status) => {
         if (disposed) return
         if (status === "SUBSCRIBED") {
@@ -266,6 +270,67 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         if (setCheckpointDone(state, goalId, checkpointId, doneOn, today) === state) return
         submit({ type: "goal.checkpoint.set", op_id: uuidv4(), goal_id: goalId, checkpoint_id: checkpointId, done_on: doneOn })
       },
+      // ── Focus (M3.2): validated on the optimistic view, then queued like everything else ──
+      startFocus(input) {
+        const id = uuidv4()
+        const at = engine.clientTime()
+        const session = {
+          id,
+          habit_id: input.habitId,
+          project: cleanText(input.project, PROJECT_MAX),
+          planned_output: cleanText(input.plannedOutput, PLANNED_OUTPUT_MAX),
+          planned_minutes: input.plannedMinutes,
+          started_at: at,
+        }
+        const r = startSession(view().state, { id, habitId: session.habit_id, project: session.project, plannedOutput: session.planned_output, plannedMinutes: session.planned_minutes, at })
+        if (!r.ok) return { ok: false, reason: r.reason }
+        submit({ type: "focus.start", op_id: uuidv4(), session })
+        return { ok: true, id }
+      },
+      pauseFocus(id) {
+        const at = engine.clientTime()
+        const r = pauseSession(view().state, id, at)
+        if (r.ok && r.state !== view().state) submit({ type: "focus.pause", op_id: uuidv4(), session_id: id, at })
+      },
+      resumeFocus(id) {
+        const at = engine.clientTime()
+        const r = resumeSession(view().state, id, at)
+        if (r.ok && r.state !== view().state) submit({ type: "focus.resume", op_id: uuidv4(), session_id: id, at })
+      },
+      finishFocus(id, input) {
+        const at = engine.clientTime()
+        const actual = cleanText(input.actualOutput, ACTUAL_OUTPUT_MAX)
+        const r = finishSession(view().state, id, { at, trimTo: input.trimTo, actualOutput: actual, rating: input.rating })
+        if (!r.ok) return { ok: false, reason: r.reason }
+        submit({ type: "focus.finish", op_id: uuidv4(), session_id: id, at, trim_to: input.trimTo ?? null, actual_output: actual, rating: input.rating ?? null })
+        return { ok: true }
+      },
+      editFocus(id, input) {
+        const at = engine.clientTime()
+        const r = editSession(view().state, id, input, at)
+        if (!r.ok) return { ok: false, reason: r.reason }
+        submit({
+          type: "focus.edit",
+          op_id: uuidv4(),
+          session_id: id,
+          base_version: engine.focusVersion(id),
+          segments: input.segments,
+          habit_id: input.habitId,
+          project: cleanText(input.project, PROJECT_MAX),
+          planned_output: cleanText(input.plannedOutput, PLANNED_OUTPUT_MAX),
+          actual_output: cleanText(input.actualOutput, ACTUAL_OUTPUT_MAX),
+          rating: input.rating,
+          at,
+        })
+        return { ok: true }
+      },
+      discardFocus(id) {
+        submit({ type: "focus.discard", op_id: uuidv4(), session_id: id })
+      },
+      setHabitSource(habitId, source) {
+        submit({ type: "habit.set_source", op_id: uuidv4(), habit_id: habitId, source, from: view().today })
+      },
+      clockNow: () => engine.serverNow(),
       setTimezone(timezone) {
         submit({ type: "profile.update", op_id: uuidv4(), timezone })
       },
@@ -297,6 +362,8 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
           submit({ ...notice.op, op_id: uuidv4(), base_version: engine.habitVersion(notice.op.habit_id) })
         } else if (notice?.op?.type === "goal.update") {
           submit({ ...notice.op, op_id: uuidv4(), base_version: engine.goalVersion(notice.op.goal_id) })
+        } else if (notice?.op?.type === "focus.edit") {
+          submit({ ...notice.op, op_id: uuidv4(), base_version: engine.focusVersion(notice.op.session_id), at: engine.clientTime() })
         }
       },
     },

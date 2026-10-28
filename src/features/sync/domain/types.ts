@@ -83,8 +83,58 @@ export type Op =
       client_updated_at: string
       base_seq: number | null
     }
+  // ── Deep Work (M3.2): action times are hybrid, server-corrected instants (ISO) ──
+  | {
+      type: "focus.start"
+      op_id: string
+      session: { id: string; habit_id: string | null; project: string | null; planned_output: string | null; planned_minutes: number; started_at: string }
+    }
+  | { type: "focus.pause"; op_id: string; session_id: string; at: string }
+  | { type: "focus.resume"; op_id: string; session_id: string; at: string }
+  | { type: "focus.finish"; op_id: string; session_id: string; at: string; trim_to: string | null; actual_output: string | null; rating: number | null }
+  | {
+      type: "focus.edit"
+      op_id: string
+      session_id: string
+      /** Server version this edit was based on; mismatch → conflict. */
+      base_version: number
+      segments: WireSegment[]
+      habit_id: string | null
+      project: string | null
+      planned_output: string | null
+      actual_output: string | null
+      rating: number | null
+      /** Device time of the edit (validation of the optimistic copy only; the server uses its clock). */
+      at: string
+    }
+  | { type: "focus.discard"; op_id: string; session_id: string }
+  | { type: "habit.set_source"; op_id: string; habit_id: string; source: "focus" | null; from: LocalDate }
 
 export type OpType = Op["type"]
+
+export interface WireSegment {
+  start: string
+  end: string | null
+}
+
+export interface WireFocusSession {
+  id: string
+  habit_id: string | null
+  project: string | null
+  planned_output: string | null
+  actual_output: string | null
+  planned_minutes: number
+  segments: WireSegment[]
+  state: "running" | "paused" | "finished"
+  active_seconds: number
+  local_date: LocalDate
+  rating: number | null
+  version: number
+  created_at: string
+  updated_at: string
+  deleted: boolean
+  server_seq: number
+}
 
 /** Goal definition on the wire (what apply_goal_op reads; see *_goals.sql). */
 export interface WireGoalFields {
@@ -180,6 +230,9 @@ export interface WireHabit {
   created_at: string
   server_seq: number
   versions: WireVersion[]
+  /** M3.2. Absent from servers without the focus migration. */
+  activity_source?: "focus" | null
+  activity_source_from?: LocalDate | null
 }
 
 export interface WireEntry {
@@ -213,6 +266,8 @@ export interface PullPayload {
   /** M3.1. Absent from servers without the goals migration: treated as empty. */
   goals?: WireGoal[]
   measurements?: WireMeasurement[]
+  /** M3.2. Absent from servers without the focus migration: focus stays local-only. */
+  focus_sessions?: WireFocusSession[]
   cursor: number
 }
 
@@ -224,7 +279,7 @@ export interface ServerCache {
   cursor: number
   serverToday: LocalDate
   /** Server capabilities seen in the last pull (a deploy may precede its migration). */
-  features?: { goals: boolean }
+  features?: { goals: boolean; focus?: boolean }
 }
 
 export type SyncStatus = "synced" | "syncing" | "pending" | "offline" | "error"
