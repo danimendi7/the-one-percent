@@ -12,13 +12,17 @@ describe("analytics filters in the URL", () => {
   })
 
   it("round-trips a full filter", () => {
-    const f = { period: 90, dimension: "mind", habitId: "abc-123", goalId: "g-1" } as const
+    const f = { period: 90, dimension: "mind", habitId: "abc-123", goalId: "g-1", project: "Tesis doctoral" } as const
     expect(parseFilter(p(serializeFilter(f).slice(1)))).toEqual(f)
+    // «Sin proyecto» is the empty project and survives the URL too.
+    const none = { ...DEFAULT_FILTER, project: "" }
+    expect(parseFilter(p(serializeFilter(none).slice(1)))).toEqual(none)
   })
 
   it("ignores unknown or hostile values instead of failing", () => {
     expect(parseFilter(p("periodo=12&dimension=hack&habito=<script>"))).toEqual(DEFAULT_FILTER)
     expect(parseFilter(p(`habito=${"x".repeat(65)}`)).habitId).toBe("all")
+    expect(parseFilter(p(`proyecto=${"x".repeat(61)}`)).project).toBe("all")
   })
 })
 

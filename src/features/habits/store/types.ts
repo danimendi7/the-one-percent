@@ -4,6 +4,7 @@ import type { HabitsState } from "../domain/types"
 import type { GoalInput, MeasureResult } from "@/features/goals/domain/ops"
 import type { GoalState } from "@/features/goals/domain/types"
 import type { Op, SyncNotice, SyncStatus } from "@/features/sync/domain/types"
+import type { EditInput, FocusRejection } from "@/features/focus/domain/ops"
 
 export type DataSource = "demo" | "account"
 
@@ -25,6 +26,8 @@ export interface HabitsSnapshot {
   sync?: SyncInfo
   /** False while the account's server lacks the goals migration; demo: always true. */
   goals?: boolean
+  /** False while the account's server lacks the focus migration (M3.2): the timer runs but nothing is saved. */
+  focus?: boolean
   account?: { userId: string; email: string | null }
 }
 
@@ -39,7 +42,28 @@ export interface GoalActions {
   setCheckpoint(goalId: string, checkpointId: string, doneOn: LocalDate | null): void
 }
 
-export interface HabitActions extends Partial<GoalActions> {
+export interface FocusStartInput {
+  habitId: string | null
+  project: string | null
+  plannedOutput: string | null
+  plannedMinutes: number
+}
+
+export type FocusOutcome = { ok: true } | { ok: false; reason: FocusRejection }
+
+/** Deep Work (M3.2). Times come from `clockNow()`: the server-corrected clock in account mode. */
+export interface FocusActions {
+  startFocus(input: FocusStartInput): ({ ok: true; id: string }) | { ok: false; reason: FocusRejection }
+  pauseFocus(id: string): void
+  resumeFocus(id: string): void
+  finishFocus(id: string, input: { trimTo?: string | null; actualOutput?: string | null; rating?: number | null }): FocusOutcome
+  editFocus(id: string, input: EditInput): FocusOutcome
+  discardFocus(id: string): void
+  setHabitSource(habitId: string, source: "focus" | null): void
+  clockNow(): number
+}
+
+export interface HabitActions extends Partial<GoalActions>, Partial<FocusActions> {
   setEntry(habitId: string, date: LocalDate, value: boolean | number | null): SetEntryResult
   addHabit(input: HabitInput): string
   updateHabit(id: string, input: HabitInput): void

@@ -10,23 +10,23 @@ const todayCell = (page: Page, habit: string) =>
 test.describe("habit tracker (local demo)", () => {
   test("one tap marks a habit, metrics update, state persists and undo works", async ({ page }) => {
     await page.goto("/habits")
-    await expect(todayMetric(page)).toHaveAccessibleName("2 de 7 hábitos de hoy")
+    await expect(todayMetric(page)).toHaveAccessibleName("2 de 8 hábitos de hoy")
 
     const cell = todayCell(page, "Bloque de trabajo profundo")
     await expect(cell).toHaveAttribute("aria-pressed", "false")
     await cell.click()
     await expect(cell).toHaveAttribute("aria-pressed", "true")
-    await expect(todayMetric(page)).toHaveAccessibleName("3 de 7 hábitos de hoy")
+    await expect(todayMetric(page)).toHaveAccessibleName("3 de 8 hábitos de hoy")
 
     await page.reload()
     await expect(todayCell(page, "Bloque de trabajo profundo")).toHaveAttribute("aria-pressed", "true")
-    await expect(todayMetric(page)).toHaveAccessibleName("3 de 7 hábitos de hoy")
+    await expect(todayMetric(page)).toHaveAccessibleName("3 de 8 hábitos de hoy")
 
     // Unmark, then undo the unmark from the toast
     await todayCell(page, "Bloque de trabajo profundo").click()
-    await expect(todayMetric(page)).toHaveAccessibleName("2 de 7 hábitos de hoy")
+    await expect(todayMetric(page)).toHaveAccessibleName("2 de 8 hábitos de hoy")
     await page.getByRole("button", { name: "Deshacer" }).click()
-    await expect(todayMetric(page)).toHaveAccessibleName("3 de 7 hábitos de hoy")
+    await expect(todayMetric(page)).toHaveAccessibleName("3 de 8 hábitos de hoy")
   })
 
   test("numeric quick entry stores the exact amount and completes the target", async ({ page }) => {
@@ -39,7 +39,7 @@ test.describe("habit tracker (local demo)", () => {
     await expect(page.getByText("Objetivo cumplido")).toBeVisible()
     await page.getByRole("button", { name: "Guardar" }).click()
     await expect(todayCell(page, "Pasos")).toHaveAccessibleName(/hecho, 9120 pasos/)
-    await expect(todayMetric(page)).toHaveAccessibleName("3 de 7 hábitos de hoy")
+    await expect(todayMetric(page)).toHaveAccessibleName("3 de 8 hábitos de hoy")
   })
 
   test("a quick value saves in one tap", async ({ page }, info) => {
@@ -48,7 +48,7 @@ test.describe("habit tracker (local demo)", () => {
     if (isMobile(info.project.name)) await expect(page.getByRole("dialog")).toBeVisible() // bottom sheet on phones
     await page.getByRole("button", { name: "Registrar 30 min" }).click()
     await expect(todayCell(page, "Lectura")).toHaveAccessibleName(/hecho, 30 min/)
-    await expect(todayMetric(page)).toHaveAccessibleName("3 de 7 hábitos de hoy")
+    await expect(todayMetric(page)).toHaveAccessibleName("3 de 8 hábitos de hoy")
   })
 
   test("metric explanations open with a tap on mobile", async ({ page }, info) => {
@@ -79,7 +79,7 @@ test.describe("habit tracker (local demo)", () => {
     await expect(grid.getByRole("img", { name: /^Idiomas, martes, 20 de octubre: no programado/ })).toBeVisible()
     await expect(grid.getByRole("img", { name: /^Idiomas, jueves, 22 de octubre: no programado/ })).toBeVisible()
     // Today's denominator grew by exactly one.
-    await expect(todayMetric(page)).toHaveAccessibleName("2 de 8 hábitos de hoy")
+    await expect(todayMetric(page)).toHaveAccessibleName("2 de 9 hábitos de hoy")
   })
 
   test("validation blocks an empty habit name", async ({ page }) => {

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { BrandMark, BrandWordmark } from "./brand-mark"
 import { isActive, SETTINGS_NAV, SIDEBAR_NAV, type NavItem } from "./nav-config"
 import { SyncStatus } from "./sync-status"
+import { FocusPill } from "@/features/focus/components/focus-pill"
 
 /**
  * Desktop sidebar (≥1024px, 240px) that collapses to an icon rail on tablet (768–1023px).
@@ -60,6 +61,9 @@ function Sidebar({ pathname }: { pathname: string }) {
       </div>
 
       <div className="space-y-2 border-t border-sidebar-border p-3">
+        <div className="flex justify-center lg:block">
+          <FocusPill rail className="lg:w-full" />
+        </div>
         <NavLink item={SETTINGS_NAV} active={isActive(pathname, SETTINGS_NAV)} />
         <div className="flex justify-center lg:justify-start lg:px-1">
           <SyncStatus compact className="lg:w-full lg:justify-start" />

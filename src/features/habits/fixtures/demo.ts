@@ -5,6 +5,7 @@
 import { addDays, eachDay, isoWeekday, startOfWeek, type LocalDate } from "../domain/dates"
 import { isEligibleDay } from "../domain/schedule"
 import { createDemoGoals } from "@/features/goals/fixtures"
+import { withDemoFocus } from "@/features/focus/fixtures"
 import {
   entryKey,
   type Dimension,
@@ -211,16 +212,20 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
   entries[entryKey("demo-meditation", today)] = mk("demo-meditation", today, 15)
   entries[entryKey("demo-coffee", today)] = mk("demo-coffee", today, 1)
 
-  return {
-    version: 1,
-    timezone,
-    dimensions: DEMO_DIMENSIONS,
-    habits: demoHabits(start, today).map((d) => d.habit),
-    entries,
-    restDays,
-    seededOn: today,
-    ...createDemoGoals(today),
-  }
+  return withDemoFocus(
+    {
+      version: 1,
+      timezone,
+      dimensions: DEMO_DIMENSIONS,
+      habits: demoHabits(start, today).map((d) => d.habit),
+      entries,
+      restDays,
+      seededOn: today,
+      ...createDemoGoals(today),
+      focusSessions: [],
+    },
+    today
+  )
 }
 
 function mk(habitId: string, date: LocalDate, value: boolean | number) {

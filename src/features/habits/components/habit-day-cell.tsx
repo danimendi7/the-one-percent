@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Check, Moon } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils"
 import type { LocalDate } from "../domain/dates"
 import type { EvalContext } from "../domain/metrics"
 import type { Habit } from "../domain/types"
+import { isFocusFed } from "../domain/ops"
 import { cellAriaLabel, cellInfo, type CellState } from "./cell-state"
 import { recordEntry } from "./entry-actions"
 import { QuickEntry } from "./quick-entry"
@@ -51,6 +53,19 @@ export function HabitDayCell({
     info.interactive && "cursor-pointer active:scale-[0.94]",
     className
   )
+
+  if (info.interactive && isFocusFed(habit, date)) {
+    // Derived from focus sessions (M3.2): no manual control, the cell leads to Enfoque.
+    const v = info.entry && typeof info.entry.value === "number" ? info.entry.value : null
+    return (
+      <Link href="/focus" className={cn(base, "cursor-pointer")}>
+        <span className="sr-only">{`${label}. Se alimenta de Enfoque: ir a Enfoque`}</span>
+        <span aria-hidden className="contents">
+          {v !== null ? <span className="num">{compact(v)}</span> : <span className="text-[0.625rem] font-medium text-text-tertiary">foco</span>}
+        </span>
+      </Link>
+    )
+  }
 
   if (!info.interactive) {
     return (

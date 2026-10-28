@@ -110,6 +110,7 @@ export class FakeServer {
             { goalId: m.goal_id, date: m.observed_on, value: Number(m.value), note: m.note, opId: m.client_op_id, updatedAt: m.client_updated_at },
           ])
       ),
+      focusSessions: [],
     }
   }
 

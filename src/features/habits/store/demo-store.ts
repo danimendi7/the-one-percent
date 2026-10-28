@@ -19,6 +19,7 @@ import {
 import type { HabitsState } from "../domain/types"
 import { createDemoState } from "../fixtures/demo"
 import { createDemoGoals } from "@/features/goals/fixtures"
+import { withDemoFocus } from "@/features/focus/fixtures"
 import {
   archiveGoal,
   createGoal,
@@ -28,6 +29,7 @@ import {
   setMeasurement,
   updateGoal,
 } from "@/features/goals/domain/ops"
+import { discardSession, editSession, finishSession, pauseSession, resumeSession, setHabitSource, startSession } from "@/features/focus/domain/ops"
 import { uuidv4 } from "@/lib/ids"
 import { habitsStateSchema } from "./schema"
 import type { Backend, HabitsSnapshot } from "./types"
@@ -49,10 +51,13 @@ export function readDemoState(): HabitsState | null {
     if (!raw) return null
     const parsed = habitsStateSchema.safeParse(JSON.parse(raw))
     if (!parsed.success) return null
-    const data = parsed.data as Omit<HabitsState, "goals" | "measurements"> & Partial<Pick<HabitsState, "goals" | "measurements">>
-    if (data.goals && data.measurements) return data as HabitsState
-    // Demo saved before goals existed (M3.1): add the demo goals relative to when it was seeded.
-    return { ...data, ...createDemoGoals(data.seededOn) }
+    const data = parsed.data as Omit<HabitsState, "goals" | "measurements" | "focusSessions"> &
+      Partial<Pick<HabitsState, "goals" | "measurements" | "focusSessions">>
+    // Demo saved by an older version: add what it lacks relative to when it was seeded, keeping
+    // every record it has. Before M3.1 there were no goals; before M3.2 no focus sessions.
+    const withGoals = data.goals && data.measurements ? (data as Omit<HabitsState, "focusSessions">) : { ...data, ...createDemoGoals(data.seededOn) }
+    if (data.focusSessions) return { ...withGoals, focusSessions: data.focusSessions }
+    return withDemoFocus({ ...withGoals, focusSessions: [] }, data.seededOn)
   } catch {
     return null
   }
@@ -207,6 +212,42 @@ export const demoBackend: Backend = {
       const s = getSnapshot()
       commit(setCheckpointDone(s.state, goalId, checkpointId, doneOn, s.today))
     },
+    // ── Focus (M3.2): the same reducers the account replays over server state ──
+    startFocus(input) {
+      const id = uuidv4()
+      const r = startSession(getSnapshot().state, { id, ...input, at: new Date().toISOString() })
+      if (!r.ok) return { ok: false, reason: r.reason }
+      commit(r.state)
+      return { ok: true, id }
+    },
+    pauseFocus(id) {
+      const r = pauseSession(getSnapshot().state, id, new Date().toISOString())
+      if (r.ok) commit(r.state)
+    },
+    resumeFocus(id) {
+      const r = resumeSession(getSnapshot().state, id, new Date().toISOString())
+      if (r.ok) commit(r.state)
+    },
+    finishFocus(id, input) {
+      const r = finishSession(getSnapshot().state, id, { ...input, at: new Date().toISOString() })
+      if (!r.ok) return { ok: false, reason: r.reason }
+      commit(r.state)
+      return { ok: true }
+    },
+    editFocus(id, input) {
+      const r = editSession(getSnapshot().state, id, input, new Date().toISOString())
+      if (!r.ok) return { ok: false, reason: r.reason }
+      commit(r.state)
+      return { ok: true }
+    },
+    discardFocus(id) {
+      commit(discardSession(getSnapshot().state, id, new Date().toISOString()))
+    },
+    setHabitSource(habitId, source) {
+      const s = getSnapshot()
+      commit(setHabitSource(s.state, habitId, source, s.today))
+    },
+    clockNow: () => Date.now(),
     resetDemo() {
       const s = getSnapshot()
       commit(createDemoState(s.today, s.state.timezone))

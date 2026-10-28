@@ -23,7 +23,8 @@ import { cn } from "@/lib/utils"
 import { WEEKDAY_LONG, WEEKDAY_SHORT, type Weekday } from "../domain/dates"
 import type { HabitInput } from "../domain/ops"
 import type { DimensionId, Habit, HabitType, ScheduleRule, TargetDirection } from "../domain/types"
-import { habitActions, useHabits } from "../store/habit-store"
+import { focusEnabled, habitActions, useHabits } from "../store/habit-store"
+import { Switch } from "@/components/ui/switch"
 import { DIMENSION_COLOR, HABIT_ICONS } from "./habit-icon"
 import { goalsForHabit } from "@/features/goals/domain/ops"
 
@@ -103,7 +104,7 @@ function HabitForm({ habit, onDone }: { habit: Habit | null; onDone: () => void 
   const editing = habit !== null
   const source = useHabits()?.source
   const current = habit?.schedule[habit.schedule.length - 1]?.rule
-  const ids = { name: useId(), target: useId(), unit: useId() }
+  const ids = { name: useId(), target: useId(), unit: useId(), focus: useId() }
 
   const [name, setName] = useState(habit?.name ?? "")
   const [icon, setIcon] = useState(habit?.icon ?? "check")
@@ -119,6 +120,8 @@ function HabitForm({ habit, onDone }: { habit: Habit | null; onDone: () => void 
   const [times, setTimes] = useState(current?.kind === "weekly_count" ? current.timesPerWeek : 3)
   const [errors, setErrors] = useState<Errors>({})
   const [confirmArchive, setConfirmArchive] = useState(false)
+  const canFeed = focusEnabled()
+  const [fedByFocus, setFedByFocus] = useState(habit?.activitySource === "focus")
 
   const effectiveUnit = type === "duration" ? "min" : unit
 
@@ -155,13 +158,16 @@ function HabitForm({ habit, onDone }: { habit: Habit | null; onDone: () => void 
       rule,
       ...(type !== "binary" ? { target: parsed.data.target, unit: effectiveUnit, direction } : {}),
     }
+    const wantFed = type === "duration" && fedByFocus
     if (habit) {
       habitActions.updateHabit(habit.id, input)
+      if (canFeed && wantFed !== (habit.activitySource === "focus")) habitActions.setHabitSource(habit.id, wantFed ? "focus" : null)
       toast.success("Hábito actualizado", {
         description: "Los cambios de frecuencia se aplican desde hoy. El historial no se recalcula.",
       })
     } else {
-      habitActions.addHabit(input)
+      const id = habitActions.addHabit(input)
+      if (canFeed && wantFed) habitActions.setHabitSource(id, "focus")
       toast.success(`«${input.name}» creado`, { description: "Empieza a contar desde hoy." })
     }
     onDone()
@@ -295,6 +301,22 @@ function HabitForm({ habit, onDone }: { habit: Habit | null; onDone: () => void 
               />
               {errors.unit && <FieldError>{errors.unit}</FieldError>}
             </div>
+          </div>
+        )}
+
+        {type === "duration" && canFeed && (
+          <div className="rounded-xl border border-border px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <label htmlFor={ids.focus} className="text-sm font-medium">
+                Se alimenta de sesiones de enfoque
+              </label>
+              <Switch id={ids.focus} checked={fedByFocus} onCheckedChange={setFedByFocus} aria-describedby={`${ids.focus}-hint`} />
+            </div>
+            <p id={`${ids.focus}-hint`} className="mt-1.5 text-xs leading-relaxed text-text-tertiary">
+              {fedByFocus
+                ? "Desde hoy, el valor de cada día es la suma de los bloques de Enfoque vinculados a este hábito y no se registra a mano. Los registros anteriores se conservan."
+                : "Actívalo para que tus bloques de Enfoque completen este hábito solos, sin registrar dos veces."}
+            </p>
           </div>
         )}
 

@@ -46,6 +46,7 @@ import { useHabitsModel, type HabitsModel } from "@/features/habits/components/u
 import { GENERAL_RULES, METRICS } from "./domain/catalog"
 import { parseFilter, periodRange, scopeHabits, serializeFilter, type AnalyticsFilter, type PeriodDays } from "./domain/filters"
 import { DrillSheet, type DrillRequest } from "./drill-sheet"
+import { FocusAnalytics } from "@/features/focus/components/focus-analytics"
 
 const DIMENSION_OPTIONS: { value: DimensionId | "all"; label: string }[] = [
   { value: "all", label: "Todas las dimensiones" },
@@ -166,19 +167,26 @@ function FilterBar({
 function Content({ model, filter, setFilter }: { model: HabitsModel; filter: AnalyticsFilter; setFilter: SetFilter }) {
   const [drill, setDrill] = useState<DrillRequest | null>(null)
   const range = periodRange(model.today, filter.period)
+  const periodLabel = filter.period === 365 ? "el último año" : `los últimos ${filter.period} días`
+  const focus = (
+    <FocusAnalytics state={model.state} today={model.today} range={range} periodLabel={periodLabel} project={filter.project} onProject={(project) => setFilter({ project })} />
+  )
   if (model.all.length === 0) {
     return (
-      <div className="panel rounded-2xl">
-        <EmptyState
-          icon={Gauge}
-          title="Todavía no hay nada que analizar"
-          description="La analítica se calcula a partir de tus registros. Crea un hábito y marca tus días: las cifras aparecerán aquí con su base de cálculo."
-          action={
-            <Button asChild>
-              <Link href="/habits">Ir a Hábitos</Link>
-            </Button>
-          }
-        />
+      <div className="space-y-6">
+        <div className="panel rounded-2xl">
+          <EmptyState
+            icon={Gauge}
+            title="Todavía no hay nada que analizar"
+            description="La analítica se calcula a partir de tus registros. Crea un hábito y marca tus días: las cifras aparecerán aquí con su base de cálculo."
+            action={
+              <Button asChild>
+                <Link href="/habits">Ir a Hábitos</Link>
+              </Button>
+            }
+          />
+        </div>
+        {model.state.focusSessions.length > 0 && focus}
       </div>
     )
   }
@@ -187,7 +195,6 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
   const daily = dailyRates(scope, range, model.ctx)
   const perfectDays = daily.filter((d) => d.applicable > 0 && d.fulfilled === d.applicable).length
   const daysWithData = daily.filter((d) => d.applicable > 0).length
-  const periodLabel = filter.period === 365 ? "el último año" : `los últimos ${filter.period} días`
 
   return (
     <div className="space-y-6">
@@ -239,6 +246,8 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
       )}
 
       <HabitTable model={model} range={range} selectedId={filter.habitId} onSelect={(id) => setFilter({ habitId: id })} />
+
+      {focus}
 
       <section className="panel rounded-2xl p-5" aria-labelledby="how-title">
         <h2 id="how-title" className="text-base font-semibold">

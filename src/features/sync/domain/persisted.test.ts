@@ -41,6 +41,7 @@ describe("upgradePersisted (copies saved by older versions)", () => {
     const up = upgradePersisted(structuredClone(old), TODAY)!
     expect(up.cache.state.goals).toEqual([])
     expect(up.cache.state.measurements).toEqual({})
+    expect(up.cache.state.focusSessions).toEqual([])
     expect(up.cache.state.habits).toEqual(old.cache.state.habits)
     expect(up.cache.state.seededOn).toBe("2026-10-01")
     expect(up.cache).toMatchObject({ cursor: 3, serverToday: "2026-10-20", habitVersion: old.cache.habitVersion, rowSeq: old.cache.rowSeq })
@@ -50,8 +51,19 @@ describe("upgradePersisted (copies saved by older versions)", () => {
   })
 
   it("is a no-op on a current copy", () => {
-    const current = { ...m30Copy(), cache: { ...m30Copy().cache, state: { ...m30Copy().cache.state, goals: [], measurements: {} }, features: { goals: true } } }
+    const current = { ...m30Copy(), cache: { ...m30Copy().cache, state: { ...m30Copy().cache.state, goals: [], measurements: {}, focusSessions: [] }, features: { goals: true, focus: true } } }
     expect(upgradePersisted(structuredClone(current), TODAY)).toEqual(current)
+  })
+
+  it("upgrades an M3.1 copy (goals, no focus sessions) keeping its goals, measurements and queue", () => {
+    const m31 = { ...m30Copy(), cache: { ...m30Copy().cache, state: { ...m30Copy().cache.state, goals: [{ id: "g" }], measurements: { "g:2026-10-20": { value: 1 } } }, features: { goals: true } } }
+    const up = upgradePersisted(structuredClone(m31), TODAY)!
+    expect(up.cache.state.focusSessions).toEqual([])
+    expect(up.cache.state.goals).toEqual([{ id: "g" }])
+    expect(up.cache.state.measurements).toEqual(m31.cache.state.measurements)
+    // Focus stays off until the next pull confirms the server supports it.
+    expect(up.cache.features).toEqual({ goals: true })
+    expect(up.queue).toEqual(m31.queue)
   })
 
   it("never throws on damaged data and keeps any recoverable pending work", () => {

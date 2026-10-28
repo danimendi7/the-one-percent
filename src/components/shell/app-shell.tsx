@@ -2,6 +2,7 @@ import { BottomTabs } from "./bottom-tabs"
 import { DataSourceProvider } from "./data-source"
 import { MobileHeader } from "./mobile-header"
 import { SideNav } from "./side-nav"
+import { FocusRecovery } from "@/features/focus/components/focus-recovery"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -24,6 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <BottomTabs />
       <DataSourceProvider />
+      <FocusRecovery />
     </div>
   )
 }

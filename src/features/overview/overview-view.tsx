@@ -20,6 +20,9 @@ import { TodayChecklist } from "@/features/habits/components/today-checklist"
 import { useHabitsModel, type HabitsModel } from "@/features/habits/components/use-habits-model"
 import { ActiveGoals } from "@/features/goals/components/active-goals"
 import { FEATURED_TOPIC } from "@/features/discover/fixtures"
+import { focusToday } from "@/features/focus/domain/metrics"
+import { minutesLabel } from "@/features/focus/components/focus-ui"
+import { useFocusModel } from "@/features/focus/use-focus"
 import { RECALL_CARDS } from "@/features/brain/fixtures"
 
 export function OverviewView() {
@@ -174,16 +177,29 @@ function Priorities() {
   )
 }
 
+/** «Empezar bloque» (two taps to start: here, then Empezar) or «Volver al bloque» while one is active. */
 function FocusCta() {
+  const fm = useFocusModel()
+  const active = fm?.active ?? null
+  const today = fm ? focusToday(fm.state, fm.today).day : null
   return (
     <Link
       href="/focus"
-      className="panel group flex min-h-[132px] flex-col justify-between rounded-2xl p-4 transition-colors hover:bg-surface-raised"
+      className={cn(
+        "panel group flex min-h-[132px] flex-col justify-between rounded-2xl p-4 transition-colors hover:bg-surface-raised",
+        active && "border-signal/40"
+      )}
     >
       <Timer className="size-5 text-signal" strokeWidth={1.75} aria-hidden />
       <div>
-        <p className="text-sm font-semibold">Bloque de enfoque</p>
-        <p className="mt-0.5 text-xs text-text-tertiary">25 · 50 · 90 min</p>
+        <p className="text-sm font-semibold">{active ? "Volver al bloque" : "Empezar bloque"}</p>
+        <p className="num mt-0.5 text-xs text-text-tertiary">
+          {active
+            ? `${active.state === "running" ? "En foco" : "En pausa"}${active.project ? ` · ${active.project}` : ""}`
+            : today && today.minutes > 0
+              ? `Hoy ${minutesLabel(today.minutes)} de foco`
+              : "25 · 50 · 90 min"}
+        </p>
       </div>
     </Link>
   )
@@ -316,7 +332,7 @@ function PrioritiesComingSoon() {
         Top 3 de hoy
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-        Tus tres prioridades diarias, sincronizadas entre dispositivos, llegan en M3 junto con el temporizador de enfoque.
+        Tus tres prioridades diarias, sincronizadas entre dispositivos, llegarán en una próxima fase.
       </p>
     </section>
   )

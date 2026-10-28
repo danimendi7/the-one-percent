@@ -27,11 +27,17 @@ export interface SetEntryOp {
 
 export type SetEntryResult =
   | { ok: true; state: HabitsState; previous: boolean | number | null }
-  | { ok: false; state: HabitsState; reason: "unknown_habit" | "future" | "not_eligible" | "rest_day" | "invalid_value" }
+  | { ok: false; state: HabitsState; reason: "unknown_habit" | "future" | "not_eligible" | "rest_day" | "invalid_value" | "derived_entry" }
+
+/** From the day a habit is fed by focus sessions, its value is derived and never logged by hand (M3.2). */
+export function isFocusFed(habit: Habit, date: LocalDate): boolean {
+  return habit.activitySource === "focus" && !!habit.activitySourceFrom && date >= habit.activitySourceFrom
+}
 
 export function setEntry(state: HabitsState, op: SetEntryOp): SetEntryResult {
   const habit = state.habits.find((h) => h.id === op.habitId)
   if (!habit) return { ok: false, state, reason: "unknown_habit" }
+  if (isFocusFed(habit, op.date)) return { ok: false, state, reason: "derived_entry" }
   if (op.date > op.today) return { ok: false, state, reason: "future" }
   if (!isEligibleDay(habit, op.date)) return { ok: false, state, reason: "not_eligible" }
   if (state.restDays.includes(op.date)) return { ok: false, state, reason: "rest_day" }

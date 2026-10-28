@@ -3,10 +3,13 @@
  * texts next to the numbers, and reviews (M3.4) store METRICS_VERSION with their frozen
  * snapshot, so an old review never changes when a formula is improved.
  * v2 (M3.1): adds the goal metrics; habit formulas are unchanged.
+ * v3 (M3.2): adds the focus metrics; habit and goal formulas are unchanged.
  */
-export const METRICS_VERSION = 2
+export const METRICS_VERSION = 3
 
 export type MetricId = "completion" | "perfect_days" | "exempt" | "in_progress" | "weekly_trend" | "weekday" | "streak"
+
+export type FocusMetricId = "focus_minutes" | "focus_sessions" | "focus_complete" | "focus_rating" | "focus_projects" | "focus_streak"
 
 export type GoalMetricId = "goal_outcome" | "goal_effort" | "goal_pace" | "goal_projection" | "goal_status"
 
@@ -105,4 +108,45 @@ export const GOAL_RULES = [
   "Un objetivo alimentado por un hábito lee sus registros: no admite mediciones manuales y nada se registra dos veces.",
   "Los hitos con valor se cumplen solos el primer día en que los datos reales los alcanzan.",
   "Un objetivo padre solo agrega a sus subobjetivos si lo activas: media de su resultado.",
+] as const
+
+/** Focus figures (M3.2). Same rules: explicit base, N/D instead of invented zeros, every figure opens its sessions. */
+export const FOCUS_METRICS: Record<FocusMetricId, MetricDefinition<FocusMetricId>> = {
+  focus_minutes: {
+    id: "focus_minutes",
+    label: "Minutos de foco",
+    formula: "Suma del tiempo efectivo (sin pausas) de las sesiones terminadas en el periodo, redondeada a minutos una sola vez.",
+  },
+  focus_sessions: {
+    id: "focus_sessions",
+    label: "Sesiones",
+    formula: "Sesiones terminadas. Una sesión cuenta en el día en que empezó, aunque cruce la medianoche.",
+  },
+  focus_complete: {
+    id: "focus_complete",
+    label: "Bloques completos",
+    formula: "Sesiones cuyo tiempo efectivo alcanzó lo previsto / sesiones terminadas. N/D sin sesiones.",
+  },
+  focus_rating: {
+    id: "focus_rating",
+    label: "Valoración media",
+    formula: "Media de las valoraciones dadas (1–5), indicando cuántas sesiones se valoraron. N/D si ninguna.",
+  },
+  focus_projects: {
+    id: "focus_projects",
+    label: "Por proyecto",
+    formula: "Minutos efectivos por proyecto; las sesiones sin proyecto se agrupan en «Sin proyecto».",
+  },
+  focus_streak: {
+    id: "focus_streak",
+    label: "Racha de foco",
+    formula: "Días seguidos con al menos una sesión terminada hasta hoy; hoy sin sesión todavía no la rompe.",
+  },
+}
+
+export const FOCUS_RULES = [
+  "Solo cuentan las sesiones terminadas; descartar una sesión no cuenta nada.",
+  "El tiempo sale de las marcas de inicio y fin de cada tramo, nunca de un contador: no depende de que la app esté abierta.",
+  "Un hábito alimentado por Enfoque suma exactamente estos minutos en su día; no admite registros manuales.",
+  "Con menos de 3 sesiones o menos de una semana de historial se indica «Pocos datos» y no se muestran tendencias.",
 ] as const

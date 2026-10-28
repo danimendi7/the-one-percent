@@ -28,6 +28,8 @@ const habit = z.object({
   startDate: localDate,
   archivedOn: localDate.nullable().optional(),
   createdAt: z.string(),
+  activitySource: z.literal("focus").nullable().optional(),
+  activitySourceFrom: localDate.nullable().optional(),
 })
 
 const entry = z.object({
@@ -90,6 +92,24 @@ const measurement = z.object({
   updatedAt: z.string(),
 })
 
+const isoInstant = z.string().refine((v) => Number.isFinite(Date.parse(v)), "invalid instant")
+
+const focusSession = z.object({
+  id: z.string().min(1),
+  habitId: z.string().nullable(),
+  project: z.string().max(60).nullable(),
+  plannedOutput: z.string().max(200).nullable(),
+  actualOutput: z.string().max(500).nullable(),
+  plannedMinutes: z.number().int().min(1).max(720),
+  segments: z.array(z.object({ start: isoInstant, end: isoInstant.nullable() })).min(1).max(200),
+  state: z.enum(["running", "paused", "finished"]),
+  localDate: localDate,
+  rating: z.number().int().min(1).max(5).nullable(),
+  version: z.number().int().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
 export const habitsStateSchema = z.object({
   version: z.literal(1),
   timezone: z.string().min(1),
@@ -101,4 +121,6 @@ export const habitsStateSchema = z.object({
   // Absent in demo data saved before M3.1; the demo store seeds them.
   goals: z.array(goal).optional(),
   measurements: z.record(z.string(), measurement).optional(),
+  // Absent in demo data saved before M3.2; the demo store seeds them.
+  focusSessions: z.array(focusSession).optional(),
 })

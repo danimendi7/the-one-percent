@@ -1,5 +1,6 @@
 import type { LocalDate, Weekday } from "./dates"
 import type { Goal, MeasurementMap } from "@/features/goals/domain/types"
+import type { FocusSession } from "@/features/focus/domain/types"
 
 export type HabitType = "binary" | "numeric" | "duration"
 export type TargetDirection = "at_least" | "at_most"
@@ -36,6 +37,12 @@ export interface Habit {
   /** Inactive from this date onward; history before it is preserved. */
   archivedOn?: LocalDate | null
   createdAt: string
+  /**
+   * Duration habits only (M3.2). "focus": from `activitySourceFrom` on, the day's value is the
+   * sum of the linked focus sessions and cannot be logged by hand. Earlier entries stay as history.
+   */
+  activitySource?: "focus" | null
+  activitySourceFrom?: LocalDate | null
 }
 
 export interface HabitEntry {
@@ -67,6 +74,8 @@ export interface HabitsState {
   /** Goals live in the same dataset as habits (one authoritative dataset, PRD §1). */
   goals: Goal[]
   measurements: MeasurementMap
+  /** Deep Work sessions (M3.2). Discarded sessions are removed. */
+  focusSessions: FocusSession[]
 }
 
 export function entryKey(habitId: string, date: LocalDate): string {

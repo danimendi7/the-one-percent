@@ -13,25 +13,29 @@ export interface AnalyticsFilter {
   habitId: string | "all"
   /** ?objetivo= : the habits linked to a goal (effort links + numeric source). */
   goalId: string | "all"
+  /** ?proyecto= : focus sessions of one project ("" = without project). Focus figures only. */
+  project: string | "all"
 }
 
-export const DEFAULT_FILTER: AnalyticsFilter = { period: 30, dimension: "all", habitId: "all", goalId: "all" }
+export const DEFAULT_FILTER: AnalyticsFilter = { period: 30, dimension: "all", habitId: "all", goalId: "all", project: "all" }
 
 type Params = { get(name: string): string | null }
 
 const ID = /^[\w-]{1,64}$/
 
-/** Reads ?periodo=&dimension=&habito=&objetivo= defensively: anything unknown falls back to the default. */
+/** Reads ?periodo=&dimension=&habito=&objetivo=&proyecto= defensively: anything unknown falls back to the default. */
 export function parseFilter(params: Params): AnalyticsFilter {
   const period = Number(params.get("periodo"))
   const dimension = params.get("dimension")
   const habit = params.get("habito")
   const goal = params.get("objetivo")
+  const project = params.get("proyecto")
   return {
     period: (PERIODS as readonly number[]).includes(period) ? (period as PeriodDays) : DEFAULT_FILTER.period,
     dimension: DIMENSIONS.includes(dimension as DimensionId) ? (dimension as DimensionId) : "all",
     habitId: habit && ID.test(habit) ? habit : "all",
     goalId: goal && ID.test(goal) ? goal : "all",
+    project: project !== null && project.length <= 60 ? project.trim() : "all",
   }
 }
 
@@ -42,6 +46,7 @@ export function serializeFilter(f: AnalyticsFilter): string {
   if (f.dimension !== "all") q.set("dimension", f.dimension)
   if (f.habitId !== "all") q.set("habito", f.habitId)
   if (f.goalId !== "all") q.set("objetivo", f.goalId)
+  if (f.project !== "all") q.set("proyecto", f.project)
   const s = q.toString()
   return s ? `?${s}` : ""
 }

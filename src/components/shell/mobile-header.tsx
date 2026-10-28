@@ -6,6 +6,7 @@ import { CheckCheck } from "lucide-react"
 import { todayProgress } from "@/features/habits/domain/metrics"
 import { activeHabits } from "@/features/habits/domain/ops"
 import { useHabits } from "@/features/habits/store/habit-store"
+import { FocusPill } from "@/features/focus/components/focus-pill"
 import { BrandMark } from "./brand-mark"
 import { SyncStatus } from "./sync-status"
 
@@ -28,6 +29,7 @@ export function MobileHeader() {
           <BrandMark className="size-7" />
         </Link>
         <div className="flex items-center gap-2">
+          <FocusPill />
           <Link
             href="/habits"
             className="relative inline-flex h-10 items-center gap-2 rounded-full border border-border bg-surface pr-3.5 pl-3 text-xs font-medium text-foreground after:absolute after:-inset-1 after:content-['']"

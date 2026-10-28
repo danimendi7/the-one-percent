@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils"
 import { WEEKDAY_SHORT, startOfWeek, addDays } from "../domain/dates"
 import { currentStreak, habitOpportunities, type WeekOpportunity } from "../domain/metrics"
 import { isEligibleDay, ruleOn } from "../domain/schedule"
+import { isFocusFed } from "../domain/ops"
+import { num } from "@/components/common/format"
 import type { Habit, ScheduleRule } from "../domain/types"
 import { habitActions } from "../store/habit-store"
 import { cellInfo, targetLabel } from "./cell-state"
@@ -114,6 +116,8 @@ function HabitRow({ habit, model, weekly }: { habit: Habit; model: HabitsModel; 
   const wk = weekly ? weekOpp(habit, model) : undefined
   const target = targetLabel(habit)
   const done = info.state === "done"
+  const fed = isFocusFed(habit, today)
+  const fedValue = info.entry && typeof info.entry.value === "number" ? info.entry.value : 0
 
   return (
     <li className={cn("flex items-center gap-3 px-3 py-2.5 transition-colors sm:px-4", done && "bg-signal/[0.035]")}>
@@ -121,8 +125,14 @@ function HabitRow({ habit, model, weekly }: { habit: Habit; model: HabitsModel; 
       <div className="min-w-0 flex-1">
         <p className={cn("truncate text-[0.9375rem] font-medium", done && "text-text-secondary")}>{habit.name}</p>
         <p className="flex flex-wrap items-center gap-x-2 text-xs text-text-tertiary">
-          {target && <span className="num">{target}</span>}
-          {wk ? (
+          {fed ? (
+            <span className="num">
+              Se alimenta de Enfoque · {num(fedValue)} de {num(habit.target ?? 0)} {habit.unit ?? "min"}
+            </span>
+          ) : (
+            target && <span className="num">{target}</span>
+          )}
+          {fed ? null : wk ? (
             <span className={cn("num", wk.achieved >= wk.target && "text-signal")}>
               {wk.achieved}/{wk.target} esta semana
             </span>

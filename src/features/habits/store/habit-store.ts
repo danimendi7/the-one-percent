@@ -6,7 +6,7 @@
  * engine + Supabase). The backend is chosen by <DataSourceProvider>.
  */
 import { useSyncExternalStore } from "react"
-import type { Backend, GoalActions, HabitActions, HabitsSnapshot } from "./types"
+import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot } from "./types"
 
 export type { HabitsSnapshot, DataSource, SyncInfo } from "./types"
 
@@ -49,8 +49,13 @@ export function goalsEnabled(): boolean {
   return !!backend?.actions.addGoal && backend.getSnapshot()?.goals !== false
 }
 
+/** True when the active data source stores focus sessions (an account needs the M3.2 migration). */
+export function focusEnabled(): boolean {
+  return !!backend?.actions.startFocus && backend.getSnapshot()?.focus !== false
+}
+
 function need<T>(fn: T | undefined): T {
-  if (!fn) throw new Error("This data source does not support goals yet")
+  if (!fn) throw new Error("This data source does not support this feature yet")
   return fn
 }
 
@@ -59,7 +64,7 @@ function active(): HabitActions {
   return backend.actions
 }
 
-export const habitActions: HabitActions & GoalActions = {
+export const habitActions: HabitActions & GoalActions & FocusActions = {
   setEntry: (...a) => active().setEntry(...a),
   addHabit: (...a) => active().addHabit(...a),
   updateHabit: (...a) => active().updateHabit(...a),
@@ -74,6 +79,14 @@ export const habitActions: HabitActions & GoalActions = {
   restoreGoal: (...a) => need(active().restoreGoal)(...a),
   setMeasurement: (...a) => need(active().setMeasurement)(...a),
   setCheckpoint: (...a) => need(active().setCheckpoint)(...a),
+  startFocus: (input) => need(active().startFocus)(input),
+  pauseFocus: (id) => need(active().pauseFocus)(id),
+  resumeFocus: (id) => need(active().resumeFocus)(id),
+  finishFocus: (...a) => need(active().finishFocus)(...a),
+  editFocus: (...a) => need(active().editFocus)(...a),
+  discardFocus: (id) => need(active().discardFocus)(id),
+  setHabitSource: (...a) => need(active().setHabitSource)(...a),
+  clockNow: () => active().clockNow?.() ?? Date.now(),
   resetDemo: () => active().resetDemo?.(),
   syncNow: () => active().syncNow?.(),
   setTimezone: (tz) => active().setTimezone?.(tz),
