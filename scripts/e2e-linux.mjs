@@ -18,10 +18,12 @@
  * - Secrets: only the two public values of .env.local are copied; the local stack status (with its
  *   local service key) is copied into the container and deleted from the host at once. Logs are
  *   scanned for those values before they are kept. Nothing is committed or pushed.
- * - The container and network are always removed at the end, also on failure.
+ * - The container and network are always removed at the end, also on failure. A run killed abruptly
+ *   (e.g. by memory pressure) cannot clean up, so each run first removes leftovers of earlier runs:
+ *   only resources carrying this script's label, and its own temp folders older than one hour.
  */
 import { execFileSync, spawnSync } from "node:child_process"
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, readdirSync } from "node:fs"
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { checkStatus, FORWARDED_PORTS, imageFor, LABEL, leaks, publicEnv, resourceNames, summarize } from "./lib/e2e-linux.mjs"
@@ -101,6 +103,13 @@ const secrets = [status.SECRET_KEY, status.PUBLISHABLE_KEY, new URL(status.DB_UR
 const head = execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim()
 const dirty = execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim()
 docker(["version", "--format", "{{.Server.Version}}"])
+// Leftovers of an earlier run that was killed before its cleanup: only this script's label.
+for (const c of docker(["ps", "-aq", "--filter", `label=${LABEL}`]).stdout.split(/s+/).filter(Boolean)) docker(["rm", "-f", c], { allowFail: true })
+for (const n of docker(["network", "ls", "-q", "--filter", `label=${LABEL}`]).stdout.split(/s+/).filter(Boolean)) docker(["network", "rm", n], { allowFail: true })
+for (const d of readdirSync(tmpdir()).filter((d) => d.startsWith("top-e2e-linux-"))) {
+  const full = join(tmpdir(), d)
+  if (Date.now() - statSync(full).mtimeMs > 3600_000) rmSync(full, { recursive: true, force: true })
+}
 const { container, network, stamp } = resourceNames()
 if (docker(["ps", "-a", "--filter", `name=^${container}$`, "--format", "{{.Names}}"]).stdout.trim()) throw new Error(`Ya existe ${container}`)
 

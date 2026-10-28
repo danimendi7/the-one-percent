@@ -57,6 +57,18 @@
 | D38 | Copias persistidas antiguas | `upgradePersisted` añade `focusSessions: []` a las copias de M3.1. `e2e/upgrade.spec.ts` cubre las formas de M3.0 y de M3.1, cada una con una operación pendiente | Lección del incidente del 27/10. |
 | D39 | Pruebas de regresión permanentes | `e2e/upgrade.spec.ts` (actualizar sobre copias de versiones anteriores, con operaciones pendientes) y `e2e/screen-error.spec.ts` (un error de pantalla no detiene la sincronización) se ejecutan en CI en cada push y no se borran, omiten ni debilitan. Cada fase que añada un campo persistido añade su forma anterior a `upgrade.spec.ts` | Los dos incidentes del 27/10 llegaron a producción por falta de estas pruebas. |
 
+## M3.3 · Mind & Energy
+
+| # | Tema | Decisión | Motivo |
+| --- | --- | --- | --- |
+| D40 | Escala y entrada | Energía, ánimo y estrés de 1 a 5 con cinco botones (`radiogroup` con flechas). Sueño con valores rápidos de 5–9 h y ±15 min. Tocar el valor elegido lo borra, con «Deshacer» dentro de la hoja | Decisión 1: un toque por indicador y accesible. El «Deshacer» va dentro del diálogo porque un toast fuera queda oculto a los lectores de pantalla |
+| D41 | Día del check-in | La noche antes de las 04:00 cuenta para el día anterior y la hoja escribe siempre el día. El servidor admite hasta mañana (un día de margen) | Decisión 2; el margen cubre relojes alrededor de medianoche |
+| D42 | Conflictos | `checkin.set` lleva solo los campos cambiados; cada campo gana por su sello de tiempo (reloj híbrido, limitado a «ahora + 1 min»). La reflexión usa `note_seq`: si otro dispositivo la cambió, `conflict` (`note_conflict`) y el aviso no se cierra solo, muestra tu texto y ofrece «Aplicar el mío» | Decisión 3: ningún indicador se pierde y ninguna reflexión se sobrescribe en silencio |
+| D43 | Indicadores visibles | `profiles.settings_json.checkin` mediante `profile.checkin_fields` (estado deseado completo y orden canónico). Al menos un indicador por momento del día, validado también por trigger porque el perfil es editable por su dueño | Decisión 4; ocultar nunca borra historial |
+| D44 | Métricas | Catálogo v4: cobertura, medias con n, cambio frente al periodo anterior (≥ 7 días en ambos), comparaciones con ≥ 5 días por grupo y la etiqueta «Descriptivo, no causal». Sin rachas ni puntuación de bienestar | Decisión 5 y PRD §3.6 |
+| D45 | Sesión pausada | Se pregunta «Continuar / Terminar con X min / Descartar» si la pausa supera 30 min o cruza la medianoche (zona del perfil). Se pregunta una vez por pausa en cada pestaña y nunca se cierra sola | Decisión 6 |
+| D46 | Validación Linux | `npm run e2e:linux`: contenedor desechable con la imagen oficial de Playwright de la versión exacta. Solo reenvía los puertos 55321, 55322 y 55324, copia solo los valores públicos, revisa los registros por si contienen secretos y borra siempre el contenedor y la red | Decisión 7; los procesos Node de este Windows caen con `0xC0000409` bajo carga |
+
 ## Decisiones abiertas (para ti)
 
 1. ~~Inicio de sesión~~: resuelto en M2, enlace mágico más código.
