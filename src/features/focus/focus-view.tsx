@@ -38,7 +38,7 @@ export function FocusView() {
 
 function FocusSkeleton() {
   return (
-    <div className="grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]" aria-busy="true" aria-label="Cargando enfoque">
+    <div className="grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]" role="status" aria-busy="true" aria-label="Cargando enfoque">
       <div className="panel h-[520px] animate-pulse rounded-2xl" />
       <div className="panel h-64 animate-pulse rounded-2xl" />
     </div>

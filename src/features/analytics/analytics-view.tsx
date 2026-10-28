@@ -86,7 +86,7 @@ export function AnalyticsView() {
 
 export function AnalyticsSkeleton() {
   return (
-    <div className="grid gap-4" aria-busy="true" aria-label="Cargando analítica">
+    <div className="grid gap-4" role="status" aria-busy="true" aria-label="Cargando analítica">
       <div className="panel h-12 animate-pulse rounded-2xl" />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (

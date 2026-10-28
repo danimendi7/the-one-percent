@@ -143,7 +143,7 @@ export function HabitsView() {
 
 function LoadingState() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Cargando hábitos">
+    <div className="space-y-6" role="status" aria-busy="true" aria-label="Cargando hábitos">
       <MetricsSkeleton />
       <div className="panel h-[420px] animate-pulse rounded-2xl" />
     </div>

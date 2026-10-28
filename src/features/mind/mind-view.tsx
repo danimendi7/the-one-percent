@@ -47,7 +47,7 @@ export function MindView() {
 
 function MindSkeleton() {
   return (
-    <div className="grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]" aria-busy="true" aria-label="Cargando mente y energía">
+    <div className="grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]" role="status" aria-busy="true" aria-label="Cargando mente y energía">
       <div className="panel h-64 animate-pulse rounded-2xl" />
       <div className="panel h-96 animate-pulse rounded-2xl" />
     </div>
