@@ -159,4 +159,26 @@ test.describe("deployment smoke", () => {
     await expect(page.getByRole("region", { name: /^Enfoque/ }).getByText("Pocos datos", { exact: true })).toBeVisible()
     expect(errors.filter((e) => /Content Security Policy|Refused to|Hydration/i.test(e))).toEqual([])
   })
+
+  test("Mind & Energy (demo): evening check-in in 3 taps, saved without a button, and the Analytics section", async ({ page }) => {
+    const errors: string[] = []
+    page.on("console", (m) => {
+      if (m.type() === "error") errors.push(m.text())
+    })
+    await page.clock.setFixedTime(new Date("2026-10-21T18:30:00+02:00"))
+    await page.goto("/login")
+    await page.getByRole("button", { name: "Explorar la demo sin cuenta" }).click()
+    await page.goto("/mind?checkin=pm")
+    const dialog = page.getByRole("dialog")
+    await expect(dialog.getByTestId("checkin-date")).toHaveText("Hoy, miércoles 21 de octubre")
+    await dialog.getByRole("radiogroup", { name: "Energía" }).getByRole("radio", { name: "3, Normal" }).click()
+    await dialog.getByRole("radiogroup", { name: "Ánimo" }).getByRole("radio", { name: "4, Bueno" }).click()
+    await dialog.getByRole("radiogroup", { name: "Estrés" }).getByRole("radio", { name: "2, Poco" }).click()
+    await dialog.getByRole("button", { name: "Listo" }).click()
+    await page.reload()
+    await expect(page.getByTestId("mind-card-pm")).toContainText("Energía 3 · Ánimo 4 · Estrés 2")
+    await page.goto("/analytics#mente")
+    await expect(page.getByRole("region", { name: /^Mente y energía/ }).getByText("Descriptivo, no causal")).toBeVisible()
+    expect(errors.filter((e) => /Content Security Policy|Refused to|Hydration/i.test(e))).toEqual([])
+  })
 })
