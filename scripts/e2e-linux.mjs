@@ -134,7 +134,8 @@ try {
   docker([
     "create", "--name", container, "--label", LABEL, "--network", network,
     "--memory", "4g", "--cpus", "6", "--shm-size", "1g", "-e", "TZ=Europe/Madrid", "-w", "/work/app",
-    image, "node", "/work/tools/proxy.mjs",
+    // The forwarder is copied in after start: wait for it (up to 60 s), or the container could exit first.
+    image, "bash", "-c", "for i in $(seq 1 300); do [ -f /work/tools/proxy.mjs ] && exec node /work/tools/proxy.mjs; sleep 0.2; done; exit 1",
   ])
   docker(["start", container])
   docker(["exec", container, "mkdir", "-p", "/work/tools", "/work/app", "/work/out", "/run/top"])
