@@ -5,6 +5,8 @@ import type { GoalInput, MeasureResult } from "@/features/goals/domain/ops"
 import type { GoalState } from "@/features/goals/domain/types"
 import type { Op, SyncNotice, SyncStatus } from "@/features/sync/domain/types"
 import type { EditInput, FocusRejection } from "@/features/focus/domain/ops"
+import type { CheckinRejection } from "@/features/mind/domain/ops"
+import type { CheckinConfig, CheckinPhase, CheckinValues } from "@/features/mind/domain/types"
 
 export type DataSource = "demo" | "account"
 
@@ -28,6 +30,8 @@ export interface HabitsSnapshot {
   goals?: boolean
   /** False while the account's server lacks the focus migration (M3.2): the timer runs but nothing is saved. */
   focus?: boolean
+  /** False while the account's server lacks the check-ins migration (M3.3): nothing can be saved. */
+  checkins?: boolean
   account?: { userId: string; email: string | null }
 }
 
@@ -63,7 +67,15 @@ export interface FocusActions {
   clockNow(): number
 }
 
-export interface HabitActions extends Partial<GoalActions>, Partial<FocusActions> {
+export type CheckinOutcome = { ok: true } | { ok: false; reason: CheckinRejection }
+
+/** Mind & Energy (M3.3). Every call is one desired state per field, saved at once (no «Guardar»). */
+export interface MindActions {
+  setCheckin(date: LocalDate, phase: CheckinPhase, values: CheckinValues): CheckinOutcome
+  setCheckinConfig(config: CheckinConfig): CheckinOutcome
+}
+
+export interface HabitActions extends Partial<GoalActions>, Partial<FocusActions>, Partial<MindActions> {
   setEntry(habitId: string, date: LocalDate, value: boolean | number | null): SetEntryResult
   addHabit(input: HabitInput): string
   updateHabit(id: string, input: HabitInput): void

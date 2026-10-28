@@ -110,6 +110,21 @@ const focusSession = z.object({
   updatedAt: z.string(),
 })
 
+const checkinField = z.enum(["sleep", "energy", "mood", "stress", "note"])
+const scale = z.number().int().min(1).max(5).nullable()
+const checkin = z.object({
+  date: localDate,
+  phase: z.enum(["am", "pm"]),
+  sleep: z.number().min(0).max(16).nullable(),
+  energy: scale,
+  mood: scale,
+  stress: scale,
+  note: z.string().max(1000).nullable(),
+  stamps: z.record(z.string(), z.string()),
+  noteSeq: z.number().nullable().optional(),
+  updatedAt: z.string(),
+})
+
 export const habitsStateSchema = z.object({
   version: z.literal(1),
   timezone: z.string().min(1),
@@ -123,4 +138,7 @@ export const habitsStateSchema = z.object({
   measurements: z.record(z.string(), measurement).optional(),
   // Absent in demo data saved before M3.2; the demo store seeds them.
   focusSessions: z.array(focusSession).optional(),
+  // Absent in demo data saved before M3.3; the demo store seeds them.
+  checkins: z.record(z.string(), checkin).optional(),
+  checkinConfig: z.object({ am: z.array(checkinField), pm: z.array(checkinField) }).optional(),
 })

@@ -47,6 +47,7 @@ import { GENERAL_RULES, METRICS } from "./domain/catalog"
 import { parseFilter, periodRange, scopeHabits, serializeFilter, type AnalyticsFilter, type PeriodDays } from "./domain/filters"
 import { DrillSheet, type DrillRequest } from "./drill-sheet"
 import { FocusAnalytics } from "@/features/focus/components/focus-analytics"
+import { MindAnalytics } from "@/features/mind/components/mind-analytics"
 
 const DIMENSION_OPTIONS: { value: DimensionId | "all"; label: string }[] = [
   { value: "all", label: "Todas las dimensiones" },
@@ -171,6 +172,18 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
   const focus = (
     <FocusAnalytics state={model.state} today={model.today} range={range} periodLabel={periodLabel} project={filter.project} onProject={(project) => setFilter({ project })} />
   )
+  const mind = (
+    <MindAnalytics
+      state={model.state}
+      today={model.today}
+      range={range}
+      periodLabel={periodLabel}
+      indicator={filter.indicator}
+      phase={filter.phase}
+      onIndicator={(indicator) => setFilter({ indicator })}
+      onPhase={(phase) => setFilter({ phase })}
+    />
+  )
   if (model.all.length === 0) {
     return (
       <div className="space-y-6">
@@ -187,6 +200,7 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
           />
         </div>
         {model.state.focusSessions.length > 0 && focus}
+        {Object.keys(model.state.checkins).length > 0 && mind}
       </div>
     )
   }
@@ -248,6 +262,8 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
       <HabitTable model={model} range={range} selectedId={filter.habitId} onSelect={(id) => setFilter({ habitId: id })} />
 
       {focus}
+
+      {mind}
 
       <section className="panel rounded-2xl p-5" aria-labelledby="how-title">
         <h2 id="how-title" className="text-base font-semibold">

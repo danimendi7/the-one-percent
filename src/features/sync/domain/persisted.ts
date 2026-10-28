@@ -1,6 +1,7 @@
 import type { LocalDate } from "@/features/habits/domain/dates"
 import type { PersistedSync } from "../engine"
 import { emptyCache } from "./merge"
+import { normalizeConfig } from "@/features/mind/domain/ops"
 import type { QueuedOp } from "./types"
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v)
@@ -9,7 +10,7 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "obj
  * Bring a copy persisted by an older app version up to the current shape.
  *
  * Additive only: fields a newer version introduced get their empty default (e.g. M3.1 `goals`
- * and `measurements` on an M3.0 copy, M3.2 `focusSessions` on an M3.1 copy); nothing that is present is dropped or rewritten, and
+ * and `measurements` on an M3.0 copy, M3.2 `focusSessions` on an M3.1 copy, M3.3 `checkins` and `checkinConfig` on an M3.2 copy); nothing that is present is dropped or rewritten, and
  * every queued operation is kept, so pending offline work always reaches the server.
  * Returns null only when there is nothing usable at all.
  */
@@ -36,6 +37,8 @@ export function upgradePersisted(raw: unknown, today: LocalDate): PersistedSync 
         goals: Array.isArray(s.goals) ? s.goals : [],
         measurements: isObject(s.measurements) ? s.measurements : {},
         focusSessions: Array.isArray(s.focusSessions) ? s.focusSessions : [],
+        checkins: isObject(s.checkins) ? s.checkins : {},
+        checkinConfig: normalizeConfig(s.checkinConfig),
       } as PersistedSync["cache"]["state"],
       habitVersion: isObject(c.habitVersion) ? (c.habitVersion as Record<string, number>) : {},
       rowSeq: isObject(c.rowSeq) ? (c.rowSeq as Record<string, number>) : {},

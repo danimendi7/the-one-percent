@@ -6,6 +6,8 @@ import { addDays, eachDay, isoWeekday, startOfWeek, type LocalDate } from "../do
 import { isEligibleDay } from "../domain/schedule"
 import { createDemoGoals } from "@/features/goals/fixtures"
 import { withDemoFocus } from "@/features/focus/fixtures"
+import { withDemoCheckins } from "@/features/mind/fixtures"
+import { DEFAULT_CHECKIN_CONFIG } from "@/features/mind/domain/types"
 import {
   entryKey,
   type Dimension,
@@ -212,7 +214,8 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
   entries[entryKey("demo-meditation", today)] = mk("demo-meditation", today, 15)
   entries[entryKey("demo-coffee", today)] = mk("demo-coffee", today, 1)
 
-  return withDemoFocus(
+  return withDemoCheckins(
+    withDemoFocus(
     {
       version: 1,
       timezone,
@@ -223,7 +226,11 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
       seededOn: today,
       ...createDemoGoals(today),
       focusSessions: [],
+      checkins: {},
+      checkinConfig: DEFAULT_CHECKIN_CONFIG,
     },
+    today
+    ),
     today
   )
 }

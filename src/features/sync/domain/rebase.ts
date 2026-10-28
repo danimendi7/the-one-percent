@@ -19,7 +19,9 @@ import {
   updateGoal,
 } from "@/features/goals/domain/ops"
 import { discardSession, editSession, finishSession, pauseSession, resumeSession, setHabitSource, startSession } from "@/features/focus/domain/ops"
+import { setCheckin, setCheckinConfig } from "@/features/mind/domain/ops"
 import { wireToInput } from "./goal-wire"
+import { wireToValues } from "./checkin-wire"
 import type { Op, QueuedOp } from "./types"
 
 /**
@@ -135,6 +137,11 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return discardSession(state, op.session_id, new Date(0).toISOString())
     case "habit.set_source":
       return setHabitSource(state, op.habit_id, op.source, op.from)
+    // ── Mind & Energy (M3.3) ──
+    case "checkin.set":
+      return setCheckin(state, { date: op.local_date, phase: op.phase, values: wireToValues(op.fields), at: op.at, today }).state
+    case "profile.checkin_fields":
+      return setCheckinConfig(state, { am: op.am, pm: op.pm }).state
   }
 }
 
@@ -145,9 +152,22 @@ export function rebase(server: HabitsState, queue: readonly QueuedOp[], today: L
 /**
  * Enqueue with compaction: a newer desired state for the same habit/day (or
  * rest day) replaces older ones that have not been sent yet. Ops already sent
- * (in flight) are never touched.
+ * (in flight) are never touched. Unsent check-in writes for the same day and phase
+ * are folded into one (the newer values win field by field).
  */
 export function enqueue(queue: readonly QueuedOp[], op: Op, now: number, inFlight: ReadonlySet<string>): QueuedOp[] {
+  if (op.type === "checkin.set") {
+    const prev = queue.find((q) => !inFlight.has(q.op.op_id) && q.op.type === "checkin.set" && q.op.local_date === op.local_date && q.op.phase === op.phase)
+    if (prev && prev.op.type === "checkin.set") {
+      const merged: Op = {
+        ...op,
+        fields: { ...prev.op.fields, ...op.fields },
+        // The reflection's conflict base is the one the reflection was written against.
+        base_note_seq: "note" in op.fields ? op.base_note_seq : prev.op.base_note_seq,
+      }
+      return [...queue.filter((q) => q !== prev), { op: merged, enqueuedAt: now, attempts: 0 }]
+    }
+  }
   const sameTarget = (q: QueuedOp) => {
     if (inFlight.has(q.op.op_id)) return false
     if (op.type === "entry.set" && q.op.type === "entry.set")
@@ -157,6 +177,7 @@ export function enqueue(queue: readonly QueuedOp[], op: Op, now: number, inFligh
       return q.op.goal_id === op.goal_id && q.op.observed_on === op.observed_on
     if (op.type === "goal.checkpoint.set" && q.op.type === "goal.checkpoint.set")
       return q.op.goal_id === op.goal_id && q.op.checkpoint_id === op.checkpoint_id
+    if (op.type === "profile.checkin_fields" && q.op.type === "profile.checkin_fields") return true
     return false
   }
   return [...queue.filter((q) => !sameTarget(q)), { op, enqueuedAt: now, attempts: 0 }]

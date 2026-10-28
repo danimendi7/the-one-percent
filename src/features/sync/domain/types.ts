@@ -1,6 +1,7 @@
 import type { LocalDate } from "@/features/habits/domain/dates"
 import type { DimensionId, HabitsState, HabitType, ScheduleRule, TargetDirection } from "@/features/habits/domain/types"
 import type { Aggregation, GoalDirection, GoalKind, GoalPriority, GoalState, Horizon, NumericSource } from "@/features/goals/domain/types"
+import type { CheckinField, CheckinPhase } from "@/features/mind/domain/types"
 
 /**
  * Client → server operations. The wire format is exactly what `public.apply_ops`
@@ -109,8 +110,49 @@ export type Op =
     }
   | { type: "focus.discard"; op_id: string; session_id: string }
   | { type: "habit.set_source"; op_id: string; habit_id: string; source: "focus" | null; from: LocalDate }
+  // ── Mind & Energy (M3.3) ──
+  | {
+      type: "checkin.set"
+      op_id: string
+      local_date: LocalDate
+      phase: CheckinPhase
+      /** Only the fields being set; null clears one. Each field is last-writer-wins on `at`. */
+      fields: WireCheckinFields
+      /** Hybrid, server-corrected time of the intent (ISO). */
+      at: string
+      /**
+       * Only with `note`: note_seq of the reflection as this device last saw it (null if unseen).
+       * A different reflection written meanwhile → conflict, never a silent overwrite.
+       */
+      base_note_seq: number | null
+    }
+  | { type: "profile.checkin_fields"; op_id: string; am: CheckinField[]; pm: CheckinField[] }
 
 export type OpType = Op["type"]
+
+export interface WireCheckinFields {
+  sleep_hours?: number | null
+  energy?: number | null
+  mood?: number | null
+  stress?: number | null
+  note?: string | null
+}
+
+export interface WireCheckin {
+  local_date: LocalDate
+  phase: CheckinPhase
+  sleep_hours: number | null
+  energy: number | null
+  mood: number | null
+  stress: number | null
+  note: string | null
+  /** Per-field instant of the last write (keys: sleep_hours, energy, mood, stress, note). */
+  field_stamps: Record<string, string>
+  note_seq: number | null
+  updated_at: string
+  deleted: boolean
+  server_seq: number
+}
 
 export interface WireSegment {
   start: string
@@ -258,7 +300,8 @@ export interface PullPayload {
   /** Server clock (ISO), used to correct the device clock. */
   server_time?: string
   full: boolean
-  profile: { timezone: string; locale: string; server_seq: number } | null
+  /** checkin_fields: M3.3, absent from servers without the check-ins migration. */
+  profile: { timezone: string; locale: string; server_seq: number; checkin_fields?: { am: CheckinField[]; pm: CheckinField[] } | null } | null
   dimensions: { slug: DimensionId; name: string }[]
   habits: WireHabit[]
   entries: WireEntry[]
@@ -268,6 +311,8 @@ export interface PullPayload {
   measurements?: WireMeasurement[]
   /** M3.2. Absent from servers without the focus migration: focus stays local-only. */
   focus_sessions?: WireFocusSession[]
+  /** M3.3. Absent from servers without the check-ins migration: check-ins cannot be saved. */
+  daily_checkins?: WireCheckin[]
   cursor: number
 }
 
@@ -279,7 +324,7 @@ export interface ServerCache {
   cursor: number
   serverToday: LocalDate
   /** Server capabilities seen in the last pull (a deploy may precede its migration). */
-  features?: { goals: boolean; focus?: boolean }
+  features?: { goals: boolean; focus?: boolean; checkins?: boolean }
 }
 
 export type SyncStatus = "synced" | "syncing" | "pending" | "offline" | "error"

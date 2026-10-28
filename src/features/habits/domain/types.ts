@@ -1,6 +1,7 @@
 import type { LocalDate, Weekday } from "./dates"
 import type { Goal, MeasurementMap } from "@/features/goals/domain/types"
 import type { FocusSession } from "@/features/focus/domain/types"
+import type { CheckinConfig, CheckinMap } from "@/features/mind/domain/types"
 
 export type HabitType = "binary" | "numeric" | "duration"
 export type TargetDirection = "at_least" | "at_most"
@@ -76,6 +77,10 @@ export interface HabitsState {
   measurements: MeasurementMap
   /** Deep Work sessions (M3.2). Discarded sessions are removed. */
   focusSessions: FocusSession[]
+  /** Mind & Energy check-ins (M3.3), keyed `date:phase`. */
+  checkins: CheckinMap
+  /** Indicators shown per phase (profile setting, synced). */
+  checkinConfig: CheckinConfig
 }
 
 export function entryKey(habitId: string, date: LocalDate): string {

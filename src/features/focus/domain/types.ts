@@ -44,6 +44,8 @@ export const MAX_ACTIVE_SECONDS = 12 * 3600
 export const FUTURE_TOLERANCE_MS = 60_000
 /** «¿Sigue en curso?» once a running session exceeds its plan by this much. */
 export const RECOVERY_GRACE_MS = 30 * 60_000
+/** M3.3 decision 6: a paused session asks again after this long, or once the pause crosses midnight. */
+export const PAUSE_RECOVERY_MS = 30 * 60_000
 export const PROJECT_MAX = 60
 export const PLANNED_OUTPUT_MAX = 200
 export const ACTUAL_OUTPUT_MAX = 500

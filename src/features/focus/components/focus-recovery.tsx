@@ -5,7 +5,8 @@ import { useRef, useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { activeMs, hhmm, minutesOf, needsRecovery, plannedEndAt } from "../domain/time"
+import { activeMs, activeSeconds, hhmm, minutesOf, needsRecovery, pausedAt, pausedTooLong, plannedEndAt } from "../domain/time"
+import { MIN_ACTIVE_SECONDS } from "../domain/types"
 import { useFocusModel, useNow } from "../use-focus"
 import { minutesLabel, reasonText } from "./focus-ui"
 
@@ -29,7 +30,8 @@ function remember(id: string) {
 
 /**
  * «¿Sigue en curso?» (decision 5): an active session never closes on its own. When the app is
- * opened with a running session past its plan + 30 min, the user chooses what really happened.
+ * opened with a running session past its plan + 30 min, or (M3.3 decision 6) a session paused for
+ * more than 30 min or across midnight, the user chooses what really happened.
  */
 export function FocusRecovery() {
   const fm = useFocusModel()
@@ -39,17 +41,21 @@ export function FocusRecovery() {
   const [handled, setHandled] = useState<string | null>(null)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const continueRef = useRef<HTMLButtonElement>(null)
-  if (!fm || !session || handled === session.id || !needsRecovery(session, now) || dismissed().has(session.id)) return null
+  // A paused session asks once per pause: resuming and pausing again is a new question.
+  const key = session ? (session.state === "paused" ? `${session.id}:pause:${session.segments.length}` : session.id) : ""
+  const paused = !!session && !!fm && pausedTooLong(session, now, fm.timezone)
+  if (!fm || !session || handled === key || !(needsRecovery(session, now) || paused) || dismissed().has(key)) return null
+  if (paused) return <PausedRecovery fm={fm} session={session} onDone={() => setHandled(key)} onKeep={() => (remember(key), setHandled(key))} />
 
   const end = plannedEndAt(session, now)
   const elapsed = minutesOf(activeMs(session.segments, now) / 1000)
   const close = () => {
-    setHandled(session.id)
+    setHandled(key)
     setConfirmDiscard(false)
   }
 
   function keep() {
-    remember(session!.id)
+    remember(key)
     close()
   }
 
@@ -105,6 +111,84 @@ export function FocusRecovery() {
               </Button>
             )}
             <Button ref={continueRef} onClick={keep}>
+              Continuar
+            </Button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Paused too long: «Continuar» resumes, «Terminar» keeps the time already recorded, «Descartar» drops it. */
+function PausedRecovery({
+  fm,
+  session,
+  onDone,
+  onKeep,
+}: {
+  fm: NonNullable<ReturnType<typeof useFocusModel>>
+  session: NonNullable<NonNullable<ReturnType<typeof useFocusModel>>["active"]>
+  onDone: () => void
+  onKeep: () => void
+}) {
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const continueRef = useRef<HTMLButtonElement>(null)
+  const seconds = activeSeconds(session.segments)
+  const at = pausedAt(session)
+  const canFinish = seconds >= MIN_ACTIVE_SECONDS
+
+  function resume() {
+    fm.api.resumeFocus(session.id)
+    onDone()
+  }
+  function finish() {
+    const r = fm.api.finishFocus(session.id, { trimTo: null })
+    onDone()
+    if (!r.ok) return toast.error(reasonText(r.reason))
+    toast.success(`Bloque guardado · ${minutesLabel(minutesOf(seconds))}`)
+  }
+  function discard() {
+    fm.api.discardFocus(session.id)
+    onDone()
+    toast("Sesión descartada", { description: "No cuenta en ningún dato." })
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onKeep()}>
+      <DialogContent
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          continueRef.current?.focus()
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>¿Sigue en curso?</DialogTitle>
+          <DialogDescription>
+            El bloque{session.project ? ` de «${session.project}»` : ""} está en pausa{at !== null ? ` desde las ${hhmm(at, fm.timezone)}` : ""}, con{" "}
+            {minutesLabel(minutesOf(seconds))} registrados. Nada se ha cerrado solo.
+          </DialogDescription>
+        </DialogHeader>
+        {confirmDiscard ? (
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="ghost" onClick={() => setConfirmDiscard(false)}>
+              Volver
+            </Button>
+            <Button variant="destructive" onClick={discard}>
+              Descartar sin contar tiempo
+            </Button>
+          </DialogFooter>
+        ) : (
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="ghost" onClick={() => setConfirmDiscard(true)}>
+              Descartar
+            </Button>
+            {canFinish && (
+              <Button variant="outline" onClick={finish}>
+                Terminar con {minutesLabel(minutesOf(seconds))}
+              </Button>
+            )}
+            <Button ref={continueRef} onClick={resume}>
               Continuar
             </Button>
           </DialogFooter>

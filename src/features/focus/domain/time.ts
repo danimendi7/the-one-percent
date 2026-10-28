@@ -1,5 +1,5 @@
 import { localDateInZone, type LocalDate } from "@/features/habits/domain/dates"
-import { FUTURE_TOLERANCE_MS, MAX_ACTIVE_SECONDS, RECOVERY_GRACE_MS, type FocusSession, type Segment } from "./types"
+import { FUTURE_TOLERANCE_MS, MAX_ACTIVE_SECONDS, PAUSE_RECOVERY_MS, RECOVERY_GRACE_MS, type FocusSession, type Segment } from "./types"
 
 /**
  * Time model (plan §3). Pure functions over segments; the server computes the same
@@ -92,6 +92,23 @@ export function plannedEndAt(s: Pick<FocusSession, "segments" | "plannedMinutes"
 export function needsRecovery(s: FocusSession, now: number): boolean {
   if (s.state !== "running") return false
   return activeMs(s.segments, now) > s.plannedMinutes * 60_000 + RECOVERY_GRACE_MS
+}
+
+/** Instant the session was paused (end of its last segment); null unless paused. */
+export function pausedAt(s: Pick<FocusSession, "segments" | "state">): number | null {
+  if (s.state !== "paused") return null
+  const end = s.segments[s.segments.length - 1]?.end
+  return end ? ms(end) : null
+}
+
+/**
+ * M3.3 decision 6: a session paused for more than 30 min, or whose pause crosses midnight in the
+ * profile's timezone, asks «Continuar / Terminar / Descartar». It is never closed automatically.
+ */
+export function pausedTooLong(s: FocusSession, now: number, timezone: string): boolean {
+  const at = pausedAt(s)
+  if (at === null || now <= at) return false
+  return now - at > PAUSE_RECOVERY_MS || localDateInZone(new Date(at), timezone) !== localDateInZone(new Date(now), timezone)
 }
 
 export type SegmentsError = "empty" | "order" | "overlap" | "future" | "open" | "too_long"

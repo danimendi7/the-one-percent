@@ -6,11 +6,13 @@ import { countRows, newAccount, removeAccount, signIn, type Account } from "./su
  * Updating the app over data saved by an older version (incident 27/10/2026: M3.0 → M3.1 crashed
  * with «This page couldn't load» on devices that had a persisted copy). Cookies, localStorage,
  * IndexedDB and the offline queue are kept exactly as the old version left them; nothing is cleared.
- * Every phase that adds a persisted field adds its older shape here (M3.2: focusSessions).
+ * Every phase that adds a persisted field adds its older shape here (M3.2: focusSessions; M3.3: checkins
+ * and checkinConfig).
  * PERMANENT regression gate (D39): runs in CI on every push; never delete, skip or weaken it.
  */
 
-type Shape = "m30" | "m31"
+type Shape = "m30" | "m31" | "m32"
+const SHAPE_NAME: Record<Shape, string> = { m30: "M3.0", m31: "M3.1", m32: "M3.2" }
 
 /** Rewrite the persisted copy into the exact shape an older version saved. */
 async function downgradeCopy(page: Page, shape: Shape) {
@@ -30,10 +32,16 @@ async function downgradeCopy(page: Page, shape: Shape) {
         const r = store().get(key)
         r.onsuccess = () => res(r.result)
       })
+      // M3.2 saved no check-ins and knew the goals and focus capabilities.
+      delete value.cache.state.checkins
+      delete value.cache.state.checkinConfig
+      if (shape === "m32") value.cache.features = { goals: true, focus: true }
       // M3.1 saved no focus sessions and only knew the goals capability.
-      delete value.cache.state.focusSessions
-      if (shape === "m31") value.cache.features = { goals: true }
-      else {
+      else if (shape === "m31") {
+        delete value.cache.state.focusSessions
+        value.cache.features = { goals: true }
+      } else {
+        delete value.cache.state.focusSessions
         // M3.0 saved no goals, measurements or features at all.
         delete value.cache.state.goals
         delete value.cache.state.measurements
@@ -58,11 +66,16 @@ async function persistedCopy(page: Page) {
       const r = db.transaction("sync", "readonly").objectStore("sync").getAll()
       r.onsuccess = () => res(r.result)
     })
-    return all.map((v) => ({ hasGoals: Array.isArray(v.cache.state.goals), hasFocus: Array.isArray(v.cache.state.focusSessions), queue: v.queue.length }))
+    return all.map((v) => ({
+      hasGoals: Array.isArray(v.cache.state.goals),
+      hasFocus: Array.isArray(v.cache.state.focusSessions),
+      hasCheckins: typeof v.cache.state.checkins === "object" && v.cache.state.checkins !== null && typeof v.cache.state.checkinConfig === "object",
+      queue: v.queue.length,
+    }))
   })
 }
 
-for (const shape of ["m30", "m31"] as const) test.describe(`account · update over a copy saved by ${shape === "m30" ? "M3.0" : "M3.1"}`, () => {
+for (const shape of ["m30", "m31", "m32"] as const) test.describe(`account · update over a copy saved by ${SHAPE_NAME[shape]}`, () => {
   test.use({ mode: "account" })
   let account: Account
   test.beforeEach(async ({}, info) => {
@@ -102,7 +115,7 @@ for (const shape of ["m30", "m31"] as const) test.describe(`account · update ov
     await expect.poll(() => countRows("select count(*)::int n from public.habit_entries where user_id = $1 and deleted_at is null", [account.id]), { timeout: 15_000 }).toBe(1)
     await expect(reopened.getByRole("button", { name: /Estado de datos: Sincronizado/ })).toBeVisible({ timeout: 15_000 })
     expect(await countRows("select count(*)::int n from public.sync_operations where user_id = $1 and operation_type = 'entry.set'", [account.id])).toBe(1)
-    await expect.poll(() => persistedCopy(reopened)).toEqual([{ hasGoals: true, hasFocus: true, queue: 0 }])
+    await expect.poll(() => persistedCopy(reopened)).toEqual([{ hasGoals: true, hasFocus: true, hasCheckins: true, queue: 0 }])
 
     // Goals work on the upgraded copy, and the habit is still there.
     await reopened.goto("/goals")
@@ -111,6 +124,10 @@ for (const shape of ["m30", "m31"] as const) test.describe(`account · update ov
     await reopened.goto("/focus")
     await expect(reopened.getByText("Aún no hay sesiones")).toBeVisible()
     await expect(reopened.getByText(/no guarda sesiones/)).toHaveCount(0)
+    // Check-ins work on the upgraded copy and are saved (M3.3): no demo data, nothing pretended.
+    await reopened.goto("/mind")
+    await expect(reopened.getByText("Aún no hay check-ins en este periodo")).toBeVisible()
+    await expect(reopened.getByText(/aún no guarda check-ins/)).toHaveCount(0)
     await reopened.goto("/habits")
     await expect(reopened.getByRole("region", { name: "Hoy" }).getByRole("button", { name: /^Respirar, / })).toHaveAttribute("aria-pressed", "true")
     expect(errors).toEqual([])
@@ -162,6 +179,30 @@ test.describe("demo · update over copies saved by older versions", () => {
       return { own: Object.keys(s.entries).filter((k) => !k.startsWith("demo-focus:")).length, goals: s.goals.length }
     })
     expect(after).toEqual({ own: kept.entries, goals: kept.goals })
+    expect(consoleErrors).toEqual([])
+  })
+
+  test("an old demo copy without check-ins (M3.2) gets the demo check-ins and keeps its own records, goals and sessions", async ({ page, consoleErrors }) => {
+    await page.goto("/habits")
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("the-one-percent:demo:habits:v1") !== null)).toBe(true)
+    const kept = await page.evaluate(() => {
+      const key = "the-one-percent:demo:habits:v1"
+      const state = JSON.parse(localStorage.getItem(key)!)
+      delete state.checkins
+      delete state.checkinConfig
+      localStorage.setItem(key, JSON.stringify(state))
+      return { entries: Object.keys(state.entries).length, goals: state.goals.length, sessions: state.focusSessions.length }
+    })
+    await page.goto("/mind")
+    await expect(page.getByRole("heading", { name: "Historial" })).toBeVisible()
+    await expect(page.getByText("Aún no hay check-ins en este periodo")).toHaveCount(0)
+    const after = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("the-one-percent:demo:habits:v1")!)
+      return { entries: Object.keys(s.entries).length, goals: s.goals.length, sessions: s.focusSessions.length }
+    })
+    // The stored copy is only rewritten on the next change; what it had is untouched.
+    expect(after).toEqual(kept)
     expect(consoleErrors).toEqual([])
   })
 })

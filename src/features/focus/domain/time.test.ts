@@ -8,6 +8,7 @@ import {
   localDateOfStart,
   minutesOf,
   needsRecovery,
+  pausedTooLong,
   pauseSegments,
   plannedEndAt,
   resumeSegments,
@@ -143,5 +144,28 @@ describe("zonedInstant (edit sheet: local date + HH:MM → instant)", () => {
     expect(new Date(zonedInstant("2026-11-02", "09:00", "Europe/Madrid")).toISOString()).toBe("2026-11-02T08:00:00.000Z")
     expect(new Date(zonedInstant("2026-10-25", "02:30", "Europe/Madrid")).toISOString()).toBe("2026-10-25T00:30:00.000Z")
     expect(new Date(zonedInstant("2026-10-21", "23:30", "America/New_York")).toISOString()).toBe("2026-10-22T03:30:00.000Z")
+  })
+})
+
+describe("pausedTooLong (M3.3 decision 6: never closed automatically)", () => {
+  const paused = (end: string): FocusSession => ({
+    id: "p", habitId: null, project: null, plannedOutput: null, actualOutput: null, plannedMinutes: 50,
+    segments: [{ start: "2026-10-21T20:00:00.000Z", end }], state: "paused", localDate: "2026-10-21", rating: null,
+    createdAt: "2026-10-21T20:00:00.000Z", updatedAt: end,
+  })
+  it("asks after more than 30 min of pause", () => {
+    const s = paused("2026-10-21T20:20:00.000Z") // 22:20 Madrid
+    expect(pausedTooLong(s, Date.parse("2026-10-21T20:50:00.000Z"), "Europe/Madrid")).toBe(false)
+    expect(pausedTooLong(s, Date.parse("2026-10-21T20:50:01.000Z"), "Europe/Madrid")).toBe(true)
+  })
+  it("asks as soon as the pause crosses midnight in the profile timezone, even if short", () => {
+    const s = paused("2026-10-21T21:50:00.000Z") // 23:50 Madrid
+    expect(pausedTooLong(s, Date.parse("2026-10-21T21:59:00.000Z"), "Europe/Madrid")).toBe(false) // 23:59
+    expect(pausedTooLong(s, Date.parse("2026-10-21T22:01:00.000Z"), "Europe/Madrid")).toBe(true) // 00:01
+  })
+  it("never for running or finished sessions", () => {
+    const s = paused("2026-10-21T20:20:00.000Z")
+    expect(pausedTooLong({ ...s, state: "running", segments: [{ start: s.segments[0].start, end: null }] }, Date.parse("2026-10-22T08:00:00Z"), "Europe/Madrid")).toBe(false)
+    expect(pausedTooLong({ ...s, state: "finished" }, Date.parse("2026-10-22T08:00:00Z"), "Europe/Madrid")).toBe(false)
   })
 })

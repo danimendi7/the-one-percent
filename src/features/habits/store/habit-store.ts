@@ -6,7 +6,7 @@
  * engine + Supabase). The backend is chosen by <DataSourceProvider>.
  */
 import { useSyncExternalStore } from "react"
-import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot } from "./types"
+import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions } from "./types"
 
 export type { HabitsSnapshot, DataSource, SyncInfo } from "./types"
 
@@ -54,6 +54,11 @@ export function focusEnabled(): boolean {
   return !!backend?.actions.startFocus && backend.getSnapshot()?.focus !== false
 }
 
+/** True when the active data source stores check-ins (an account needs the M3.3 migration). */
+export function checkinsEnabled(): boolean {
+  return !!backend?.actions.setCheckin && backend.getSnapshot()?.checkins !== false
+}
+
 function need<T>(fn: T | undefined): T {
   if (!fn) throw new Error("This data source does not support this feature yet")
   return fn
@@ -64,7 +69,7 @@ function active(): HabitActions {
   return backend.actions
 }
 
-export const habitActions: HabitActions & GoalActions & FocusActions = {
+export const habitActions: HabitActions & GoalActions & FocusActions & MindActions = {
   setEntry: (...a) => active().setEntry(...a),
   addHabit: (...a) => active().addHabit(...a),
   updateHabit: (...a) => active().updateHabit(...a),
@@ -87,6 +92,8 @@ export const habitActions: HabitActions & GoalActions & FocusActions = {
   discardFocus: (id) => need(active().discardFocus)(id),
   setHabitSource: (...a) => need(active().setHabitSource)(...a),
   clockNow: () => active().clockNow?.() ?? Date.now(),
+  setCheckin: (...a) => need(active().setCheckin)(...a),
+  setCheckinConfig: (c) => need(active().setCheckinConfig)(c),
   resetDemo: () => active().resetDemo?.(),
   syncNow: () => active().syncNow?.(),
   setTimezone: (tz) => active().setTimezone?.(tz),

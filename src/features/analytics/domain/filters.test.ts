@@ -12,7 +12,7 @@ describe("analytics filters in the URL", () => {
   })
 
   it("round-trips a full filter", () => {
-    const f = { period: 90, dimension: "mind", habitId: "abc-123", goalId: "g-1", project: "Tesis doctoral" } as const
+    const f = { period: 90, dimension: "mind", habitId: "abc-123", goalId: "g-1", project: "Tesis doctoral", indicator: "stress", phase: "pm" } as const
     expect(parseFilter(p(serializeFilter(f).slice(1)))).toEqual(f)
     // «Sin proyecto» is the empty project and survives the URL too.
     const none = { ...DEFAULT_FILTER, project: "" }
@@ -23,6 +23,12 @@ describe("analytics filters in the URL", () => {
     expect(parseFilter(p("periodo=12&dimension=hack&habito=<script>"))).toEqual(DEFAULT_FILTER)
     expect(parseFilter(p(`habito=${"x".repeat(65)}`)).habitId).toBe("all")
     expect(parseFilter(p(`proyecto=${"x".repeat(61)}`)).project).toBe("all")
+    expect(parseFilter(p("indicador=stress&fase=am"))).toMatchObject({ indicator: "all", phase: "both" })
+  })
+
+  it("check-in filters use readable Spanish slugs", () => {
+    expect(serializeFilter({ ...DEFAULT_FILTER, indicator: "sleep", phase: "am" })).toBe("?indicador=sueno&fase=manana")
+    expect(parseFilter(p("indicador=animo&fase=noche"))).toMatchObject({ indicator: "mood", phase: "pm" })
   })
 })
 

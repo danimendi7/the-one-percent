@@ -3,6 +3,9 @@ import { entryKey, type Habit, type HabitEntry, type HabitsState, type ScheduleR
 import { measurementKey } from "@/features/goals/domain/types"
 import { toGoal, toMeasurement } from "./goal-wire"
 import type { FocusSession } from "@/features/focus/domain/types"
+import { normalizeConfig } from "@/features/mind/domain/ops"
+import { checkinKey, DEFAULT_CHECKIN_CONFIG } from "@/features/mind/domain/types"
+import { toCheckin } from "./checkin-wire"
 import type { PullPayload, ServerCache, WireEntry, WireFocusSession, WireHabit, WireVersion } from "./types"
 
 const DEFAULT_DIMENSIONS: HabitsState["dimensions"] = [
@@ -14,7 +17,7 @@ const DEFAULT_DIMENSIONS: HabitsState["dimensions"] = [
 
 export function emptyCache(today: LocalDate, timezone = "Europe/Madrid"): ServerCache {
   return {
-    state: { version: 1, timezone, dimensions: DEFAULT_DIMENSIONS, habits: [], entries: {}, restDays: [], seededOn: today, goals: [], measurements: {}, focusSessions: [] },
+    state: { version: 1, timezone, dimensions: DEFAULT_DIMENSIONS, habits: [], entries: {}, restDays: [], seededOn: today, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG },
     habitVersion: {},
     rowSeq: {},
     cursor: 0,
@@ -90,6 +93,7 @@ const seqKey = {
   goal: (id: string) => `g:${id}`,
   measurement: (goalId: string, date: string) => `m:${goalId}:${date}`,
   focus: (id: string) => `f:${id}`,
+  checkin: (date: string, phase: string) => `c:${date}:${phase}`,
 }
 
 /**
@@ -107,6 +111,7 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
   const goals = new Map(base.state.goals.map((g) => [g.id, g]))
   const measurements = { ...base.state.measurements }
   const focus = new Map(base.state.focusSessions.map((f) => [f.id, f]))
+  const checkins = { ...base.state.checkins }
 
   const newer = (key: string, seq: number) => !(key in rowSeq) || seq > rowSeq[key]
 
@@ -156,6 +161,15 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
     else focus.set(w.id, toFocusSession(w))
   }
 
+  for (const w of p.daily_checkins ?? []) {
+    const k = seqKey.checkin(w.local_date, w.phase)
+    if (!newer(k, w.server_seq)) continue
+    rowSeq[k] = w.server_seq
+    const ck = checkinKey(w.local_date, w.phase)
+    if (w.deleted) delete checkins[ck]
+    else checkins[ck] = toCheckin(w)
+  }
+
   return {
     state: {
       ...base.state,
@@ -170,11 +184,13 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
       goals: [...goals.values()],
       measurements,
       focusSessions: [...focus.values()],
+      checkins,
+      checkinConfig: p.profile?.checkin_fields ? normalizeConfig(p.profile.checkin_fields) : base.state.checkinConfig,
     },
     habitVersion,
     rowSeq,
     cursor: Math.max(p.full ? 0 : cache.cursor, p.cursor),
     serverToday: p.server_today,
-    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined },
+    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined },
   }
 }

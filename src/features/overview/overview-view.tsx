@@ -24,6 +24,7 @@ import { focusToday } from "@/features/focus/domain/metrics"
 import { minutesLabel } from "@/features/focus/components/focus-ui"
 import { useFocusModel } from "@/features/focus/use-focus"
 import { RECALL_CARDS } from "@/features/brain/fixtures"
+import { CheckinCard } from "@/features/mind/components/checkin-card"
 
 export function OverviewView() {
   const model = useHabitsModel()
@@ -60,6 +61,7 @@ export function OverviewView() {
         {/* Side column */}
         <div className="grid min-w-0 grid-cols-1 content-start gap-4 lg:col-span-5 xl:col-span-4">
           {model?.source === "account" ? <PrioritiesComingSoon /> : <Priorities />}
+          <CheckinCard />
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-1 xl:grid-cols-2">
             <FocusCta />
             <LearnCta source={model?.source} />

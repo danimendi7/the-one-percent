@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { memoryStorage, SyncEngine, type PersistedSync } from "../engine"
 import { FakeServer, fakeTransport } from "../testing/fake-server"
 import { upgradePersisted } from "./persisted"
+import { DEFAULT_CHECKIN_CONFIG } from "@/features/mind/domain/types"
 
 const TODAY = "2026-10-21"
 const NOW = Date.parse("2026-10-21T10:00:00Z")
@@ -51,7 +52,14 @@ describe("upgradePersisted (copies saved by older versions)", () => {
   })
 
   it("is a no-op on a current copy", () => {
-    const current = { ...m30Copy(), cache: { ...m30Copy().cache, state: { ...m30Copy().cache.state, goals: [], measurements: {}, focusSessions: [] }, features: { goals: true, focus: true } } }
+    const current = {
+      ...m30Copy(),
+      cache: {
+        ...m30Copy().cache,
+        state: { ...m30Copy().cache.state, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG },
+        features: { goals: true, focus: true, checkins: true },
+      },
+    }
     expect(upgradePersisted(structuredClone(current), TODAY)).toEqual(current)
   })
 
@@ -64,6 +72,27 @@ describe("upgradePersisted (copies saved by older versions)", () => {
     // Focus stays off until the next pull confirms the server supports it.
     expect(up.cache.features).toEqual({ goals: true })
     expect(up.queue).toEqual(m31.queue)
+  })
+
+  it("upgrades an M3.2 copy (focus sessions, no check-ins) keeping its sessions and queue (D39)", () => {
+    const session = { id: "s", state: "finished", segments: [], localDate: "2026-10-20" }
+    const m32 = {
+      ...m30Copy(),
+      cache: { ...m30Copy().cache, state: { ...m30Copy().cache.state, goals: [], measurements: {}, focusSessions: [session] }, features: { goals: true, focus: true } },
+    }
+    const up = upgradePersisted(structuredClone(m32), TODAY)!
+    expect(up.cache.state.checkins).toEqual({})
+    expect(up.cache.state.checkinConfig).toEqual(DEFAULT_CHECKIN_CONFIG)
+    expect(up.cache.state.focusSessions).toEqual([session])
+    // Check-ins stay off until the next pull confirms the server supports them.
+    expect(up.cache.features).toEqual({ goals: true, focus: true })
+    expect(up.queue).toEqual(m32.queue)
+  })
+
+  it("a damaged indicators configuration falls back to the defaults instead of breaking the app", () => {
+    const bad = { ...m30Copy(), cache: { ...m30Copy().cache, state: { ...m30Copy().cache.state, checkins: { x: 1 }, checkinConfig: { am: "oops" } } } }
+    const up = upgradePersisted(structuredClone(bad), TODAY)!
+    expect(up.cache.state.checkinConfig).toEqual(DEFAULT_CHECKIN_CONFIG)
   })
 
   it("never throws on damaged data and keeps any recoverable pending work", () => {

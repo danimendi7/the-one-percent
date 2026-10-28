@@ -4,12 +4,15 @@
  * snapshot, so an old review never changes when a formula is improved.
  * v2 (M3.1): adds the goal metrics; habit formulas are unchanged.
  * v3 (M3.2): adds the focus metrics; habit and goal formulas are unchanged.
+ * v4 (M3.3): adds the Mind & Energy metrics; earlier formulas are unchanged.
  */
-export const METRICS_VERSION = 3
+export const METRICS_VERSION = 4
 
 export type MetricId = "completion" | "perfect_days" | "exempt" | "in_progress" | "weekly_trend" | "weekday" | "streak"
 
 export type FocusMetricId = "focus_minutes" | "focus_sessions" | "focus_complete" | "focus_rating" | "focus_projects" | "focus_streak"
+
+export type MindMetricId = "mind_coverage" | "mind_average" | "mind_change" | "mind_energy_focus" | "mind_sleep_completion"
 
 export type GoalMetricId = "goal_outcome" | "goal_effort" | "goal_pace" | "goal_projection" | "goal_status"
 
@@ -149,4 +152,45 @@ export const FOCUS_RULES = [
   "El tiempo sale de las marcas de inicio y fin de cada tramo, nunca de un contador: no depende de que la app esté abierta.",
   "Un hábito alimentado por Enfoque suma exactamente estos minutos en su día; no admite registros manuales.",
   "Con menos de 3 sesiones o menos de una semana de historial se indica «Pocos datos» y no se muestran tendencias.",
+] as const
+
+/**
+ * Mind & Energy figures (M3.3). Descriptive only: no wellbeing score, no streaks, and the
+ * comparisons are exploratory (decision 5). Reviews (M3.4) will freeze these figures, never the
+ * text of the reflections.
+ */
+export const MIND_METRICS: Record<MindMetricId, MetricDefinition<MindMetricId>> = {
+  mind_coverage: {
+    id: "mind_coverage",
+    label: "Días con check-in",
+    formula: "Días del periodo con al menos un check-in (mañana o noche) / días del periodo.",
+  },
+  mind_average: {
+    id: "mind_average",
+    label: "Media",
+    formula: "Media de los días con dato; un día con mañana y noche cuenta la media de ambas. Se indica cuántos días hay (n); sin datos, N/D.",
+  },
+  mind_change: {
+    id: "mind_change",
+    label: "Cambio",
+    formula: "Diferencia entre la media del periodo y la del periodo anterior de igual duración. Solo si ambos tienen al menos 7 días con dato.",
+  },
+  mind_energy_focus: {
+    id: "mind_energy_focus",
+    label: "Energía y Deep Work",
+    formula: "Energía media de los días con 60 min o más de enfoque terminado frente a los días con menos. Solo con 5 días o más en cada grupo.",
+  },
+  mind_sleep_completion: {
+    id: "mind_sleep_completion",
+    label: "Sueño y hábitos",
+    formula: "Cumplimiento de hábitos de los días tras dormir 7 h o más frente a menos de 7 h (días cerrados, sin hoy). Solo con 5 días o más en cada grupo.",
+  },
+}
+
+export const MIND_RULES = [
+  "Los check-ins son opcionales y no suman ni restan a ningún cumplimiento: no hay rachas ni puntuación de bienestar.",
+  "El estrés va de 1 (muy poco) a 5 (mucho): un valor alto no es «mejor».",
+  "Las comparaciones son descriptivas: muestran lo que coincide en tus datos, no qué causa qué.",
+  "Con menos de 7 días con check-in en el periodo se indica «Pocos datos» y no se muestran tendencias ni comparaciones.",
+  "Las reflexiones son privadas: no se usan en ninguna cifra, ni en notificaciones ni en IA.",
 ] as const

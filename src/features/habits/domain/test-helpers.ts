@@ -1,4 +1,5 @@
 import type { LocalDate } from "./dates"
+import { DEFAULT_CHECKIN_CONFIG } from "@/features/mind/domain/types"
 import type { EvalContext } from "./metrics"
 import { entryKey, type EntryMap, type Habit, type HabitsState, type ScheduleRule } from "./types"
 
@@ -43,5 +44,7 @@ export function makeState(habits: Habit[], map: EntryMap = {}, rest: LocalDate[]
     goals: [],
     measurements: {},
     focusSessions: [],
+    checkins: {},
+    checkinConfig: DEFAULT_CHECKIN_CONFIG,
   }
 }

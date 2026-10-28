@@ -1,7 +1,7 @@
 import { expect, FIXED_NOW, test } from "./fixtures"
 
 /** Visual record for milestone reviews. Run with: npm run screenshots */
-const ROUTES = ["/", "/habits", "/analytics", "/focus", "/knowledge/library", "/knowledge/discover", "/knowledge/brain", "/goals", "/settings/notifications"]
+const ROUTES = ["/", "/habits", "/analytics", "/focus", "/mind", "/knowledge/library", "/knowledge/discover", "/knowledge/brain", "/goals", "/settings/notifications"]
 
 test.describe("@screens", () => {
   for (const route of ROUTES) {
@@ -75,5 +75,61 @@ test.describe("@screens", () => {
     await page.goto("/analytics?proyecto=Escritura#enfoque")
     await expect(page.getByRole("region", { name: /^Enfoque/ }).getByText("Pocos datos", { exact: true })).toBeVisible()
     await page.getByRole("region", { name: /^Enfoque/ }).screenshot({ path: `docs/screenshots/${info.project.name}-focus-analytics-few.png` })
+  })
+
+  // M3.3: Mind & Energy — check-in sheets, the three data states, Analytics and the paused-block prompt.
+  test("capture mind check-in sheets", async ({ page }, info) => {
+    await page.goto("/mind?checkin=pm")
+    const dialog = page.getByRole("dialog")
+    await dialog.getByRole("radiogroup", { name: "Energía" }).getByRole("radio", { name: "3, Normal" }).click()
+    await dialog.getByRole("radiogroup", { name: "Ánimo" }).getByRole("radio", { name: "4, Bueno" }).click()
+    await page.waitForTimeout(300)
+    await page.screenshot({ path: `docs/screenshots/${info.project.name}-mind-checkin-pm.png` })
+    await dialog.getByRole("button", { name: "Listo" }).click()
+    await page.clock.setFixedTime(new Date("2026-10-22T07:45:00+02:00"))
+    await page.goto("/mind?checkin=am")
+    await expect(page.getByRole("dialog").getByRole("button", { name: "Listo" })).toBeVisible()
+    await page.waitForTimeout(300)
+    await page.screenshot({ path: `docs/screenshots/${info.project.name}-mind-checkin-am.png` })
+  })
+
+  test("capture mind data states", async ({ page }, info) => {
+    const keep = async (days: string[]) => {
+      await expect.poll(() => page.evaluate(() => localStorage.getItem("the-one-percent:demo:habits:v1") !== null)).toBe(true)
+      await page.evaluate((days) => {
+        const k = "the-one-percent:demo:habits:v1"
+        const st = JSON.parse(localStorage.getItem(k)!)
+        st.checkins = Object.fromEntries(Object.entries(st.checkins).filter(([key]) => days.includes(key.slice(0, 10))))
+        localStorage.setItem(k, JSON.stringify(st))
+      }, days)
+      await page.reload()
+    }
+    await page.goto("/mind")
+    await keep(["2026-10-19", "2026-10-20", "2026-10-21"])
+    await expect(page.getByTestId("mind-state-few")).toBeVisible()
+    await page.screenshot({ path: `docs/screenshots/${info.project.name}-mind-few.png`, fullPage: info.project.name === "desktop" })
+    await keep([])
+    await expect(page.getByTestId("mind-state-none")).toBeVisible()
+    await page.screenshot({ path: `docs/screenshots/${info.project.name}-mind-none.png`, fullPage: info.project.name === "desktop" })
+  })
+
+  test("capture mind analytics", async ({ page }, info) => {
+    await page.goto("/analytics?periodo=90#mente")
+    const region = page.getByRole("region", { name: /^Mente y energía/ })
+    await expect(region.getByText("Descriptivo, no causal")).toBeVisible()
+    await page.waitForLoadState("networkidle")
+    await region.screenshot({ path: `docs/screenshots/${info.project.name}-mind-analytics.png` })
+  })
+
+  test("capture focus paused prompt", async ({ page }, info) => {
+    await page.goto("/focus")
+    await page.getByRole("button", { name: /^Empezar/ }).click()
+    await page.clock.setFixedTime(new Date(FIXED_NOW.getTime() + 20 * 60_000))
+    await page.getByRole("button", { name: "Pausar" }).click()
+    await page.clock.setFixedTime(new Date(FIXED_NOW.getTime() + 60 * 60_000))
+    await page.goto("/")
+    await expect(page.getByRole("dialog", { name: "¿Sigue en curso?" })).toBeVisible()
+    await page.waitForTimeout(300)
+    await page.screenshot({ path: `docs/screenshots/${info.project.name}-focus-paused-prompt.png` })
   })
 })

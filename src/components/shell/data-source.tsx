@@ -77,6 +77,7 @@ const REJECTION: Record<string, string> = {
   segments_overlap: "los tramos de la sesión se solapan",
   segments_too_long: "una sesión dura como máximo 12 horas",
   segments_order: "la hora de fin es anterior a la de inicio",
+  invalid_config: "debe quedar al menos un indicador por momento del día",
 }
 
 /** Turns sync conflicts and server rejections into actionable, non-alarming toasts. */
@@ -106,6 +107,18 @@ function showNotice(n: SyncNotice) {
       duration: 10_000,
       onDismiss: () => habitActions.dismissNotice?.(n.id),
       onAutoClose: () => habitActions.dismissNotice?.(n.id),
+    })
+    return
+  }
+  if (n.kind === "conflict" && n.op?.type === "checkin.set") {
+    // Reflections are never overwritten silently: the notice stays until the user decides and shows their text.
+    const mine = n.op.fields.note ?? ""
+    toast(`La reflexión del ${subject} cambió en otro dispositivo`, {
+      id: n.id,
+      description: `Se muestra la otra versión. La tuya no se ha guardado: «${mine.length > 140 ? `${mine.slice(0, 140)}…` : mine}».`,
+      duration: Infinity,
+      action: { label: "Aplicar el mío", onClick: () => habitActions.reapplyNotice?.(n.id) },
+      cancel: { label: "Mantener la otra", onClick: () => habitActions.dismissNotice?.(n.id) },
     })
     return
   }

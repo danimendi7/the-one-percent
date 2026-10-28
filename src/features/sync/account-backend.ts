@@ -6,6 +6,8 @@ import { setCheckpointDone, setMeasurement, validateGoal } from "@/features/goal
 import { cleanText, editSession, finishSession, pauseSession, resumeSession, startSession } from "@/features/focus/domain/ops"
 import { ACTUAL_OUTPUT_MAX, PLANNED_OUTPUT_MAX, PROJECT_MAX } from "@/features/focus/domain/types"
 import { goalToWire } from "./domain/goal-wire"
+import { valuesToWire } from "./domain/checkin-wire"
+import { setCheckin, setCheckinConfig } from "@/features/mind/domain/ops"
 import { sameRule } from "@/features/habits/domain/schedule"
 import type { Backend, HabitsSnapshot } from "@/features/habits/store/types"
 import { uuidv4 } from "@/lib/ids"
@@ -52,6 +54,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         account: { userId: user.id, email: user.email },
         goals: e.goals,
         focus: e.focus,
+        checkins: e.checkins,
       }
     }
     return snapshot
@@ -115,6 +118,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       .on("postgres_changes", { event: "*", schema: "public", table: "goals", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "goal_measurements", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "focus_sessions", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "daily_checkins", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .subscribe((status) => {
         if (disposed) return
         if (status === "SUBSCRIBED") {
@@ -331,6 +335,31 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         submit({ type: "habit.set_source", op_id: uuidv4(), habit_id: habitId, source, from: view().today })
       },
       clockNow: () => engine.serverNow(),
+      // ── Mind & Energy (M3.3): one op per change, validated on the optimistic view ──
+      setCheckin(date, phase, values) {
+        const { state, today } = view()
+        const at = engine.clientTime()
+        const r = setCheckin(state, { date, phase, values, at, today })
+        if (!r.ok) return { ok: false, reason: r.reason }
+        if (r.state === state) return { ok: true }
+        const clean = "note" in values ? { ...values, note: r.state.checkins[`${date}:${phase}`]?.note ?? null } : values
+        submit({
+          type: "checkin.set",
+          op_id: uuidv4(),
+          local_date: date,
+          phase,
+          fields: valuesToWire(clean),
+          at,
+          base_note_seq: "note" in values ? engine.checkinNoteSeq(date, phase) : null,
+        })
+        return { ok: true }
+      },
+      setCheckinConfig(config) {
+        const r = setCheckinConfig(view().state, config)
+        if (!r.ok) return { ok: false, reason: r.reason }
+        if (r.state !== view().state) submit({ type: "profile.checkin_fields", op_id: uuidv4(), am: r.state.checkinConfig.am, pm: r.state.checkinConfig.pm })
+        return { ok: true }
+      },
       setTimezone(timezone) {
         submit({ type: "profile.update", op_id: uuidv4(), timezone })
       },
@@ -362,6 +391,10 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
           submit({ ...notice.op, op_id: uuidv4(), base_version: engine.habitVersion(notice.op.habit_id) })
         } else if (notice?.op?.type === "goal.update") {
           submit({ ...notice.op, op_id: uuidv4(), base_version: engine.goalVersion(notice.op.goal_id) })
+        } else if (notice?.op?.type === "checkin.set") {
+          // «Aplicar el mío»: the user chose their reflection over the one written meanwhile.
+          const op = notice.op
+          submit({ ...op, op_id: uuidv4(), at: engine.clientTime(), base_note_seq: engine.checkinNoteSeq(op.local_date, op.phase) })
         } else if (notice?.op?.type === "focus.edit") {
           submit({ ...notice.op, op_id: uuidv4(), base_version: engine.focusVersion(notice.op.session_id), at: engine.clientTime() })
         }

@@ -20,6 +20,8 @@ import type { HabitsState } from "../domain/types"
 import { createDemoState } from "../fixtures/demo"
 import { createDemoGoals } from "@/features/goals/fixtures"
 import { withDemoFocus } from "@/features/focus/fixtures"
+import { withDemoCheckins } from "@/features/mind/fixtures"
+import { setCheckin, setCheckinConfig } from "@/features/mind/domain/ops"
 import {
   archiveGoal,
   createGoal,
@@ -32,6 +34,7 @@ import {
 import { discardSession, editSession, finishSession, pauseSession, resumeSession, setHabitSource, startSession } from "@/features/focus/domain/ops"
 import { uuidv4 } from "@/lib/ids"
 import { habitsStateSchema } from "./schema"
+import { DEFAULT_CHECKIN_CONFIG } from "@/features/mind/domain/types"
 import type { Backend, HabitsSnapshot } from "./types"
 
 export const STORAGE_KEY = "the-one-percent:demo:habits:v1"
@@ -51,13 +54,17 @@ export function readDemoState(): HabitsState | null {
     if (!raw) return null
     const parsed = habitsStateSchema.safeParse(JSON.parse(raw))
     if (!parsed.success) return null
-    const data = parsed.data as Omit<HabitsState, "goals" | "measurements" | "focusSessions"> &
-      Partial<Pick<HabitsState, "goals" | "measurements" | "focusSessions">>
+    const data = parsed.data as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig"> &
+      Partial<Pick<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig">>
     // Demo saved by an older version: add what it lacks relative to when it was seeded, keeping
-    // every record it has. Before M3.1 there were no goals; before M3.2 no focus sessions.
-    const withGoals = data.goals && data.measurements ? (data as Omit<HabitsState, "focusSessions">) : { ...data, ...createDemoGoals(data.seededOn) }
-    if (data.focusSessions) return { ...withGoals, focusSessions: data.focusSessions }
-    return withDemoFocus({ ...withGoals, focusSessions: [] }, data.seededOn)
+    // every record it has. Before M3.1 there were no goals; before M3.2 no focus sessions; before
+    // M3.3 no check-ins.
+    const withGoals = data.goals && data.measurements ? (data as Omit<HabitsState, "focusSessions" | "checkins" | "checkinConfig">) : { ...data, ...createDemoGoals(data.seededOn) }
+    const withFocus = data.focusSessions
+      ? { ...withGoals, focusSessions: data.focusSessions }
+      : withDemoFocus({ ...withGoals, focusSessions: [], checkins: {}, checkinConfig: data.checkinConfig ?? DEFAULT_CHECKIN_CONFIG }, data.seededOn)
+    if (data.checkins) return { ...withFocus, checkins: data.checkins, checkinConfig: data.checkinConfig ?? DEFAULT_CHECKIN_CONFIG }
+    return withDemoCheckins(withFocus, data.seededOn)
   } catch {
     return null
   }
@@ -248,6 +255,20 @@ export const demoBackend: Backend = {
       commit(setHabitSource(s.state, habitId, source, s.today))
     },
     clockNow: () => Date.now(),
+    // ── Mind & Energy (M3.3): the same reducers the account replays over server state ──
+    setCheckin(date, phase, values) {
+      const s = getSnapshot()
+      const r = setCheckin(s.state, { date, phase, values, at: new Date().toISOString(), today: s.today })
+      if (!r.ok) return { ok: false, reason: r.reason }
+      commit(r.state)
+      return { ok: true }
+    },
+    setCheckinConfig(config) {
+      const r = setCheckinConfig(getSnapshot().state, config)
+      if (!r.ok) return { ok: false, reason: r.reason }
+      commit(r.state)
+      return { ok: true }
+    },
     resetDemo() {
       const s = getSnapshot()
       commit(createDemoState(s.today, s.state.timezone))

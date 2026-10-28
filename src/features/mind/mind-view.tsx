@@ -1,97 +1,230 @@
 "use client"
 
-import { useId, useState } from "react"
-import { Moon, Sun } from "lucide-react"
-import { toast } from "sonner"
+import Link from "next/link"
+import { useState } from "react"
+import { useSearchParams } from "next/navigation"
+import { BarChart3, CloudOff, Moon, PenLine, SlidersHorizontal, Sun } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Slider } from "@/components/ui/slider"
-import { Textarea } from "@/components/ui/textarea"
-import { DemoBadge } from "@/components/common/demo-note"
+import { SourceBadge } from "@/components/common/demo-note"
 import { PageHeader } from "@/components/shell/page-header"
-import { Segmented } from "@/features/habits/components/habit-form-sheet"
+import { cn } from "@/lib/utils"
+import { addDays, formatDate, isoWeekday, WEEKDAY_SHORT, type LocalDate } from "@/features/habits/domain/dates"
+import { checkinDate, checkinFor, defaultPhase } from "./domain/ops"
+import { checkinsIn } from "./domain/metrics"
+import { PHASE_LABEL, type Checkin, type CheckinPhase } from "./domain/types"
+import { CheckinSheet, type CheckinTarget } from "./components/checkin-sheet"
+import { FieldsSheet } from "./components/fields-sheet"
+import { checkinSummary, dayLabel } from "./components/mind-ui"
+import { MindTrends, type TrendPeriod } from "./components/mind-trends"
+import { useMindModel, type MindModel } from "./use-mind"
+import { useNow } from "@/features/focus/use-focus"
 
-const SCALE = ["Muy bajo", "Bajo", "Normal", "Alto", "Muy alto"]
-
+/**
+ * Mind & Energy (docs/m3.3-mind-energy-plan.md §2.2): today's two check-ins, the last 7 days,
+ * trends and an editable history. Optional and independent of any habit score; not a diagnosis.
+ */
 export function MindView() {
-  const [phase, setPhase] = useState<"am" | "pm">("am")
+  const m = useMindModel()
+  const [fieldsOpen, setFieldsOpen] = useState(false)
   return (
     <>
       <PageHeader
         title="Mente y energía"
-        meta={<DemoBadge>Demo · no se guarda</DemoBadge>}
-        description="Un check-in de 15 segundos, opcional e independiente de tu puntuación de hábitos. No es un diagnóstico."
+        meta={<SourceBadge source={m?.snap.source}>Demo · check-ins de ejemplo</SourceBadge>}
+        description="Check-ins de 15 segundos, opcionales e independientes de tus hábitos. No es un diagnóstico."
+        actions={
+          <Button variant="outline" onClick={() => setFieldsOpen(true)} disabled={!m}>
+            <SlidersHorizontal className="size-4" aria-hidden /> Indicadores
+          </Button>
+        }
       />
-      <div className="mx-auto max-w-xl">
-        <Segmented
-          label="Momento del día"
-          value={phase}
-          onChange={(v) => setPhase(v as "am" | "pm")}
-          options={[
-            { value: "am", label: "Mañana" },
-            { value: "pm", label: "Noche" },
-          ]}
-          className="mb-4"
-        />
-        <CheckinForm key={phase} phase={phase} />
-      </div>
+      {!m ? <MindSkeleton /> : <Content m={m} />}
+      {m && <FieldsSheet m={m} open={fieldsOpen} onOpenChange={setFieldsOpen} />}
     </>
   )
 }
 
-function CheckinForm({ phase }: { phase: "am" | "pm" }) {
-  const noteId = useId()
-  const [values, setValues] = useState({ mood: 3, energy: 3, stress: 2, sleep: 7 })
-  const set = (k: keyof typeof values) => (v: number[]) => setValues({ ...values, [k]: v[0] })
-
+function MindSkeleton() {
   return (
-    <form
-      className="panel space-y-7 rounded-2xl p-5 sm:p-6"
-      onSubmit={(e) => {
-        e.preventDefault()
-        toast("Check-in no guardado", { description: "Demo: el guardado de check-ins llega en M3." })
-      }}
-    >
-      <p className="flex items-center gap-2 text-sm font-medium">
-        {phase === "am" ? <Sun className="size-4 text-dim-learn" aria-hidden /> : <Moon className="size-4 text-dim-mind" aria-hidden />}
-        {phase === "am" ? "¿Cómo empiezas el día?" : "¿Cómo cierras el día?"}
-      </p>
-      <ScaleField label="Ánimo" value={values.mood} onChange={set("mood")} />
-      <ScaleField label="Energía" value={values.energy} onChange={set("energy")} />
-      <ScaleField label="Estrés" value={values.stress} onChange={set("stress")} />
-      {phase === "am" && (
-        <Field label="Horas de sueño" valueText={`${values.sleep} h`}>
-          <Slider min={3} max={11} step={0.5} value={[values.sleep]} onValueChange={set("sleep")} aria-label="Horas de sueño" />
-        </Field>
-      )}
-      <div className="space-y-2">
-        <Label htmlFor={noteId}>Nota (opcional)</Label>
-        <Textarea id={noteId} rows={3} placeholder="Una línea basta" />
-        <p className="text-xs text-text-tertiary">Privado. Nunca se envía a modelos de IA ni aparece en notificaciones.</p>
-      </div>
-      <Button type="submit" className="w-full">
-        Guardar check-in
-      </Button>
-    </form>
-  )
-}
-
-function ScaleField({ label, value, onChange }: { label: string; value: number; onChange: (v: number[]) => void }) {
-  return (
-    <Field label={label} valueText={SCALE[value - 1]}>
-      <Slider min={1} max={5} step={1} value={[value]} onValueChange={onChange} aria-label={label} aria-valuetext={SCALE[value - 1]} />
-    </Field>
-  )
-}
-
-function Field({ label, valueText, children }: { label: string; valueText: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="mb-3 flex items-baseline justify-between text-sm">
-        <span className="font-medium">{label}</span>
-        <span className="num text-text-secondary">{valueText}</span>
-      </div>
-      {children}
+    <div className="grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]" aria-busy="true" aria-label="Cargando mente y energía">
+      <div className="panel h-64 animate-pulse rounded-2xl" />
+      <div className="panel h-96 animate-pulse rounded-2xl" />
     </div>
+  )
+}
+
+function Content({ m }: { m: MindModel }) {
+  const params = useSearchParams()
+  const [target, setTarget] = useState<CheckinTarget | null>(() => {
+    const q = params.get("checkin")
+    if (q !== "am" && q !== "pm") return null
+    return { phase: q, date: checkinDate(m.clockNow(), q, m.timezone), mode: "now" }
+  })
+  const [period, setPeriod] = useState<TrendPeriod>(30)
+
+  const now = () => {
+    const t = m.clockNow()
+    const phase = defaultPhase(t, m.timezone)
+    setTarget({ phase, date: checkinDate(t, phase, m.timezone), mode: "now" })
+  }
+
+  return (
+    <div className="max-w-6xl space-y-8">
+      {!m.saved && (
+        <div role="note" className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/8 px-4 py-3 text-sm leading-relaxed text-warning">
+          <CloudOff className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <p>Tu cuenta aún no guarda check-ins: el servidor todavía no tiene Mente y energía. No se muestra ningún dato de ejemplo.</p>
+        </div>
+      )}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[360px_1fr]">
+        <div className="space-y-6">
+          <Today m={m} onOpen={setTarget} />
+          <WeekStrip m={m} onOpen={setTarget} />
+        </div>
+        <div className="min-w-0 space-y-8">
+          <MindTrends state={m.state} today={m.today} period={period} onPeriod={setPeriod} onCheckin={now} />
+          <History m={m} onOpen={setTarget} />
+        </div>
+      </div>
+      <CheckinSheet m={m} target={target} onOpenChange={(o) => !o && setTarget(null)} />
+    </div>
+  )
+}
+
+/** Today's morning and evening, as the clock sees them (the evening before 04:00 is yesterday's). */
+function Today({ m, onOpen }: { m: MindModel; onOpen: (t: CheckinTarget) => void }) {
+  // Re-evaluated every 30 s, so the due phase and the 04:00 rollover follow the clock.
+  const t = useNow(false, m.clockNow)
+  const due = defaultPhase(t, m.timezone)
+  return (
+    <section aria-labelledby="mind-today-title" className="panel rounded-2xl p-5">
+      <div className="mb-4 flex items-baseline justify-between">
+        <h2 id="mind-today-title" className="text-base font-semibold">
+          Hoy
+        </h2>
+        <Link href="/analytics#mente" className="-mr-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm text-text-secondary hover:text-foreground">
+          <BarChart3 className="size-4" aria-hidden /> Análisis
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 gap-2.5">
+        {(["am", "pm"] as const).map((phase) => {
+          const date = checkinDate(t, phase, m.timezone)
+          const c = checkinFor(m.state, date, phase)
+          return <PhaseCard key={phase} phase={phase} date={date} c={c} due={due === phase} today={m.today} onOpen={() => onOpen({ phase, date, mode: "now" })} />
+        })}
+      </div>
+    </section>
+  )
+}
+
+function PhaseCard({ phase, date, c, due, today, onOpen }: { phase: CheckinPhase; date: LocalDate; c: Checkin | null; due: boolean; today: LocalDate; onOpen: () => void }) {
+  const Icon = phase === "am" ? Sun : Moon
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      data-testid={`mind-card-${phase}`}
+      className={cn(
+        "flex min-h-16 w-full items-center gap-3.5 rounded-xl border px-4 py-3 text-left transition-colors hover:bg-surface-raised/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.99] motion-reduce:active:scale-100",
+        c ? "border-border" : due ? "border-signal/40 bg-signal/5" : "border-dashed border-border"
+      )}
+    >
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-raised">
+        <Icon className="size-4 text-dim-mind" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">
+          {PHASE_LABEL[phase]}
+          {date !== today && <span className="font-normal text-text-tertiary"> · {formatDate(date, { weekday: "short", day: "numeric" })}</span>}
+        </span>
+        <span className={cn("block truncate text-xs", c ? "num text-text-secondary" : "text-text-tertiary")}>{c ? checkinSummary(c) : due ? "Pendiente · unos segundos" : "Pendiente"}</span>
+      </span>
+      {c?.note && <PenLine className="size-3.5 shrink-0 text-text-tertiary" aria-label="Con reflexión" />}
+    </button>
+  )
+}
+
+/** Last 7 days: one column per day with its two phases. A day opens its check-ins (editable). */
+function WeekStrip({ m, onOpen }: { m: MindModel; onOpen: (t: CheckinTarget) => void }) {
+  const days = Array.from({ length: 7 }, (_, i) => addDays(m.today, i - 6))
+  return (
+    <section aria-labelledby="mind-week-title" className="panel rounded-2xl p-5">
+      <h2 id="mind-week-title" className="mb-3 text-base font-semibold">
+        Últimos 7 días
+      </h2>
+      <ol className="grid grid-cols-7 gap-1">
+        {days.map((d) => {
+          const am = checkinFor(m.state, d, "am")
+          const pm = checkinFor(m.state, d, "pm")
+          const label = `${dayLabel(d)}: mañana ${am ? "hecha" : "sin check-in"}, noche ${pm ? "hecha" : "sin check-in"}`
+          return (
+            <li key={d}>
+              <button
+                type="button"
+                aria-label={label}
+                onClick={() => onOpen({ date: d, phase: am && !pm ? "pm" : "am", mode: "day" })}
+                className={cn(
+                  "flex min-h-16 w-full flex-col items-center justify-center gap-1.5 rounded-xl transition-colors hover:bg-surface-raised/60",
+                  d === m.today && "bg-surface-raised/50"
+                )}
+              >
+                <span className={cn("text-xs", d === m.today ? "font-semibold text-foreground" : "text-text-tertiary")}>{WEEKDAY_SHORT[isoWeekday(d)]}</span>
+                <span className="flex flex-col gap-1" aria-hidden>
+                  <span className={cn("size-2 rounded-full", am ? "bg-dim-mind" : "border border-border")} />
+                  <span className={cn("size-2 rounded-full", pm ? "bg-dim-mind" : "border border-border")} />
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+      <p className="mt-2 text-[0.6875rem] text-text-tertiary">Arriba, mañana; abajo, noche. Pulsa un día para ver o editar.</p>
+    </section>
+  )
+}
+
+const PAGE = 14
+
+/** Editable history, newest first. Reflections are never shown in the list: only an icon. */
+function History({ m, onOpen }: { m: MindModel; onOpen: (t: CheckinTarget) => void }) {
+  const [limit, setLimit] = useState(PAGE)
+  const all = checkinsIn(m.state, { from: addDays(m.today, -365), to: m.today })
+  if (all.length === 0) return null
+  return (
+    <section aria-labelledby="mind-history-title">
+      <h2 id="mind-history-title" className="mb-3 text-base font-semibold">
+        Historial
+      </h2>
+      <ul className="panel divide-y divide-border/60 rounded-2xl">
+        {all.slice(0, limit).map(({ date, am, pm }) => (
+          <li key={date} className="px-4 py-3 sm:px-5">
+            <p className="mb-1.5 text-sm font-medium">{dayLabel(date)}</p>
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+              {(["am", "pm"] as const).map((phase) => {
+                const c = phase === "am" ? am : pm
+                return (
+                  <button
+                    key={phase}
+                    type="button"
+                    onClick={() => onOpen({ date, phase, mode: "day" })}
+                    className="-mx-2 flex min-h-11 items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-surface-raised/60"
+                    aria-label={`${PHASE_LABEL[phase]} del ${dayLabel(date)}: ${c ? checkinSummary(c) : "sin check-in"}${c?.note ? ", con reflexión" : ""}. Editar`}
+                  >
+                    {phase === "am" ? <Sun className="size-3.5 shrink-0 text-text-tertiary" aria-hidden /> : <Moon className="size-3.5 shrink-0 text-text-tertiary" aria-hidden />}
+                    <span className={cn("num truncate", c ? "text-text-secondary" : "text-text-tertiary")}>{c ? checkinSummary(c) : "—"}</span>
+                    {c?.note && <PenLine className="size-3.5 shrink-0 text-text-tertiary" aria-hidden />}
+                  </button>
+                )
+              })}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {all.length > limit && (
+        <Button variant="ghost" className="mt-2 w-full" onClick={() => setLimit(limit + PAGE * 2)}>
+          Ver más días
+        </Button>
+      )}
+    </section>
   )
 }

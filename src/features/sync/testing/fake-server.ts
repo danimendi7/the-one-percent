@@ -17,6 +17,11 @@ import { isFocusFed } from "@/features/habits/domain/ops"
 import { activeSession, discardSession, editSession, finishSession, pauseSession, resumeSession, setHabitSource, startSession, type FocusResult } from "@/features/focus/domain/ops"
 import { activeSeconds } from "@/features/focus/domain/time"
 import type { FocusSession } from "@/features/focus/domain/types"
+import { cleanNote, normalizeConfig, validateConfig, validValue } from "@/features/mind/domain/ops"
+import { addDays } from "@/features/habits/domain/dates"
+import { CHECKIN_FIELDS, DEFAULT_CHECKIN_CONFIG, type CheckinConfig } from "@/features/mind/domain/types"
+import { toCheckin, WIRE_FIELD } from "../domain/checkin-wire"
+import type { WireCheckin } from "../domain/types"
 
 interface Row<T> {
   data: T
@@ -36,6 +41,10 @@ export class FakeServer {
   private sessions = new Map<string, Row<{ session: FocusSession; deleted: boolean }>>()
   /** false: behave like a server without the focus migration (no focus_sessions in pulls). */
   focusSupported = true
+  private checkins = new Map<string, Row<WireCheckin>>()
+  private checkinConfig: CheckinConfig | null = null
+  /** false: behave like a server without the check-ins migration (M3.3). */
+  checkinsSupported = true
   /** Count of times each op_id was actually applied (never > 1). */
   applied = new Map<string, number>()
 
@@ -120,6 +129,8 @@ export class FakeServer {
           ])
       ),
       focusSessions: [...this.sessions.values()].filter((r) => !r.data.deleted).map((r) => r.data.session),
+      checkins: Object.fromEntries([...this.checkins].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toCheckin({ ...r.data, server_seq: r.seq })])),
+      checkinConfig: normalizeConfig(this.checkinConfig ?? DEFAULT_CHECKIN_CONFIG),
     }
   }
 
@@ -274,7 +285,54 @@ export class FakeServer {
       case "focus.edit":
       case "focus.discard":
         return this.applyFocus(op)
+      case "checkin.set":
+        return this.applyCheckin(op)
+      case "profile.checkin_fields":
+        if (!validateConfig({ am: op.am, pm: op.pm })) return reject("invalid_config")
+        this.checkinConfig = normalizeConfig({ am: op.am, pm: op.pm })
+        return { op_id: op.op_id, status: "applied" }
     }
+  }
+
+  /** Mirrors private.apply_checkin_op: per-field last-writer-wins, reflection conflicts, tombstones. */
+  private applyCheckin(op: Extract<Op, { type: "checkin.set" }>): OpResult {
+    const done = (status: OpResult["status"], code?: string): OpResult => ({ op_id: op.op_id, status, ...(code ? { code } : {}) })
+    if (op.local_date > addDays(this.today, 1)) return done("rejected", "future_date")
+    const fields = { ...op.fields }
+    if ("note" in fields) fields.note = cleanNote(fields.note)
+    for (const f of CHECKIN_FIELDS) {
+      const k = WIRE_FIELD[f]
+      if (k in fields && !validValue(f, fields[k])) return done("rejected", "invalid_value")
+    }
+    const key = `${op.local_date}:${op.phase}`
+    const row = this.checkins.get(key)
+    const prev: WireCheckin = row?.data ?? {
+      local_date: op.local_date, phase: op.phase, sleep_hours: null, energy: null, mood: null, stress: null, note: null,
+      field_stamps: {}, note_seq: null, updated_at: "", deleted: true, server_seq: 0,
+    }
+    if ("note" in fields && prev.note !== null && prev.note !== fields.note && prev.note_seq !== op.base_note_seq) return done("conflict", "note_conflict")
+    const t = Math.min(Date.parse(op.at), this.serverNow() + 60_000)
+    const at = new Date(t).toISOString()
+    const next: WireCheckin = { ...prev, field_stamps: { ...prev.field_stamps } }
+    let changed = false
+    let noteChanged = false
+    for (const [k, v] of Object.entries(fields) as [keyof typeof fields, number | string | null][]) {
+      const stamp = next.field_stamps[k]
+      if (stamp && Date.parse(stamp) > t) continue
+      if (next[k] !== v) {
+        changed = true
+        if (k === "note") noteChanged = true
+      }
+      ;(next as unknown as Record<string, unknown>)[k] = v
+      next.field_stamps[k] = at
+    }
+    if (!changed) return done("applied")
+    const seq = this.next()
+    next.deleted = CHECKIN_FIELDS.every((f) => next[WIRE_FIELD[f]] === null)
+    next.updated_at = new Date(this.serverNow()).toISOString()
+    if (noteChanged) next.note_seq = seq
+    this.checkins.set(key, { seq, data: next })
+    return done("applied")
   }
 
   /** Mirrors private.apply_focus_op: server clamps, conflicts and the derived habit day. */
@@ -364,7 +422,14 @@ export class FakeServer {
       server_today: this.today,
       server_time: new Date(this.serverNow()).toISOString(),
       full,
-      profile: { timezone: this.timezone, locale: "es-ES", server_seq: 0 },
+      profile: { timezone: this.timezone, locale: "es-ES", server_seq: 0, ...(this.checkinsSupported ? { checkin_fields: this.checkinConfig } : {}) },
+      ...(this.checkinsSupported
+        ? {
+            daily_checkins: pick(this.checkins)
+              .filter((r) => !full || !r.data.deleted)
+              .map((r) => ({ ...r.data, server_seq: r.seq })),
+          }
+        : {}),
       dimensions: [],
       habits: pick(this.habits).map((r) => ({ ...r.data, server_seq: r.seq })),
       entries: pick(this.entries)

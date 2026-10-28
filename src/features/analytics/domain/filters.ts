@@ -2,6 +2,8 @@ import { addDays, type LocalDate } from "@/features/habits/domain/dates"
 import type { DateRange } from "@/features/habits/domain/metrics"
 import type { DimensionId, Habit } from "@/features/habits/domain/types"
 import type { Goal } from "@/features/goals/domain/types"
+import type { Indicator } from "@/features/mind/domain/types"
+import type { PhaseFilter } from "@/features/mind/domain/metrics"
 
 export const PERIODS = [7, 30, 90, 365] as const
 export type PeriodDays = (typeof PERIODS)[number]
@@ -15,15 +17,25 @@ export interface AnalyticsFilter {
   goalId: string | "all"
   /** ?proyecto= : focus sessions of one project ("" = without project). Focus figures only. */
   project: string | "all"
+  /** ?indicador= : one Mind & Energy indicator. Check-in figures only. */
+  indicator: Indicator | "all"
+  /** ?fase= : morning, evening or both. Check-in figures only. */
+  phase: PhaseFilter
 }
 
-export const DEFAULT_FILTER: AnalyticsFilter = { period: 30, dimension: "all", habitId: "all", goalId: "all", project: "all" }
+/** URL slugs (Spanish, readable) for the check-in filters. */
+const INDICATOR_SLUG: Record<Indicator, string> = { sleep: "sueno", energy: "energia", mood: "animo", stress: "estres" }
+const PHASE_SLUG: Record<Exclude<PhaseFilter, "both">, string> = { am: "manana", pm: "noche" }
+const fromSlug = <K extends string>(map: Record<K, string>, v: string | null): K | null =>
+  (Object.entries(map) as [K, string][]).find(([, slug]) => slug === v)?.[0] ?? null
+
+export const DEFAULT_FILTER: AnalyticsFilter = { period: 30, dimension: "all", habitId: "all", goalId: "all", project: "all", indicator: "all", phase: "both" }
 
 type Params = { get(name: string): string | null }
 
 const ID = /^[\w-]{1,64}$/
 
-/** Reads ?periodo=&dimension=&habito=&objetivo=&proyecto= defensively: anything unknown falls back to the default. */
+/** Reads ?periodo=&dimension=&habito=&objetivo=&proyecto=&indicador=&fase= defensively: anything unknown falls back to the default. */
 export function parseFilter(params: Params): AnalyticsFilter {
   const period = Number(params.get("periodo"))
   const dimension = params.get("dimension")
@@ -36,6 +48,8 @@ export function parseFilter(params: Params): AnalyticsFilter {
     habitId: habit && ID.test(habit) ? habit : "all",
     goalId: goal && ID.test(goal) ? goal : "all",
     project: project !== null && project.length <= 60 ? project.trim() : "all",
+    indicator: fromSlug(INDICATOR_SLUG, params.get("indicador")) ?? "all",
+    phase: fromSlug(PHASE_SLUG, params.get("fase")) ?? "both",
   }
 }
 
@@ -47,6 +61,8 @@ export function serializeFilter(f: AnalyticsFilter): string {
   if (f.habitId !== "all") q.set("habito", f.habitId)
   if (f.goalId !== "all") q.set("objetivo", f.goalId)
   if (f.project !== "all") q.set("proyecto", f.project)
+  if (f.indicator !== "all") q.set("indicador", INDICATOR_SLUG[f.indicator])
+  if (f.phase !== "both") q.set("fase", PHASE_SLUG[f.phase])
   const s = q.toString()
   return s ? `?${s}` : ""
 }

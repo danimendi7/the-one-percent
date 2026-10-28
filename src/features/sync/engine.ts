@@ -43,6 +43,8 @@ export interface EngineSnapshot {
   goals: boolean
   /** The server has the focus migration (M3.2). */
   focus: boolean
+  /** The server has the check-ins migration (M3.3). */
+  checkins: boolean
 }
 
 export interface EngineDeps {
@@ -129,6 +131,7 @@ export class SyncEngine {
         persisted: this.persisted,
         goals: !!this.cache.features?.goals,
         focus: !!this.cache.features?.focus,
+        checkins: !!this.cache.features?.checkins,
       }
     }
     return this.snapshot
@@ -176,6 +179,11 @@ export class SyncEngine {
   /** Server version of a focus session as last seen (edits use optimistic concurrency). */
   focusVersion(sessionId: string): number {
     return this.cache.state.focusSessions.find((f) => f.id === sessionId)?.version ?? 1
+  }
+
+  /** note_seq of a check-in's reflection as last seen from the server (conflict base). */
+  checkinNoteSeq(date: string, phase: "am" | "pm"): number | null {
+    return this.cache.state.checkins[`${date}:${phase}`]?.noteSeq ?? null
   }
 
   /** Optimistically apply and queue an operation, then sync in the background. */
@@ -285,7 +293,9 @@ export class SyncEngine {
   private addNotice(kind: "conflict" | "rejected", op: Op, code: string | null) {
     // Focus ops first: focus.edit also carries a habit_id, but its subject is the session.
     const subject =
-      op.type === "focus.start"
+      op.type === "checkin.set"
+        ? `Check-in de ${op.phase === "am" ? "mañana" : "noche"} del ${op.local_date.split("-").reverse().join("/")}`
+        : op.type === "focus.start"
         ? (op.session.project ?? "El bloque de enfoque")
         : "session_id" in op
           ? (this.cache.state.focusSessions.find((f) => f.id === op.session_id)?.project ?? "La sesión de enfoque")
