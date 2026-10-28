@@ -6,6 +6,7 @@ import { countRows, newAccount, removeAccount, signIn, type Account } from "./su
  * screen must stay inside that screen. The per-screen boundary (src/app/(app)/error.tsx) sits below the
  * shell, so navigation, the data-status pill and the sync engine keep working: pending offline work is
  * still sent (exactly once) and the local copy is still saved.
+ * PERMANENT regression gate (D39): runs in CI on every push; never delete, skip or weaken it.
  */
 test.describe("account · a failing screen keeps syncing", () => {
   test.use({ mode: "account" })

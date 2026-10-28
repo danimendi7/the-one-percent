@@ -55,6 +55,7 @@
 | D36 | Recuperación | «¿Sigue en curso?» si la sesión supera lo previsto en más de 30 min. Opciones: continuar, terminar a la hora prevista o descartar. Nunca se cierra sola | Decisión 5 aprobada. |
 | D37 | Salvaguarda de despliegue | Con `features.focus = false`, el temporizador funciona solo en memoria y avisa de que no guarda | Permite desplegar el código y la migración en cualquier orden. |
 | D38 | Copias persistidas antiguas | `upgradePersisted` añade `focusSessions: []` a las copias de M3.1. `e2e/upgrade.spec.ts` cubre las formas de M3.0 y de M3.1, cada una con una operación pendiente | Lección del incidente del 27/10. |
+| D39 | Pruebas de regresión permanentes | `e2e/upgrade.spec.ts` (actualizar sobre copias de versiones anteriores, con operaciones pendientes) y `e2e/screen-error.spec.ts` (un error de pantalla no detiene la sincronización) se ejecutan en CI en cada push y no se borran, omiten ni debilitan. Cada fase que añada un campo persistido añade su forma anterior a `upgrade.spec.ts` | Los dos incidentes del 27/10 llegaron a producción por falta de estas pruebas. |
 
 ## Decisiones abiertas (para ti)
 

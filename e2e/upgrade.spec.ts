@@ -7,6 +7,7 @@ import { countRows, newAccount, removeAccount, signIn, type Account } from "./su
  * with «This page couldn't load» on devices that had a persisted copy). Cookies, localStorage,
  * IndexedDB and the offline queue are kept exactly as the old version left them; nothing is cleared.
  * Every phase that adds a persisted field adds its older shape here (M3.2: focusSessions).
+ * PERMANENT regression gate (D39): runs in CI on every push; never delete, skip or weaken it.
  */
 
 type Shape = "m30" | "m31"
