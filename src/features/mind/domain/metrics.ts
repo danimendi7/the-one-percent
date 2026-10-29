@@ -83,15 +83,20 @@ export function previousRange(range: DateRange): DateRange {
   return { from: addDays(range.from, -len), to: addDays(range.from, -1) }
 }
 
-/** Change of an indicator's mean vs. the previous period, only when both have ≥ 7 days of data. */
+/**
+ * Change of an indicator's mean vs. the previous period, only when both have ≥ 7 days of data.
+ * The previous period defaults to the same-length one right before; a monthly review passes the
+ * previous calendar month instead (M3.4), with the same rule.
+ */
 export function changeVsPrevious(
   state: State,
   range: DateRange,
   indicator: Indicator,
-  phase: PhaseFilter
+  phase: PhaseFilter,
+  previousPeriod: DateRange = previousRange(range)
 ): { current: Average; previous: Average; delta: number } | null {
   const current = average(series(state, range, indicator, phase))
-  const previous = average(series(state, previousRange(range), indicator, phase))
+  const previous = average(series(state, previousPeriod, indicator, phase))
   if (current.n < ENOUGH_DAYS || previous.n < ENOUGH_DAYS || current.value === null || previous.value === null) return null
   return { current, previous, delta: current.value - previous.value }
 }

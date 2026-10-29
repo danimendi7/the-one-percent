@@ -234,6 +234,14 @@ export function dailyRates(
   }))
 }
 
+/** «Días completos» (catalog `perfect_days`): days with scheduled habits where all were fulfilled. */
+export function perfectDays(daily: readonly { applicable: number; fulfilled: number }[]): { perfect: number; withData: number } {
+  return {
+    perfect: daily.filter((d) => d.applicable > 0 && d.fulfilled === d.applicable).length,
+    withData: daily.filter((d) => d.applicable > 0).length,
+  }
+}
+
 export function weekdayConsistency(
   habits: Habit[],
   range: DateRange,

@@ -35,6 +35,7 @@ import {
   completion,
   currentStreak,
   dailyRates,
+  perfectDays,
   weekdayConsistency,
   weeklySeries,
 } from "@/features/habits/domain/metrics"
@@ -207,8 +208,7 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
   const { scope, habit, goal } = scopeHabits(model.all, filter, model.state.goals)
   const summary = completion(scope, range, model.ctx)
   const daily = dailyRates(scope, range, model.ctx)
-  const perfectDays = daily.filter((d) => d.applicable > 0 && d.fulfilled === d.applicable).length
-  const daysWithData = daily.filter((d) => d.applicable > 0).length
+  const { perfect: perfectDayCount, withData: daysWithData } = perfectDays(daily)
 
   return (
     <div className="space-y-6">
@@ -231,7 +231,7 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
               detail={`${summary.fulfilled} de ${summary.applicable} oportunidades`}
               onOpen={() => setDrill({ title: `Cumplimiento en ${periodLabel}`, metric: "completion", target: { kind: "range", range } })}
             />
-            <Stat label={METRICS.perfect_days.label} value={`${perfectDays}`} detail={`de ${daysWithData} días con hábitos programados`} />
+            <Stat label={METRICS.perfect_days.label} value={`${perfectDayCount}`} detail={`de ${daysWithData} días con hábitos programados`} />
             <Stat
               label={METRICS.exempt.label}
               value={`${summary.exempt}`}

@@ -88,5 +88,6 @@ Dos pasadas en el mismo job equivalen al criterio «dos ejecuciones completas co
 ## Seguridad del workflow
 - `permissions: contents: read`; `checkout` con `persist-credentials: false`, para que el token no quede en `.git/config`.
 - Ningún `secrets.*`. Las entradas de `workflow_dispatch` son listas cerradas (`choice`) y llegan al shell como variables de entorno, nunca interpoladas en el script.
-- Acciones oficiales de GitHub (`checkout`, `setup-node`, `cache`, `upload-artifact`) en su versión mayor.
+- Acciones oficiales de GitHub fijadas por **SHA de commit**, con la versión en un comentario (D53): `checkout` v7.0.1, `setup-node` v7.1.0, `cache` v6.1.0 y `upload-artifact` v7.0.2, todas con Node 24. Para actualizarlas, se revisan sus notas de versión y se resuelve el commit de la etiqueta con `git ls-remote`.
+- La salida de `supabase start`, que lista las claves por defecto del stack local, va a un fichero que no se publica. Si falla, se muestra una cola redactada, y `SECRET_KEY`, `SERVICE_ROLE_KEY`, `JWT_SECRET` y `ANON_KEY` se enmascaran con `::add-mask::` para el resto del job. Tras cada validación se descarga el log y se comprueba que no contiene la clave.
 - El runner no tiene acceso a Supabase Cloud, Vercel ni a ningún recurso de Neumáticos Uría: no hay credenciales que lo permitan, y el control de aislamiento lo comprueba en cada ejecución.
