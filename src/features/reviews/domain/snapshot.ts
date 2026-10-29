@@ -329,7 +329,8 @@ function weeklyRows(state: HabitsState, period: Period, ctx: EvalContext): WeekR
   return rows
 }
 
-function historyStart(state: HabitsState): LocalDate | null {
+/** First day with any data (habit start, finished focus session or check-in). */
+export function historyStart(state: Pick<HabitsState, "habits" | "focusSessions" | "checkins">): LocalDate | null {
   const dates = [
     ...state.habits.map((h) => h.startDate),
     ...state.focusSessions.filter((f) => f.state === "finished").map((f) => f.localDate),

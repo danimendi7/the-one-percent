@@ -7,6 +7,7 @@ import { isEligibleDay } from "../domain/schedule"
 import { createDemoGoals } from "@/features/goals/fixtures"
 import { withDemoFocus } from "@/features/focus/fixtures"
 import { withDemoCheckins } from "@/features/mind/fixtures"
+import { withDemoReviews } from "@/features/reviews/fixtures"
 import { DEFAULT_CHECKIN_CONFIG } from "@/features/mind/domain/types"
 import {
   entryKey,
@@ -214,7 +215,7 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
   entries[entryKey("demo-meditation", today)] = mk("demo-meditation", today, 15)
   entries[entryKey("demo-coffee", today)] = mk("demo-coffee", today, 1)
 
-  return withDemoCheckins(
+  return withDemoReviews(withDemoCheckins(
     withDemoFocus(
     {
       version: 1,
@@ -233,7 +234,7 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
     today
     ),
     today
-  )
+  ), today)
 }
 
 function mk(habitId: string, date: LocalDate, value: boolean | number) {

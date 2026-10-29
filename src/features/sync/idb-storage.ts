@@ -24,6 +24,15 @@ export async function clearUserCache(userId: string): Promise<void> {
   if (store) await del(`v1:${userId}`, store)
 }
 
+/**
+ * Exclusive section among this user's tabs (Web Locks), for the read-merge-write of the device
+ * copy. Browsers without Web Locks run it unguarded: the merge still keeps other tabs' writes.
+ */
+export function tabLock(name: string): (<T>(fn: () => Promise<T>) => Promise<T>) | undefined {
+  if (typeof navigator === "undefined" || !navigator.locks) return undefined
+  return <T,>(fn: () => Promise<T>) => navigator.locks.request(name, fn) as Promise<T>
+}
+
 const DEVICE_KEY = "the-one-percent:device-id"
 
 export function deviceId(generate: () => string): string {

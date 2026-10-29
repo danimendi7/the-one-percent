@@ -38,6 +38,12 @@ export interface PersistedSync {
   resolvedNotes?: string[]
   /** Review closes the user asked for that have not run yet (M3.4c). */
   closeIntents?: CloseIntent[]
+  /**
+   * Ops that left a tab's queue (answered by the server, or folded into a newer write) (M3.4d).
+   * Every tab of the user shares this record: a tab merges the stored queue with its own instead
+   * of writing over it, and this list keeps it from bringing back what another tab already sent.
+   */
+  goneOps?: string[]
 }
 
 /** A reflection conflict: kept durably until the user chooses «Aplicar el mío» or «Mantener la otra». */
@@ -51,6 +57,8 @@ export const isReviewText = (n: SyncNotice) => n.op?.type === "review.save"
 /** Notices that hold text the user has not decided about: persisted and never closed on their own. */
 export const isDurableNotice = (n: SyncNotice) => isNoteConflict(n) || isReviewText(n)
 const RESOLVED_KEEP = 100
+/** Recently removed op ids kept for other tabs (far more than any tab persists between two reads). */
+const GONE_KEEP = 500
 /** Automatic retries of a close answered stale_snapshot (data changed between the pull and the close). */
 const CLOSE_RETRIES = 3
 
@@ -96,6 +104,12 @@ export interface EngineDeps {
   batchSize?: number
   /** Retry scheduler; tests pass a manual one. */
   schedule?: (fn: () => void, ms: number) => () => void
+  /**
+   * Runs the read-merge-write of the device copy exclusively among this user's tabs (Web Locks in
+   * the browser), so two tabs saving at once cannot drop each other's writes. Without it (tests,
+   * old browsers) the merge still runs; only simultaneous saves can race.
+   */
+  lock?: <T>(fn: () => Promise<T>) => Promise<T>
 }
 
 const MAX_BACKOFF_MS = 60_000
@@ -112,6 +126,10 @@ export class SyncEngine {
   private notices: SyncNotice[] = []
   private resolvedNotes: string[] = []
   private closeIntents: CloseIntent[] = []
+  /** Op ids removed from the queue (this tab or others), shared through the device copy. */
+  private goneOps: string[] = []
+  /** Op ids of the queue as last read from or written to the device copy. */
+  private savedIds = new Set<string>()
   /** The last attempt failed for lack of network (the visible status turns «syncing» while retrying). */
   private offline = false
   private listeners = new Set<() => void>()
@@ -148,6 +166,8 @@ export class SyncEngine {
     if (stored) {
       this.cache = stored.cache
       this.queue = stored.queue
+      this.goneOps = stored.goneOps ?? []
+      this.savedIds = new Set(stored.queue.map((q) => q.op.op_id))
       this.resolvedNotes = stored.resolvedNotes ?? []
       // Reflections still waiting for a decision come back on reopening.
       this.notices = (stored.pendingNotes ?? []).filter((n) => !this.resolvedNotes.includes(n.id))
@@ -744,10 +764,21 @@ export class SyncEngine {
 
   private async persist(): Promise<void> {
     if (this.stopped) return
+    const lock = this.deps.lock ?? ((fn) => fn())
     try {
-      await this.mergeStoredNotes()
-      const pendingNotes = this.notices.filter(isDurableNotice)
-      await this.deps.storage.save({ cache: this.cache, queue: this.queue, pendingNotes, resolvedNotes: this.resolvedNotes, closeIntents: this.closeIntents })
+      await lock(async () => {
+        await this.mergeStored()
+        const pendingNotes = this.notices.filter(isDurableNotice)
+        await this.deps.storage.save({
+          cache: this.cache,
+          queue: this.queue,
+          pendingNotes,
+          resolvedNotes: this.resolvedNotes,
+          closeIntents: this.closeIntents,
+          goneOps: this.goneOps,
+        })
+        this.savedIds = new Set(this.queue.map((q) => q.op.op_id))
+      })
       this.persisted = true
     } catch {
       this.persisted = false
@@ -755,12 +786,33 @@ export class SyncEngine {
   }
 
   /**
-   * Another tab of the same user may have raised or decided reflection conflicts since this one
-   * loaded: adopt them before writing, so one tab's save never drops another's pending reflection.
+   * Several tabs of the same user share the device copy (M3.4d, risk B). Writing this tab's queue
+   * over the stored one dropped writes another tab queued, and lost them for good if that tab was
+   * closed before sending. Now the stored queue is merged: ops queued by other tabs are adopted
+   * (shown and sent from here too; the server ledger applies each op_id once), and ops any tab
+   * removed (sent, or folded into a newer write) are dropped everywhere instead of coming back.
    */
-  private async mergeStoredNotes(): Promise<void> {
-    const stored = await this.deps.storage.load().catch(() => null)
+  private mergeQueue(stored: PersistedSync): void {
+    const mine = new Set(this.queue.map((q) => q.op.op_id))
+    const removed = [...this.savedIds].filter((id) => !mine.has(id))
+    const gone = new Set([...(stored.goneOps ?? []), ...this.goneOps, ...removed])
+    this.goneOps = [...gone].slice(-GONE_KEEP)
+    const adopted = stored.queue.filter((q) => !mine.has(q.op.op_id) && !gone.has(q.op.op_id))
+    const kept = this.queue.filter((q) => !gone.has(q.op.op_id))
+    if (adopted.length === 0 && kept.length === this.queue.length) return
+    this.queue = [...kept, ...adopted]
+    if (this.status === "synced" && this.queue.length > 0) this.status = "pending"
+    this.invalidate()
+  }
+
+  /**
+   * Another tab of the same user may have queued writes, or raised or decided kept texts, since this
+   * one loaded: adopt them before writing, so one tab's save never drops another's.
+   */
+  private async mergeStored(): Promise<void> {
+    const stored = upgradePersisted(await this.deps.storage.load().catch(() => null), this.localToday("Europe/Madrid"))
     if (!stored) return
+    this.mergeQueue(stored)
     const resolved = [...new Set([...this.resolvedNotes, ...(stored.resolvedNotes ?? [])])].slice(-RESOLVED_KEEP)
     const known = new Set(this.notices.map((n) => n.id))
     const adopted = (stored.pendingNotes ?? []).filter((n) => !known.has(n.id))

@@ -17,7 +17,7 @@ type WireSession = {
   deleted: boolean
   server_seq: number
 }
-type WireEntry = { habit_id: string; local_date: string; value_numeric: number | null; deleted: boolean }
+type WireEntry = { habit_id: string; local_date: string; value_numeric: number | null; deleted: boolean; client_updated_at: string }
 
 async function apply(u: TestUser, ops: unknown[]) {
   const { data, error } = await u.client.rpc("apply_ops", { p_device_id: "it", p_ops: ops })
@@ -227,10 +227,19 @@ describe("habit fed by focus (decision 1): materialised once, never logged twice
     await apply(a, [start(s2, t0 + min(60), dw), finish(s2, t0 + min(100))])
     expect(Number((await entry(a, dw, today))?.value_numeric)).toBe(90)
 
-    // Manual logging of a fed day is refused, through the RPC and through the table.
-    expect((await apply(a, [{ type: "entry.set", op_id: opId("e"), habit_id: dw, local_date: today, value: 10, client_updated_at: iso(NOW()), base_seq: null }]))[0]).toMatchObject({
+    // Manual logging of a fed day is refused, through the RPC and through the table. The derived
+    // entry is stamped by the database clock (clock_timestamp()), which may run a few ms ahead of
+    // this machine: stamping the manual write from the host clock made the outcome depend on that
+    // skew (M3.4d, risk A). Both orders are pinned here, relative to the stored stamp.
+    const derivedAt = Date.parse((await entry(a, dw, today))!.client_updated_at)
+    expect((await apply(a, [{ type: "entry.set", op_id: opId("e"), habit_id: dw, local_date: today, value: 10, client_updated_at: iso(derivedAt + 1000), base_seq: null }]))[0]).toMatchObject({
       status: "rejected", code: "derived_entry",
     })
+    // An older manual write loses to the derived value before reaching the guard: also never applied.
+    expect((await apply(a, [{ type: "entry.set", op_id: opId("e"), habit_id: dw, local_date: today, value: 10, client_updated_at: iso(derivedAt - 1), base_seq: null }]))[0]).toMatchObject({
+      status: "superseded",
+    })
+    expect(Number((await entry(a, dw, today))?.value_numeric)).toBe(90)
     const { error } = await a.client.from("habit_entries").update({ value_numeric: 999 }).eq("habit_id", dw).eq("local_date", today)
     expect(error?.message).toBe("derived_entry")
 

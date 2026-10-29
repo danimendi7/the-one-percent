@@ -12,7 +12,7 @@ import { sameRule } from "@/features/habits/domain/schedule"
 import type { Backend, HabitsSnapshot } from "@/features/habits/store/types"
 import { uuidv4 } from "@/lib/ids"
 import { SyncEngine } from "./engine"
-import { clearUserCache, deviceId, idbStorage } from "./idb-storage"
+import { clearUserCache, deviceId, idbStorage, tabLock } from "./idb-storage"
 import { supabaseTransport } from "./supabase-transport"
 import type { Op } from "./domain/types"
 import type { ReviewField } from "@/features/reviews/domain/types"
@@ -36,6 +36,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
     transport: supabaseTransport(sb),
     storage: idbStorage(user.id),
     deviceId: deviceId(uuidv4),
+    lock: tabLock(`the-one-percent:sync:${user.id}`),
   })
 
   let snapshot: HabitsSnapshot | null = null

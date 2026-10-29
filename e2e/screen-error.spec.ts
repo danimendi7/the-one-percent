@@ -45,6 +45,8 @@ test.describe("account · a failing screen keeps syncing", () => {
         r.onsuccess = () => res(r.result)
       })
       v.cache.state.goals = [{ id: "broken-goal" }]
+      // M3.4d: a malformed local review must stay inside the Revisiones screen too.
+      ;(v.cache.state as unknown as { reviews: unknown }).reviews = { "week:2026-10-19": { kind: "week", periodStart: "2026-10-19" } }
       await new Promise((res) => {
         const r = store().put(v, keys[0])
         r.onsuccess = res
@@ -72,6 +74,10 @@ test.describe("account · a failing screen keeps syncing", () => {
     // While that screen is failing, the engine below it still sends the pending op, exactly once.
     await expect.poll(() => countRows("select count(*)::int n from public.habit_entries where user_id = $1 and deleted_at is null", [account.id]), { timeout: 15_000 }).toBe(1)
     // The shell is still mounted: status pill and navigation.
+    await expect(p.getByRole("button", { name: /Estado de datos/ }).first()).toBeVisible()
+    // M3.4d: Revisiones fails inside its own boundary as well, with the shell still there.
+    await p.goto("/reviews")
+    await expect(p.getByRole("alert").getByText("No se pudo mostrar esta pantalla")).toBeVisible()
     await expect(p.getByRole("button", { name: /Estado de datos/ }).first()).toBeVisible()
     release()
     await expect(p.getByRole("button", { name: /Estado de datos: Sincronizado/ })).toBeVisible({ timeout: 15_000 })

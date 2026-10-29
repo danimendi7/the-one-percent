@@ -35,6 +35,12 @@ import { discardSession, editSession, finishSession, pauseSession, resumeSession
 import { uuidv4 } from "@/lib/ids"
 import { habitsStateSchema } from "./schema"
 import { DEFAULT_CHECKIN_CONFIG } from "@/features/mind/domain/types"
+import { closeGate } from "@/features/reviews/domain/close"
+import { validateContent } from "@/features/reviews/domain/content"
+import { isAvailable, periodFromStart } from "@/features/reviews/domain/periods"
+import { buildReviewSnapshot } from "@/features/reviews/domain/snapshot"
+import { applyCloseOp, applyDelete, applySave } from "@/features/reviews/domain/sync"
+import { reviewKey } from "@/features/reviews/domain/types"
 import type { Backend, HabitsSnapshot } from "./types"
 
 export const STORAGE_KEY = "the-one-percent:demo:habits:v1"
@@ -271,6 +277,46 @@ export const demoBackend: Backend = {
       commit(r.state)
       return { ok: true }
     },
+    // ── Life Review (M3.4d): the same reducers as the account; closes at once (nothing to sync) ──
+    saveReview(kind, periodStart, fields) {
+      const s = getSnapshot()
+      const period = periodFromStart(kind, periodStart)
+      if (!period) return { ok: false, reason: "invalid_period" }
+      if (!isAvailable(period, s.today)) return { ok: false, reason: "not_available" }
+      const key = reviewKey(kind, periodStart)
+      if (s.state.reviews[key]?.status === "closed") return { ok: false, reason: "closed" }
+      const reviews = applySave(s.state.reviews, kind, periodStart, fields, new Date().toISOString())
+      if (!reviews[key] || !validateContent(reviews[key]).ok) return { ok: false, reason: "invalid" }
+      commit({ ...s.state, reviews })
+      return { ok: true }
+    },
+    closeReview(kind, periodStart) {
+      const s = getSnapshot()
+      const key = reviewKey(kind, periodStart)
+      const review = s.state.reviews[key]
+      const at = new Date().toISOString()
+      const gate = closeGate(review ?? { kind, periodStart, status: "draft", content: {}, decisions: [], evaluations: [] }, s.today, {
+        online: true,
+        pending: 0,
+        lastPullAt: Date.now(),
+        now: Date.now(),
+        conflicts: 0,
+        serverSupports: true,
+      })
+      if (gate.action === "blocked") return { ok: false, reason: gate.reason }
+      const snapshot = buildReviewSnapshot({ state: s.state, kind, periodStart, today: s.today, computedAt: at })
+      commit({ ...s.state, reviews: applyCloseOp(s.state.reviews, kind, periodStart, snapshot) })
+      return { ok: true, deferred: false }
+    },
+    cancelReviewClose: () => false,
+    deleteReview(kind, periodStart, confirm) {
+      if (confirm !== "delete") return { ok: false, reason: "confirmation_required" }
+      const s = getSnapshot()
+      commit({ ...s.state, reviews: applyDelete(s.state.reviews, kind, periodStart) })
+      return { ok: true }
+    },
+    resolveReviewText: () => false,
+    reviewSyncState: () => "local",
     resetDemo() {
       const s = getSnapshot()
       commit(createDemoState(s.today, s.state.timezone))

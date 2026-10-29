@@ -30,7 +30,7 @@ export function useGoalsModel(): GoalsModel | null {
 export const HORIZON_LABEL: Record<Horizon, string> = { short: "Corto plazo", medium: "Medio plazo", long: "Largo plazo" }
 export const HORIZON_HINT: Record<Horizon, string> = { short: "≤ 3 meses", medium: "≤ 12 meses", long: "> 12 meses" }
 
-const STATUS: Record<StatusId, { label: string; icon: LucideIcon; tone: string }> = {
+export const STATUS: Record<StatusId, { label: string; icon: LucideIcon; tone: string }> = {
   achieved: { label: "Conseguido", icon: CheckCircle2, tone: "text-signal border-signal/35 bg-signal/10" },
   ahead: { label: "Adelantado", icon: TrendingUp, tone: "text-signal border-signal/35 bg-signal/10" },
   on_track: { label: "En ritmo", icon: Gauge, tone: "text-signal border-signal/35 bg-signal/10" },

@@ -6,7 +6,7 @@
  * engine + Supabase). The backend is chosen by <DataSourceProvider>.
  */
 import { useSyncExternalStore } from "react"
-import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions } from "./types"
+import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions, ReviewActions } from "./types"
 
 export type { HabitsSnapshot, DataSource, SyncInfo } from "./types"
 
@@ -54,6 +54,11 @@ export function focusEnabled(): boolean {
   return !!backend?.actions.startFocus && backend.getSnapshot()?.focus !== false
 }
 
+/** True when the active data source can close reviews (an account needs the M3.4 migration; drafts stay on the device until then). */
+export function reviewsEnabled(): boolean {
+  return !!backend?.actions.saveReview && backend.getSnapshot()?.reviews !== false
+}
+
 /** True when the active data source stores check-ins (an account needs the M3.3 migration). */
 export function checkinsEnabled(): boolean {
   return !!backend?.actions.setCheckin && backend.getSnapshot()?.checkins !== false
@@ -69,7 +74,7 @@ function active(): HabitActions {
   return backend.actions
 }
 
-export const habitActions: HabitActions & GoalActions & FocusActions & MindActions = {
+export const habitActions: HabitActions & GoalActions & FocusActions & MindActions & ReviewActions = {
   setEntry: (...a) => active().setEntry(...a),
   addHabit: (...a) => active().addHabit(...a),
   updateHabit: (...a) => active().updateHabit(...a),
@@ -94,6 +99,12 @@ export const habitActions: HabitActions & GoalActions & FocusActions & MindActio
   clockNow: () => active().clockNow?.() ?? Date.now(),
   setCheckin: (...a) => need(active().setCheckin)(...a),
   setCheckinConfig: (c) => need(active().setCheckinConfig)(c),
+  saveReview: (...a) => need(active().saveReview)(...a),
+  closeReview: (...a) => need(active().closeReview)(...a),
+  cancelReviewClose: (...a) => need(active().cancelReviewClose)(...a),
+  deleteReview: (...a) => need(active().deleteReview)(...a),
+  resolveReviewText: (...a) => need(active().resolveReviewText)(...a),
+  reviewSyncState: (...a) => need(active().reviewSyncState)(...a),
   resetDemo: () => active().resetDemo?.(),
   syncNow: () => active().syncNow?.(),
   setTimezone: (tz) => active().setTimezone?.(tz),
