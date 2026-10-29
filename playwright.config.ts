@@ -10,7 +10,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : [["list"]],
+  // CI keeps a JSON report too: scripts/ci-gate.mjs applies the acceptance criterion to it (D48).
+  reporter: process.env.CI
+    ? [["github"], ["list"], ["html", { open: "never" }], ["json", { outputFile: "e2e-results/e2e.json" }]]
+    : [["list"]],
   // First requests after a cold start (Next server + PostgREST schema cache) can take a few seconds.
   expect: { timeout: 10_000 },
   use: {

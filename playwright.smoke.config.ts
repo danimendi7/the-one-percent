@@ -12,6 +12,10 @@ export default defineConfig({
   ...base,
   testMatch: /smoke.spec.ts$/,
   testIgnore: [],
+  // Own report files in CI, so the E2E reports of the same job are kept.
+  reporter: process.env.CI
+    ? [["github"], ["list"], ["html", { open: "never", outputFolder: "playwright-report-smoke" }], ["json", { outputFile: "e2e-results/smoke.json" }]]
+    : base.reporter,
   use: { ...base.use, baseURL: remote ?? base.use?.baseURL },
   webServer: remote ? undefined : base.webServer,
 })

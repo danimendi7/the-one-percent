@@ -1,9 +1,26 @@
 name: CI
 
+# One workflow for every validation (D48):
+#   push to main / pull request  → full check after each change (1 pass of the E2E suite)
+#   push to ci/**                → pre-deploy validation of a phase (2 passes); Vercel ignores ci/** (vercel.json)
+#   workflow_dispatch            → the same validation on demand, on any branch
+# Only the ephemeral local Supabase of the runner is used: no repository secrets, no cloud project.
 on:
   push:
-    branches: [main]
+    branches: [main, "ci/**"]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      repeat_each:
+        description: "Pasadas completas de la suite E2E (criterio previo al despliegue: 2)"
+        type: choice
+        options: ["2", "1", "3"]
+        default: "2"
+      workers:
+        description: "Workers de Playwright"
+        type: choice
+        options: ["2", "1"]
+        default: "2"
 
 permissions:
   contents: read
@@ -14,14 +31,27 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Standard GitHub-hosted runner only (included minutes); never larger runners.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CI: "true"
+      TZ: Europe/Madrid
+      # Choices only (no free text reaches a shell). ci/** pushes use the pre-deploy criterion.
+      E2E_REPEAT_EACH: ${{ inputs.repeat_each || (startsWith(github.ref, 'refs/heads/ci/') && '2') || '1' }}
+      E2E_WORKERS: ${{ inputs.workers || '2' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+      - name: Runner
+        run: |
+          echo "Commit $GITHUB_SHA · ref $GITHUB_REF · evento $GITHUB_EVENT_NAME"
+          echo "CPU $(nproc) · $(free -h | awk '/Mem:/ {print "RAM " $2}') · pasadas $E2E_REPEAT_EACH · workers $E2E_WORKERS"
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
@@ -33,18 +63,44 @@ jobs:
         run: |
           echo "NEXT_PUBLIC_SUPABASE_URL=$(npx supabase status -o json | jq -r .API_URL)" >> .env.local
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(npx supabase status -o json | jq -r .PUBLISHABLE_KEY)" >> .env.local
+      - name: Isolation gate
+        run: node scripts/ci-gate.mjs isolation
       - run: npm run test:integration
 
-      - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
-        env:
-          CI: "true"
-      - run: npm run smoke
-        env:
-          CI: "true"
-      - uses: actions/upload-artifact@v4
-        if: failure()
+      - name: Playwright browsers cache
+        id: pw-cache
+        uses: actions/cache@v4
         with:
-          name: playwright-report
-          path: playwright-report
-          retention-days: 7
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: E2E
+        id: e2e
+        run: npx playwright test --grep-invert @screens --workers="$E2E_WORKERS" --repeat-each="$E2E_REPEAT_EACH"
+      - name: E2E acceptance (0 failed · 0 flaky · 0 interrupted · every spec ran)
+        if: always() && steps.e2e.outcome != 'skipped'
+        run: node scripts/ci-gate.mjs report e2e-results/e2e.json --all-specs
+      - name: Smoke
+        id: smoke
+        run: npm run smoke
+      - name: Smoke acceptance
+        if: always() && steps.smoke.outcome != 'skipped'
+        run: node scripts/ci-gate.mjs report e2e-results/smoke.json
+
+      - name: Secret scan of the reports
+        if: always()
+        run: node scripts/ci-gate.mjs scan e2e-results playwright-report playwright-report-smoke test-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            e2e-results
+            playwright-report
+            playwright-report-smoke
+          if-no-files-found: ignore
+          retention-days: 30
