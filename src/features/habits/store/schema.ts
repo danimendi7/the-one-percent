@@ -125,6 +125,23 @@ const checkin = z.object({
   updatedAt: z.string(),
 })
 
+// Life Review (M3.4). Lenient on the content shape (the domain validates edits); a malformed
+// reviews map is dropped on its own, never the rest of the demo.
+const review = z
+  .object({
+    kind: z.enum(["week", "month"]),
+    periodStart: localDate,
+    periodEnd: localDate,
+    status: z.enum(["draft", "closed"]),
+    content: z.record(z.string(), z.string()),
+    decisions: z.array(z.any()),
+    evaluations: z.array(z.any()),
+    snapshot: z.any().nullable(),
+    closedAt: z.string().nullable(),
+    updatedAt: z.string(),
+  })
+  .passthrough()
+
 export const habitsStateSchema = z.object({
   version: z.literal(1),
   timezone: z.string().min(1),
@@ -141,4 +158,6 @@ export const habitsStateSchema = z.object({
   // Absent in demo data saved before M3.3; the demo store seeds them.
   checkins: z.record(z.string(), checkin).optional(),
   checkinConfig: z.object({ am: z.array(checkinField), pm: z.array(checkinField) }).optional(),
+  // Absent in demo data saved before M3.4.
+  reviews: z.record(z.string(), review).optional().catch(undefined),
 })

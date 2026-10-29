@@ -22,6 +22,7 @@ import { discardSession, editSession, finishSession, pauseSession, resumeSession
 import { setCheckin, setCheckinConfig } from "@/features/mind/domain/ops"
 import { wireToInput } from "./goal-wire"
 import { wireToValues } from "./checkin-wire"
+import { applyCloseOp, applyDelete, applySave } from "@/features/reviews/domain/sync"
 import type { Op, QueuedOp } from "./types"
 
 /**
@@ -142,6 +143,16 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return setCheckin(state, { date: op.local_date, phase: op.phase, values: wireToValues(op.fields), at: op.at, today }).state
     case "profile.checkin_fields":
       return setCheckinConfig(state, { am: op.am, pm: op.pm }).state
+    // ── Life Review (M3.4): a closed review refuses edits here exactly as on the server ──
+    case "review.save":
+      return { ...state, reviews: applySave(state.reviews, op.kind, op.period_start, op.fields, new Date(0).toISOString()) }
+    case "review.close":
+      return { ...state, reviews: applyCloseOp(state.reviews, op.kind, op.period_start, op.snapshot) }
+    case "review.delete":
+      return { ...state, reviews: applyDelete(state.reviews, op.kind, op.period_start) }
+    default:
+      // An operation this version does not know (written by a newer one): no optimistic effect, still sent.
+      return state
   }
 }
 
@@ -156,6 +167,20 @@ export function rebase(server: HabitsState, queue: readonly QueuedOp[], today: L
  * are folded into one (the newer values win field by field).
  */
 export function enqueue(queue: readonly QueuedOp[], op: Op, now: number, inFlight: ReadonlySet<string>): QueuedOp[] {
+  if (op.type === "review.save") {
+    const prev = queue.find(
+      (q) => !inFlight.has(q.op.op_id) && q.op.type === "review.save" && q.op.kind === op.kind && q.op.period_start === op.period_start
+    )
+    if (prev && prev.op.type === "review.save") {
+      // One write per review while unsent: the newest value of each section, with the base of the
+      // first unsent write of that section (what the user started from), so a section changed
+      // meanwhile on another device still conflicts instead of being overwritten.
+      const base_seqs = { ...op.base_seqs }
+      for (const f of Object.keys(prev.op.fields)) if (f in prev.op.base_seqs) base_seqs[f] = prev.op.base_seqs[f]
+      const merged: Op = { ...op, fields: { ...prev.op.fields, ...op.fields }, base_seqs }
+      return [...queue.filter((q) => q !== prev), { op: merged, enqueuedAt: prev.enqueuedAt, attempts: 0 }]
+    }
+  }
   if (op.type === "checkin.set") {
     const prev = queue.find((q) => !inFlight.has(q.op.op_id) && q.op.type === "checkin.set" && q.op.local_date === op.local_date && q.op.phase === op.phase)
     if (prev && prev.op.type === "checkin.set") {

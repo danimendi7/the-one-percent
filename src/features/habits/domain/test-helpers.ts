@@ -46,5 +46,6 @@ export function makeState(habits: Habit[], map: EntryMap = {}, rest: LocalDate[]
     focusSessions: [],
     checkins: {},
     checkinConfig: DEFAULT_CHECKIN_CONFIG,
+    reviews: {},
   }
 }

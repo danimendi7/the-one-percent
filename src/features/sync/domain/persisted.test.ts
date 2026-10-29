@@ -56,11 +56,12 @@ describe("upgradePersisted (copies saved by older versions)", () => {
       ...m30Copy(),
       cache: {
         ...m30Copy().cache,
-        state: { ...m30Copy().cache.state, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG },
-        features: { goals: true, focus: true, checkins: true },
+        state: { ...m30Copy().cache.state, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {} },
+        features: { goals: true, focus: true, checkins: true, reviews: true },
       },
       pendingNotes: [],
       resolvedNotes: [],
+      closeIntents: [],
     }
     expect(upgradePersisted(structuredClone(current), TODAY)).toEqual(current)
   })

@@ -2,6 +2,9 @@ import type { LocalDate } from "@/features/habits/domain/dates"
 import type { DimensionId, HabitsState, HabitType, ScheduleRule, TargetDirection } from "@/features/habits/domain/types"
 import type { Aggregation, GoalDirection, GoalKind, GoalPriority, GoalState, Horizon, NumericSource } from "@/features/goals/domain/types"
 import type { CheckinField, CheckinPhase } from "@/features/mind/domain/types"
+import type { Decision, Evaluation, ReviewKind, ReviewStatus } from "@/features/reviews/domain/types"
+import type { ReviewSnapshot } from "@/features/reviews/domain/snapshot"
+import type { ReviewFields } from "@/features/reviews/domain/sync"
 
 /**
  * Client → server operations. The wire format is exactly what `public.apply_ops`
@@ -127,6 +130,29 @@ export type Op =
       base_note_seq: number | null
     }
   | { type: "profile.checkin_fields"; op_id: string; am: CheckinField[]; pm: CheckinField[] }
+  // ── Life Review (M3.4): addressed by kind + period start (one review per period) ──
+  | {
+      type: "review.save"
+      op_id: string
+      kind: ReviewKind
+      period_start: LocalDate
+      /** Desired state of the sections being written. */
+      fields: ReviewFields
+      /** Per section: server_seq it was written on (0: review seen, section unwritten; null: review unseen). */
+      base_seqs: Record<string, number | null>
+    }
+  | {
+      type: "review.close"
+      op_id: string
+      kind: ReviewKind
+      period_start: LocalDate
+      snapshot: ReviewSnapshot
+      /** Pull cursor the snapshot was computed after: newer data on the server → stale_snapshot. */
+      based_on_cursor: number
+      /** server_seq of the review being closed, or null if the server had none. */
+      base_seq: number | null
+    }
+  | { type: "review.delete"; op_id: string; kind: ReviewKind; period_start: LocalDate; confirm: "delete"; base_seq: number }
 
 export type OpType = Op["type"]
 
@@ -149,6 +175,26 @@ export interface WireCheckin {
   /** Per-field instant of the last write (keys: sleep_hours, energy, mood, stress, note). */
   field_stamps: Record<string, string>
   note_seq: number | null
+  updated_at: string
+  deleted: boolean
+  server_seq: number
+}
+
+export interface WireReview {
+  kind: ReviewKind
+  period_start: LocalDate
+  period_end: LocalDate
+  status: ReviewStatus
+  content: Record<string, string>
+  decisions: Decision[]
+  evaluations: Evaluation[]
+  field_seqs: Record<string, number>
+  snapshot: ReviewSnapshot | null
+  metrics_version: number | null
+  snapshot_version: number | null
+  timezone: string | null
+  closed_at: string | null
+  version: number
   updated_at: string
   deleted: boolean
   server_seq: number
@@ -247,6 +293,8 @@ export interface OpResult {
   /** For duplicates: the stored outcome. */
   outcome?: Exclude<OpStatus, "duplicate">
   code?: string | null
+  /** review.save conflicts (M3.4): the sections that changed meanwhile on another device. */
+  fields?: string[]
 }
 
 // ── pull_changes payload ────────────────────────────────────────────────
@@ -313,6 +361,8 @@ export interface PullPayload {
   focus_sessions?: WireFocusSession[]
   /** M3.3. Absent from servers without the check-ins migration: check-ins cannot be saved. */
   daily_checkins?: WireCheckin[]
+  /** M3.4. Absent from servers without the reviews migration: reviews stay on the device. */
+  reviews?: WireReview[]
   cursor: number
 }
 
@@ -324,7 +374,7 @@ export interface ServerCache {
   cursor: number
   serverToday: LocalDate
   /** Server capabilities seen in the last pull (a deploy may precede its migration). */
-  features?: { goals: boolean; focus?: boolean; checkins?: boolean }
+  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean }
 }
 
 export type SyncStatus = "synced" | "syncing" | "pending" | "offline" | "error"
@@ -339,3 +389,30 @@ export interface SyncNotice {
   /** For conflicts: the edit that lost, so the user can re-apply it. */
   op?: Op
 }
+
+/**
+ * A close the user asked for (M3.4c). Kept durably until it is applied, superseded by another
+ * device's close or cancelled. The close itself runs only after a successful push and pull with an
+ * empty queue, so the frozen figures include everything this device and the server know.
+ */
+export interface CloseIntent {
+  id: string
+  kind: ReviewKind
+  periodStart: LocalDate
+  /** reviewFingerprint() of what the user saw when asking: a different review is not closed. */
+  fingerprint: string
+  requestedAt: number
+  /** The review.close op queued for this intent (null while waiting for the conditions). */
+  opId: string | null
+  /** Closes answered `stale_snapshot` (data changed between the pull and the close). */
+  attempts: number
+  /**
+   * waiting: closes as soon as it can. needs_confirmation: the review or its data changed since
+   * the user asked; it is not closed without asking again. failed: refused (`code`).
+   */
+  state: "waiting" | "needs_confirmation" | "failed"
+  code?: string | null
+}
+
+/** What the UI says about a review's texts (M3.4c): never «synced» for a write only on this device. */
+export type ReviewSyncState = "local" | "pending" | "synced" | "conflict" | "error"

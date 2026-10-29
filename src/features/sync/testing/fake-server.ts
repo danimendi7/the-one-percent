@@ -21,7 +21,12 @@ import { cleanNote, normalizeConfig, validateConfig, validValue } from "@/featur
 import { addDays } from "@/features/habits/domain/dates"
 import { CHECKIN_FIELDS, DEFAULT_CHECKIN_CONFIG, type CheckinConfig } from "@/features/mind/domain/types"
 import { toCheckin, WIRE_FIELD } from "../domain/checkin-wire"
-import type { WireCheckin } from "../domain/types"
+import type { WireCheckin, WireReview } from "../domain/types"
+import { toReview } from "../domain/review-wire"
+import { periodFromStart, previousPeriod } from "@/features/reviews/domain/periods"
+import { contentKeys, validateContent } from "@/features/reviews/domain/content"
+import { normalizeSection, sameSection } from "@/features/reviews/domain/sync"
+import { reviewKey, type ReviewField } from "@/features/reviews/domain/types"
 
 interface Row<T> {
   data: T
@@ -45,6 +50,11 @@ export class FakeServer {
   private checkinConfig: CheckinConfig | null = null
   /** false: behave like a server without the check-ins migration (M3.3). */
   checkinsSupported = true
+  private reviews = new Map<string, Row<WireReview>>()
+  /** false: behave like a server without the reviews migration (M3.4). */
+  reviewsSupported = true
+  /** Latest change of any data a snapshot is computed from (private.review_data_cursor). */
+  private dataSeq = 0
   /** Count of times each op_id was actually applied (never > 1). */
   applied = new Map<string, number>()
 
@@ -73,6 +83,12 @@ export class FakeServer {
   }
 
   private next() {
+    this.dataSeq = ++this.seq
+    return this.seq
+  }
+
+  /** A review change: it moves the cursor but is not data a snapshot reads. */
+  private nextReview() {
     return ++this.seq
   }
 
@@ -131,6 +147,7 @@ export class FakeServer {
       focusSessions: [...this.sessions.values()].filter((r) => !r.data.deleted).map((r) => r.data.session),
       checkins: Object.fromEntries([...this.checkins].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toCheckin({ ...r.data, server_seq: r.seq })])),
       checkinConfig: normalizeConfig(this.checkinConfig ?? DEFAULT_CHECKIN_CONFIG),
+      reviews: Object.fromEntries([...this.reviews].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toReview({ ...r.data, server_seq: r.seq })])),
     }
   }
 
@@ -229,6 +246,7 @@ export class FakeServer {
       }
       case "profile.update":
         this.timezone = op.timezone
+        this.next()
         return { op_id: op.op_id, status: "applied" }
       case "goal.measure": {
         const k = measurementKey(op.goal_id, op.observed_on)
@@ -291,7 +309,107 @@ export class FakeServer {
         if (!validateConfig({ am: op.am, pm: op.pm })) return reject("invalid_config")
         this.checkinConfig = normalizeConfig({ am: op.am, pm: op.pm })
         return { op_id: op.op_id, status: "applied" }
+      case "review.save":
+      case "review.close":
+      case "review.delete":
+        if (!this.reviewsSupported) return reject("unknown_op_type")
+        return this.applyReview(op)
     }
+  }
+
+  /** Writes a review row the way the trigger does: new server_seq, section versions of what changed. */
+  private writeReview(key: string, next: Omit<WireReview, "field_seqs" | "server_seq" | "version" | "updated_at">, old: Row<WireReview> | undefined) {
+    const seq = this.nextReview()
+    const live = old && !old.data.deleted ? old.data : undefined
+    const seqs: Record<string, number> = { ...(live?.field_seqs ?? {}) }
+    for (const k of contentKeys(next.kind)) if ((next.content[k] ?? null) !== (live?.content[k] ?? null)) seqs[`content.${k}`] = seq
+    if (JSON.stringify(next.decisions) !== JSON.stringify(live?.decisions ?? [])) seqs.decisions = seq
+    if (JSON.stringify(next.evaluations) !== JSON.stringify(live?.evaluations ?? [])) seqs.evaluations = seq
+    this.reviews.set(key, {
+      seq,
+      data: { ...next, field_seqs: next.deleted ? {} : seqs, version: (old?.data.version ?? 0) + 1, updated_at: new Date(this.serverNow()).toISOString(), server_seq: seq },
+    })
+  }
+
+  /** Mirrors private.review_op (supabase/migrations/*_reviews.sql). */
+  private applyReview(op: Extract<Op, { type: "review.save" | "review.close" | "review.delete" }>): OpResult {
+    const done = (status: OpResult["status"], code?: string, fields?: string[]): OpResult => ({ op_id: op.op_id, status, ...(code ? { code } : {}), ...(fields ? { fields } : {}) })
+    const period = periodFromStart(op.kind, op.period_start)
+    if (!period) return done("rejected", "invalid_period")
+    if (period.to > this.today) return done("rejected", "not_available")
+    const key = reviewKey(op.kind, op.period_start)
+    let row = this.reviews.get(key)
+
+    if (op.type === "review.delete") {
+      if (op.confirm !== "delete") return done("rejected", "confirmation_required")
+      if (!row || row.data.deleted) return done("applied")
+      if (op.base_seq !== row.seq) return done("conflict", "review_changed")
+      this.writeReview(key, { ...row.data, status: "draft", content: {}, decisions: [], evaluations: [], snapshot: null, metrics_version: null, snapshot_version: null, timezone: null, closed_at: null, deleted: true }, row)
+      return done("applied")
+    }
+
+    const created = !row
+    if (!row) {
+      this.writeReview(key, { kind: op.kind, period_start: period.from, period_end: period.to, status: "draft", content: {}, decisions: [], evaluations: [], snapshot: null, metrics_version: null, snapshot_version: null, timezone: null, closed_at: null, deleted: false }, undefined)
+      row = this.reviews.get(key)!
+    }
+    const d = row.data
+
+    if (op.type === "review.save") {
+      const allowed = new Set<string>([...contentKeys(op.kind).map((k) => `content.${k}`), "decisions", "evaluations"])
+      const keys = Object.keys(op.fields)
+      if (keys.length === 0 || keys.some((k) => !allowed.has(k))) return done("rejected", "invalid_value")
+      if (d.status === "closed" && !d.deleted) return done("rejected", "review_closed")
+      if (d.deleted && Object.values(op.base_seqs).some((b) => b !== null && b !== undefined)) return done("conflict", "review_deleted")
+      const content: Record<string, string> = d.deleted ? {} : { ...d.content }
+      let decisions = d.deleted ? [] : d.decisions
+      let evaluations = d.deleted ? [] : d.evaluations
+      const conflicts: string[] = []
+      for (const k of keys as ReviewField[]) {
+        const val = normalizeSection(k, op.fields[k])
+        const cur = k === "decisions" ? decisions : k === "evaluations" ? evaluations : (content[k.slice(8)] ?? null)
+        const curSeq = d.deleted ? undefined : d.field_seqs[k]
+        if (curSeq !== undefined && curSeq !== (op.base_seqs[k] ?? null) && !sameSection(k, cur, val)) {
+          conflicts.push(k)
+          continue
+        }
+        if (k === "decisions") decisions = val as typeof decisions
+        else if (k === "evaluations") evaluations = val as typeof evaluations
+        else if (val === null) delete content[k.slice(8)]
+        else content[k.slice(8)] = val as string
+      }
+      if (conflicts.length > 0) return done("conflict", "review_field_conflict", conflicts)
+      const prevStart = previousPeriod(period).from
+      if (!validateContent({ kind: op.kind, content, decisions, evaluations }).ok || evaluations.some((e) => e.from !== prevStart)) return done("rejected", "invalid_value")
+      const unknownLink = decisions.some((x) => x.link && !(x.link.type === "habit" ? this.habits.has(x.link.id) : this.goals.has(x.link.id)))
+      if (unknownLink) return done("rejected", "invalid_link")
+      const same = JSON.stringify(content) === JSON.stringify(d.content) && JSON.stringify(decisions) === JSON.stringify(d.decisions) && JSON.stringify(evaluations) === JSON.stringify(d.evaluations)
+      if (!d.deleted && same) return done("applied")
+      this.writeReview(key, { ...d, content, decisions, evaluations, deleted: false }, row)
+      return done("applied")
+    }
+
+    // review.close: first close wins; the review the user saw; data not newer than the snapshot.
+    if (d.status === "closed" && !d.deleted) return done("superseded", "already_closed")
+    const baseOk = d.deleted ? op.base_seq === null || op.base_seq === row.seq : created ? op.base_seq === null : op.base_seq === row.seq
+    if (!baseOk) return done("conflict", "review_changed")
+    if (typeof op.based_on_cursor !== "number") return done("rejected", "invalid_value")
+    if (this.dataSeq > op.based_on_cursor) return done("conflict", "stale_snapshot")
+    const snap = op.snapshot
+    if (!snap || snap.v !== 1 || snap.kind !== op.kind || snap.period.from !== period.from || snap.period.to !== period.to || snap.asOf !== period.to) return done("rejected", "invalid_snapshot")
+    if (snap.timezone !== this.timezone) return done("conflict", "stale_snapshot")
+    this.writeReview(
+      key,
+      { ...d, status: "closed", snapshot: snap, metrics_version: snap.metricsVersion, snapshot_version: snap.v, timezone: this.timezone, closed_at: new Date(this.serverNow()).toISOString(), deleted: false },
+      row
+    )
+    return done("applied")
+  }
+
+  /** Server-side view of a review (tests). */
+  review(kind: string, periodStart: string): (WireReview & { seq: number }) | null {
+    const r = this.reviews.get(`${kind}:${periodStart}`)
+    return r ? { ...r.data, seq: r.seq } : null
   }
 
   /** Mirrors private.apply_checkin_op: per-field last-writer-wins, reflection conflicts, tombstones. */
@@ -406,7 +524,7 @@ export class FakeServer {
   applyOps(ops: Op[]): { results: OpResult[]; server_today: LocalDate; server_time: string } {
     const results = ops.map((op) => {
       const prev = this.ledger.get(op.op_id)
-      if (prev) return { op_id: op.op_id, status: "duplicate" as const, outcome: prev.status as never, code: prev.code }
+      if (prev) return { op_id: op.op_id, status: "duplicate" as const, outcome: prev.status as never, code: prev.code, ...(prev.fields ? { fields: prev.fields } : {}) }
       const r = this.applyOne(op)
       this.ledger.set(op.op_id, r)
       if (r.status === "applied") this.applied.set(op.op_id, (this.applied.get(op.op_id) ?? 0) + 1)
@@ -469,6 +587,13 @@ export class FakeServer {
               }),
           }
         : {}),
+      ...(this.reviewsSupported
+        ? {
+            reviews: pick(this.reviews)
+              .filter((r) => !full || !r.data.deleted)
+              .map((r) => ({ ...r.data, server_seq: r.seq })),
+          }
+        : {}),
       cursor: Math.max(since, this.seq),
     }
   }
@@ -487,9 +612,14 @@ export function fakeTransport(server: FakeServer) {
     /** The next pull fails (e.g. the connection drops right after the push was answered). */
     failNextPull: false,
     calls: 0,
+    /** Runs right before the server applies a batch (e.g. another device writes in between). */
+    beforeApply: null as null | ((ops: Op[]) => void),
+    /** Runs right before the server answers a pull. */
+    beforePull: null as null | (() => void),
     async applyOps(_device: string, ops: Op[]) {
       t.calls++
       if (!t.online) throw new NetworkError("offline")
+      t.beforeApply?.(ops)
       const res = server.applyOps(structuredClone(ops))
       if (t.dropNextResponse) {
         t.dropNextResponse = false
@@ -503,6 +633,7 @@ export function fakeTransport(server: FakeServer) {
         t.failNextPull = false
         throw new NetworkError("pull failed")
       }
+      t.beforePull?.()
       return structuredClone(server.pull(since))
     },
   }

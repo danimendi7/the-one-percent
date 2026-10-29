@@ -3,7 +3,10 @@ import type { HabitInput, SetEntryResult } from "../domain/ops"
 import type { HabitsState } from "../domain/types"
 import type { GoalInput, MeasureResult } from "@/features/goals/domain/ops"
 import type { GoalState } from "@/features/goals/domain/types"
-import type { Op, SyncNotice, SyncStatus } from "@/features/sync/domain/types"
+import type { CloseIntent, Op, ReviewSyncState, SyncNotice, SyncStatus } from "@/features/sync/domain/types"
+import type { CloseRequest } from "@/features/sync/engine"
+import type { ReviewFields } from "@/features/reviews/domain/sync"
+import type { ReviewField, ReviewKind } from "@/features/reviews/domain/types"
 import type { EditInput, FocusRejection } from "@/features/focus/domain/ops"
 import type { CheckinRejection } from "@/features/mind/domain/ops"
 import type { CheckinConfig, CheckinPhase, CheckinValues } from "@/features/mind/domain/types"
@@ -16,6 +19,10 @@ export interface SyncInfo {
   lastSyncedAt: number | null
   lastError: string | null
   notices: SyncNotice[]
+  /** Review closes waiting to run or needing a new decision (M3.4c). */
+  closeIntents?: CloseIntent[]
+  /** Reviews (`kind:periodStart`) with writes still queued. */
+  pendingReviews?: string[]
 }
 
 export interface HabitsSnapshot {
@@ -32,6 +39,8 @@ export interface HabitsSnapshot {
   focus?: boolean
   /** False while the account's server lacks the check-ins migration (M3.3): nothing can be saved. */
   checkins?: boolean
+  /** False while the account's server lacks the reviews migration (M3.4): drafts stay on the device and cannot close. */
+  reviews?: boolean
   account?: { userId: string; email: string | null }
 }
 
@@ -75,7 +84,27 @@ export interface MindActions {
   setCheckinConfig(config: CheckinConfig): CheckinOutcome
 }
 
-export interface HabitActions extends Partial<GoalActions>, Partial<FocusActions>, Partial<MindActions> {
+export type ReviewSaveOutcome =
+  | { ok: true }
+  | { ok: false; reason: "invalid_period" | "not_available" | "closed" | "closing" | "conflict" | "invalid" }
+export type ReviewDeleteOutcome = { ok: true } | { ok: false; reason: "confirmation_required" | "not_synced" | "pending" | "closing" }
+
+/**
+ * Life Review (M3.4c). Edits are desired states per section, saved at once (debounced by the UI).
+ * A section waiting for a decision (conflict) cannot be edited until the user decides.
+ */
+export interface ReviewActions {
+  saveReview(kind: ReviewKind, periodStart: LocalDate, fields: ReviewFields): ReviewSaveOutcome
+  closeReview(kind: ReviewKind, periodStart: LocalDate): CloseRequest
+  cancelReviewClose(kind: ReviewKind, periodStart: LocalDate): boolean
+  /** Exceptional: explicit confirmation, on the exact version this device synced. */
+  deleteReview(kind: ReviewKind, periodStart: LocalDate, confirm: "delete"): ReviewDeleteOutcome
+  /** «Aplicar la mía» / «Mantener la otra» for one kept section. */
+  resolveReviewText(noticeId: string, field: ReviewField, choice: "mine" | "theirs"): boolean
+  reviewSyncState(kind: ReviewKind, periodStart: LocalDate): ReviewSyncState
+}
+
+export interface HabitActions extends Partial<GoalActions>, Partial<FocusActions>, Partial<MindActions>, Partial<ReviewActions> {
   setEntry(habitId: string, date: LocalDate, value: boolean | number | null): SetEntryResult
   addHabit(input: HabitInput): string
   updateHabit(id: string, input: HabitInput): void

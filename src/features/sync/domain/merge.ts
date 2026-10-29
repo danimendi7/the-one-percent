@@ -6,6 +6,8 @@ import type { FocusSession } from "@/features/focus/domain/types"
 import { normalizeConfig } from "@/features/mind/domain/ops"
 import { checkinKey, DEFAULT_CHECKIN_CONFIG } from "@/features/mind/domain/types"
 import { toCheckin } from "./checkin-wire"
+import { toReview } from "./review-wire"
+import { reviewKey } from "@/features/reviews/domain/types"
 import type { PullPayload, ServerCache, WireEntry, WireFocusSession, WireHabit, WireVersion } from "./types"
 
 const DEFAULT_DIMENSIONS: HabitsState["dimensions"] = [
@@ -17,7 +19,7 @@ const DEFAULT_DIMENSIONS: HabitsState["dimensions"] = [
 
 export function emptyCache(today: LocalDate, timezone = "Europe/Madrid"): ServerCache {
   return {
-    state: { version: 1, timezone, dimensions: DEFAULT_DIMENSIONS, habits: [], entries: {}, restDays: [], seededOn: today, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG },
+    state: { version: 1, timezone, dimensions: DEFAULT_DIMENSIONS, habits: [], entries: {}, restDays: [], seededOn: today, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {} },
     habitVersion: {},
     rowSeq: {},
     cursor: 0,
@@ -94,6 +96,7 @@ const seqKey = {
   measurement: (goalId: string, date: string) => `m:${goalId}:${date}`,
   focus: (id: string) => `f:${id}`,
   checkin: (date: string, phase: string) => `c:${date}:${phase}`,
+  review: (kind: string, start: string) => `v:${kind}:${start}`,
 }
 
 /**
@@ -112,6 +115,7 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
   const measurements = { ...base.state.measurements }
   const focus = new Map(base.state.focusSessions.map((f) => [f.id, f]))
   const checkins = { ...base.state.checkins }
+  const reviews = { ...base.state.reviews }
 
   const newer = (key: string, seq: number) => !(key in rowSeq) || seq > rowSeq[key]
 
@@ -170,6 +174,16 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
     else checkins[ck] = toCheckin(w)
   }
 
+  // A review arrives whole with its section versions; a tombstone removes it from this device.
+  for (const w of p.reviews ?? []) {
+    const k = seqKey.review(w.kind, w.period_start)
+    if (!newer(k, w.server_seq)) continue
+    rowSeq[k] = w.server_seq
+    const rk = reviewKey(w.kind, w.period_start)
+    if (w.deleted) delete reviews[rk]
+    else reviews[rk] = toReview(w)
+  }
+
   return {
     state: {
       ...base.state,
@@ -186,11 +200,12 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
       focusSessions: [...focus.values()],
       checkins,
       checkinConfig: p.profile?.checkin_fields ? normalizeConfig(p.profile.checkin_fields) : base.state.checkinConfig,
+      reviews,
     },
     habitVersion,
     rowSeq,
     cursor: Math.max(p.full ? 0 : cache.cursor, p.cursor),
     serverToday: p.server_today,
-    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined },
+    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined, reviews: p.reviews !== undefined },
   }
 }

@@ -476,9 +476,13 @@ begin
   if v_row.status = 'closed' and v_row.deleted_at is null then
     return jsonb_build_object('outcome', 'superseded', 'code', 'already_closed');
   end if;
-  -- The close freezes exactly the review the user saw (null: it did not exist yet).
+  -- The close freezes exactly the review the user saw (null: it did not exist yet). A tombstone
+  -- counts as «no review»: full pulls carry no tombstones, so a device that never saw it sends null
+  -- (or, after an incremental pull, the tombstone's own server_seq).
   if (v_created and (p_op ->> 'base_seq') is not null)
-     or (not v_created and (p_op ->> 'base_seq') is distinct from v_row.server_seq::text) then
+     or (not v_created and v_row.deleted_at is not null
+         and (p_op ->> 'base_seq') is not null and (p_op ->> 'base_seq') is distinct from v_row.server_seq::text)
+     or (not v_created and v_row.deleted_at is null and (p_op ->> 'base_seq') is distinct from v_row.server_seq::text) then
     return jsonb_build_object('outcome', 'conflict', 'code', 'review_changed');
   end if;
   -- Freshness: the snapshot was computed after the user's latest data change on the server.

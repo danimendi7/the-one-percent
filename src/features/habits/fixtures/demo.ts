@@ -228,6 +228,7 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
       focusSessions: [],
       checkins: {},
       checkinConfig: DEFAULT_CHECKIN_CONFIG,
+      reviews: {},
     },
     today
     ),

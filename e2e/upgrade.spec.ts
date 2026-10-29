@@ -7,12 +7,12 @@ import { countRows, newAccount, removeAccount, signIn, type Account } from "./su
  * with «This page couldn't load» on devices that had a persisted copy). Cookies, localStorage,
  * IndexedDB and the offline queue are kept exactly as the old version left them; nothing is cleared.
  * Every phase that adds a persisted field adds its older shape here (M3.2: focusSessions; M3.3: checkins
- * and checkinConfig).
+ * and checkinConfig; M3.4: reviews and closeIntents, with a reflection still waiting for a decision).
  * PERMANENT regression gate (D39): runs in CI on every push; never delete, skip or weaken it.
  */
 
-type Shape = "m30" | "m31" | "m32"
-const SHAPE_NAME: Record<Shape, string> = { m30: "M3.0", m31: "M3.1", m32: "M3.2" }
+type Shape = "m30" | "m31" | "m32" | "m33"
+const SHAPE_NAME: Record<Shape, string> = { m30: "M3.0", m31: "M3.1", m32: "M3.2", m33: "M3.3" }
 
 /** Rewrite the persisted copy into the exact shape an older version saved. */
 async function downgradeCopy(page: Page, shape: Shape) {
@@ -28,24 +28,41 @@ async function downgradeCopy(page: Page, shape: Shape) {
       r.onsuccess = () => res(r.result)
     })
     for (const key of keys) {
-      const value = await new Promise<{ cache: { state: Record<string, unknown>; features?: unknown }; queue: unknown[] }>((res) => {
+      const value = await new Promise<{ cache: { state: Record<string, unknown>; features?: unknown }; queue: unknown[]; closeIntents?: unknown; pendingNotes?: unknown[] }>((res) => {
         const r = store().get(key)
         r.onsuccess = () => res(r.result)
       })
-      // M3.2 saved no check-ins and knew the goals and focus capabilities.
-      delete value.cache.state.checkins
-      delete value.cache.state.checkinConfig
-      if (shape === "m32") value.cache.features = { goals: true, focus: true }
-      // M3.1 saved no focus sessions and only knew the goals capability.
-      else if (shape === "m31") {
-        delete value.cache.state.focusSessions
-        value.cache.features = { goals: true }
+      // M3.3 saved no reviews or close intents, knew three capabilities and could hold a reflection waiting for a decision.
+      delete value.cache.state.reviews
+      delete value.closeIntents
+      if (shape === "m33") {
+        value.cache.features = { goals: true, focus: true, checkins: true }
+        value.pendingNotes = [
+          {
+            id: "op-m33-note",
+            kind: "conflict",
+            opType: "checkin.set",
+            code: "note_conflict",
+            subject: "Check-in de noche del 28/10/2026",
+            op: { type: "checkin.set", op_id: "op-m33-note", local_date: "2026-10-28", phase: "pm", fields: { note: "Reflexión guardada por M3.3" }, at: "2026-10-28T20:00:00.000Z", base_note_seq: 1 },
+          },
+        ]
       } else {
-        delete value.cache.state.focusSessions
-        // M3.0 saved no goals, measurements or features at all.
-        delete value.cache.state.goals
-        delete value.cache.state.measurements
-        delete value.cache.features
+        // M3.2 saved no check-ins and knew the goals and focus capabilities.
+        delete value.cache.state.checkins
+        delete value.cache.state.checkinConfig
+        if (shape === "m32") value.cache.features = { goals: true, focus: true }
+        // M3.1 saved no focus sessions and only knew the goals capability.
+        else if (shape === "m31") {
+          delete value.cache.state.focusSessions
+          value.cache.features = { goals: true }
+        } else {
+          delete value.cache.state.focusSessions
+          // M3.0 saved no goals, measurements or features at all.
+          delete value.cache.state.goals
+          delete value.cache.state.measurements
+          delete value.cache.features
+        }
       }
       await new Promise((res) => {
         const r = store().put(value, key)
@@ -62,7 +79,7 @@ async function persistedCopy(page: Page) {
       const r = indexedDB.open("the-one-percent")
       r.onsuccess = () => res(r.result)
     })
-    const all: { cache: { state: Record<string, unknown> }; queue: unknown[] }[] = await new Promise((res) => {
+    const all: { cache: { state: Record<string, unknown> }; queue: unknown[]; pendingNotes?: { id: string }[]; closeIntents?: unknown[] }[] = await new Promise((res) => {
       const r = db.transaction("sync", "readonly").objectStore("sync").getAll()
       r.onsuccess = () => res(r.result)
     })
@@ -70,12 +87,14 @@ async function persistedCopy(page: Page) {
       hasGoals: Array.isArray(v.cache.state.goals),
       hasFocus: Array.isArray(v.cache.state.focusSessions),
       hasCheckins: typeof v.cache.state.checkins === "object" && v.cache.state.checkins !== null && typeof v.cache.state.checkinConfig === "object",
+      hasReviews: typeof v.cache.state.reviews === "object" && v.cache.state.reviews !== null && Array.isArray(v.closeIntents),
+      pendingNotes: (v.pendingNotes ?? []).map((n) => n.id),
       queue: v.queue.length,
     }))
   })
 }
 
-for (const shape of ["m30", "m31", "m32"] as const) test.describe(`account · update over a copy saved by ${SHAPE_NAME[shape]}`, () => {
+for (const shape of ["m30", "m31", "m32", "m33"] as const) test.describe(`account · update over a copy saved by ${SHAPE_NAME[shape]}`, () => {
   test.use({ mode: "account" })
   let account: Account
   test.beforeEach(async ({}, info) => {
@@ -115,7 +134,9 @@ for (const shape of ["m30", "m31", "m32"] as const) test.describe(`account · up
     await expect.poll(() => countRows("select count(*)::int n from public.habit_entries where user_id = $1 and deleted_at is null", [account.id]), { timeout: 15_000 }).toBe(1)
     await expect(reopened.getByRole("button", { name: /Estado de datos: Sincronizado/ })).toBeVisible({ timeout: 15_000 })
     expect(await countRows("select count(*)::int n from public.sync_operations where user_id = $1 and operation_type = 'entry.set'", [account.id])).toBe(1)
-    await expect.poll(() => persistedCopy(reopened)).toEqual([{ hasGoals: true, hasFocus: true, hasCheckins: true, queue: 0 }])
+    await expect
+      .poll(() => persistedCopy(reopened))
+      .toEqual([{ hasGoals: true, hasFocus: true, hasCheckins: true, hasReviews: true, pendingNotes: shape === "m33" ? ["op-m33-note"] : [], queue: 0 }])
 
     // Goals work on the upgraded copy, and the habit is still there.
     await reopened.goto("/goals")
@@ -203,6 +224,44 @@ test.describe("demo · update over copies saved by older versions", () => {
     })
     // The stored copy is only rewritten on the next change; what it had is untouched.
     expect(after).toEqual(kept)
+    expect(consoleErrors).toEqual([])
+  })
+
+  test("an old demo copy without reviews (M3.3) opens with everything it had; the next change stores reviews, and stored reviews are never dropped", async ({ page, consoleErrors }) => {
+    const key = "the-one-percent:demo:habits:v1"
+    await page.goto("/habits")
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    await expect.poll(() => page.evaluate((k) => localStorage.getItem(k) !== null, key)).toBe(true)
+    const kept = await page.evaluate((k) => {
+      const state = JSON.parse(localStorage.getItem(k)!)
+      delete state.reviews
+      localStorage.setItem(k, JSON.stringify(state))
+      return { entries: Object.keys(state.entries).length, goals: state.goals.length, sessions: state.focusSessions.length, checkins: Object.keys(state.checkins).length }
+    }, key)
+    await page.reload()
+    const cell = page.getByRole("region", { name: "Hoy" }).getByRole("button", { name: /^Bloque de trabajo profundo, miércoles, 21 de octubre/ })
+    await expect(cell).toHaveAttribute("aria-pressed", "false")
+    await cell.click()
+    await expect(cell).toHaveAttribute("aria-pressed", "true")
+    const read = (k: string) =>
+      page.evaluate((k) => {
+        const s = JSON.parse(localStorage.getItem(k)!)
+        return { entries: Object.keys(s.entries).length, goals: s.goals.length, sessions: s.focusSessions.length, checkins: Object.keys(s.checkins).length, reviews: s.reviews }
+      }, k)
+    await expect.poll(() => read(key)).toEqual({ ...kept, entries: kept.entries + 1, reviews: {} })
+
+    // A copy with a review keeps it through a reload and the next write.
+    await page.evaluate((k) => {
+      const state = JSON.parse(localStorage.getItem(k)!)
+      state.reviews = {
+        "week:2026-10-12": { kind: "week", periodStart: "2026-10-12", periodEnd: "2026-10-18", status: "draft", content: { wins: "Demo: semana tranquila" }, decisions: [], evaluations: [], snapshot: null, closedAt: null, updatedAt: "2026-10-19T08:00:00.000Z" },
+      }
+      localStorage.setItem(k, JSON.stringify(state))
+    }, key)
+    await page.reload()
+    await cell.click()
+    await expect(cell).toHaveAttribute("aria-pressed", "false")
+    await expect.poll(async () => (await read(key)).reviews).toMatchObject({ "week:2026-10-12": { content: { wins: "Demo: semana tranquila" } } })
     expect(consoleErrors).toEqual([])
   })
 })

@@ -79,7 +79,17 @@ export interface Review {
   /** Server clock (ISO) of the close. */
   closedAt: string | null
   updatedAt: string
+  /**
+   * Account mode (M3.4c): server_seq of each section and of the row as this device last saw them.
+   * Edits send them as their base, so a section changed meanwhile on another device is a conflict
+   * instead of a silent overwrite. Absent on drafts the server has not confirmed yet.
+   */
+  fieldSeqs?: Record<string, number>
+  serverSeq?: number
 }
+
+/** Reviews of a dataset, keyed `kind:periodStart` (reviewKey). */
+export type ReviewMap = Record<string, Review>
 
 /** Sections that conflict independently (decision 5): each answer, the decisions and the evaluations. */
 export type ReviewField = `content.${ContentKey}` | "decisions" | "evaluations"

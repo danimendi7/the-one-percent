@@ -54,12 +54,14 @@ export function readDemoState(): HabitsState | null {
     if (!raw) return null
     const parsed = habitsStateSchema.safeParse(JSON.parse(raw))
     if (!parsed.success) return null
-    const data = parsed.data as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig"> &
-      Partial<Pick<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig">>
+    const data = parsed.data as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews"> &
+      Partial<Pick<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews">>
+    // Before M3.4 there were no reviews.
+    const reviews = data.reviews ?? {}
     // Demo saved by an older version: add what it lacks relative to when it was seeded, keeping
     // every record it has. Before M3.1 there were no goals; before M3.2 no focus sessions; before
     // M3.3 no check-ins.
-    const withGoals = data.goals && data.measurements ? (data as Omit<HabitsState, "focusSessions" | "checkins" | "checkinConfig">) : { ...data, ...createDemoGoals(data.seededOn) }
+    const withGoals = data.goals && data.measurements ? { ...(data as Omit<HabitsState, "focusSessions" | "checkins" | "checkinConfig" | "reviews">), reviews } : { ...data, ...createDemoGoals(data.seededOn), reviews }
     const withFocus = data.focusSessions
       ? { ...withGoals, focusSessions: data.focusSessions }
       : withDemoFocus({ ...withGoals, focusSessions: [], checkins: {}, checkinConfig: data.checkinConfig ?? DEFAULT_CHECKIN_CONFIG }, data.seededOn)

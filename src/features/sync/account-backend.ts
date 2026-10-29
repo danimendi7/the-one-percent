@@ -15,6 +15,7 @@ import { SyncEngine } from "./engine"
 import { clearUserCache, deviceId, idbStorage } from "./idb-storage"
 import { supabaseTransport } from "./supabase-transport"
 import type { Op } from "./domain/types"
+import type { ReviewField } from "@/features/reviews/domain/types"
 
 const POLL_MS = 30_000
 /** Faster polling while realtime is not confirmed healthy. */
@@ -50,11 +51,20 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         today: e.today,
         persisted: e.persisted,
         source: "account",
-        sync: { status: e.status, pending: e.pending, lastSyncedAt: e.lastSyncedAt, lastError: e.lastError, notices: e.notices },
+        sync: {
+          status: e.status,
+          pending: e.pending,
+          lastSyncedAt: e.lastSyncedAt,
+          lastError: e.lastError,
+          notices: e.notices,
+          closeIntents: e.closeIntents,
+          pendingReviews: e.pendingReviews,
+        },
         account: { userId: user.id, email: user.email },
         goals: e.goals,
         focus: e.focus,
         checkins: e.checkins,
+        reviews: e.reviews,
       }
     }
     return snapshot
@@ -119,6 +129,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       .on("postgres_changes", { event: "*", schema: "public", table: "goal_measurements", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "focus_sessions", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "daily_checkins", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .subscribe((status) => {
         if (disposed) return
         if (status === "SUBSCRIBED") {
@@ -360,6 +371,25 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         if (r.state !== view().state) submit({ type: "profile.checkin_fields", op_id: uuidv4(), am: r.state.checkinConfig.am, pm: r.state.checkinConfig.pm })
         return { ok: true }
       },
+      // ── Life Review (M3.4c): sections are desired states; conflicts and closes are durable ──
+      saveReview(kind, periodStart, fields) {
+        return engine.saveReview(kind, periodStart, fields)
+      },
+      closeReview(kind, periodStart) {
+        return engine.requestClose(kind, periodStart)
+      },
+      cancelReviewClose(kind, periodStart) {
+        return engine.cancelClose(kind, periodStart)
+      },
+      deleteReview(kind, periodStart, confirm) {
+        return engine.deleteReview(kind, periodStart, confirm)
+      },
+      resolveReviewText(noticeId, field, choice) {
+        return engine.resolveReviewText(noticeId, field, choice)
+      },
+      reviewSyncState(kind, periodStart) {
+        return engine.reviewSyncState(kind, periodStart)
+      },
       setTimezone(timezone) {
         submit({ type: "profile.update", op_id: uuidv4(), timezone })
       },
@@ -385,6 +415,11 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       },
       reapplyNotice(id) {
         const notice = view().notices.find((n) => n.id === id)
+        if (notice?.op?.type === "review.save") {
+          // «Aplicar la mía» for every kept section (only a conflict; a closed review cannot change).
+          for (const field of Object.keys(notice.op.fields) as ReviewField[]) engine.resolveReviewText(id, field, "mine")
+          return
+        }
         engine.dismissNotice(id)
         if (notice?.op?.type === "habit.update") {
           // Re-base the user's edit on the current server version.

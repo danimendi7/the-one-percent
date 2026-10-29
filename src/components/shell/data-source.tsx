@@ -78,6 +78,46 @@ const REJECTION: Record<string, string> = {
   segments_too_long: "una sesión dura como máximo 12 horas",
   segments_order: "la hora de fin es anterior a la de inicio",
   invalid_config: "debe quedar al menos un indicador por momento del día",
+  review_closed: "la revisión ya está cerrada",
+  invalid_link: "el hábito u objetivo vinculado ya no existe",
+  not_available: "ese periodo aún no ha terminado",
+  invalid_period: "el periodo no es válido",
+  confirmation_required: "falta la confirmación",
+}
+
+/** A review section the server did not take (M3.4c): never closed on its own, the text is kept until the user decides. */
+function showReviewText(n: SyncNotice & { op: Extract<SyncNotice["op"], { type: "review.save" }> }) {
+  const subject = n.subject ? `«${n.subject}»` : "La revisión"
+  const sections = Object.keys(n.op.fields).length
+  const what = sections === 1 ? "Tu texto" : `Tus ${sections} apartados`
+  if (n.kind === "conflict" && n.code === "review_field_conflict") {
+    toast(`${subject} cambió en otro dispositivo`, {
+      id: n.id,
+      description: `Se muestra la otra versión. ${what} se conserva en este dispositivo hasta que decidas.`,
+      duration: Infinity,
+      action: { label: "Aplicar la mía", onClick: () => habitActions.reapplyNotice?.(n.id) },
+      cancel: { label: "Mantener la otra", onClick: () => habitActions.dismissNotice?.(n.id) },
+    })
+  } else if (n.kind === "conflict" && n.code === "review_deleted") {
+    toast(`${subject} se borró en otro dispositivo`, {
+      id: n.id,
+      description: `${what} se conserva en este dispositivo. Puedes recuperarla con tu texto o dejarla borrada.`,
+      duration: Infinity,
+      action: { label: "Recuperar con mi texto", onClick: () => habitActions.reapplyNotice?.(n.id) },
+      cancel: { label: "Dejarla borrada", onClick: () => habitActions.dismissNotice?.(n.id) },
+    })
+  } else {
+    // Closed elsewhere first, or refused: it cannot be written there, but the text is not lost.
+    toast(n.code === "review_closed" ? `${subject} ya se cerró en otro dispositivo` : `${subject} no se pudo guardar`, {
+      id: n.id,
+      description:
+        n.code === "review_closed"
+          ? `${what} se ha conservado aquí, sin cambiar la revisión cerrada.`
+          : `El servidor lo rechazó: ${REJECTION[n.code ?? ""] ?? "datos no válidos"}. ${what} se conserva aquí.`,
+      duration: Infinity,
+      cancel: { label: "Descartar mi texto", onClick: () => habitActions.dismissNotice?.(n.id) },
+    })
+  }
 }
 
 /** Turns sync conflicts and server rejections into actionable, non-alarming toasts. */
@@ -104,7 +144,19 @@ function SyncNotices() {
 }
 
 function showNotice(n: SyncNotice) {
+  if (n.op?.type === "review.save") return showReviewText({ ...n, op: n.op })
   const subject = n.subject ? `«${n.subject}»` : "Un cambio"
+  if (n.op?.type === "review.delete") {
+    // Never retried on its own: a delete only applies to the exact version the user confirmed.
+    toast(`${subject} no se ha borrado`, {
+      id: n.id,
+      description: n.code === "review_changed" ? "Cambió en otro dispositivo después de que confirmaras. Revísala antes de volver a borrarla." : `El servidor lo rechazó: ${REJECTION[n.code ?? ""] ?? "datos no válidos"}.`,
+      duration: 12_000,
+      onDismiss: () => habitActions.dismissNotice?.(n.id),
+      onAutoClose: () => habitActions.dismissNotice?.(n.id),
+    })
+    return
+  }
   if (n.kind === "conflict" && n.opType === "focus.start") {
     // Decision 5: the first device to reach the server wins; this one joins its session.
     toast("Ya había un bloque en curso en otro dispositivo", {

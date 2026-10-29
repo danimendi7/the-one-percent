@@ -373,6 +373,20 @@ describe("exceptional delete (D52): explicit, confirmed, never automatic", () =>
     expect((await one(a.d1, "week", start()))!).toMatchObject({ status: "draft", content: { wins: "Nuevo" }, deleted: false })
   })
 
+  it("M3.4c: a deleted review can be closed again by a device that never saw its tombstone (full pull), not with the version before the delete", async () => {
+    const s = addDays(week, -63)
+    await applyOne(a.d1, save("week", s, { "content.wins": "Se borrará" }))
+    const before = (await one(a.d1, "week", s))!
+    expect(await applyOne(a.d1, del("week", s, before.server_seq))).toMatchObject({ status: "applied" })
+    // An edit made by a device that had seen the review (base 0: review seen, section unwritten) does not revive it.
+    expect(await applyOne(a.d2, save("week", s, { "content.lessons": "Tarde" }, { "content.lessons": 0 }))).toMatchObject({ status: "conflict", code: "review_deleted" })
+    const full = await pull(a.d2)
+    expect(full.reviews.find((r) => r.kind === "week" && r.period_start === s)).toBeUndefined()
+    expect(await applyOne(a.d2, close("week", s, snapshotFor("week", s), full.cursor, before.server_seq))).toMatchObject({ status: "conflict", code: "review_changed" })
+    expect(await applyOne(a.d2, close("week", s, snapshotFor("week", s), full.cursor, null))).toMatchObject({ status: "applied" })
+    expect((await one(a.d1, "week", s))!).toMatchObject({ status: "closed", content: {}, deleted: false })
+  })
+
   it("a closed review can only be deleted explicitly; a delete of an unknown review changes nothing", async () => {
     const r = (await one(a.d1, "month", month))!
     expect(await applyOne(a.d1, del("month", month, r.server_seq))).toMatchObject({ status: "applied" })

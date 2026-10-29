@@ -2,6 +2,7 @@ import type { LocalDate, Weekday } from "./dates"
 import type { Goal, MeasurementMap } from "@/features/goals/domain/types"
 import type { FocusSession } from "@/features/focus/domain/types"
 import type { CheckinConfig, CheckinMap } from "@/features/mind/domain/types"
+import type { ReviewMap } from "@/features/reviews/domain/types"
 
 export type HabitType = "binary" | "numeric" | "duration"
 export type TargetDirection = "at_least" | "at_most"
@@ -81,6 +82,8 @@ export interface HabitsState {
   checkins: CheckinMap
   /** Indicators shown per phase (profile setting, synced). */
   checkinConfig: CheckinConfig
+  /** Life Review (M3.4), keyed `kind:periodStart`. Metrics never read it. */
+  reviews: ReviewMap
 }
 
 export function entryKey(habitId: string, date: LocalDate): string {

@@ -137,6 +137,8 @@ function AccountSection() {
         onOpenChange={setConfirmOut}
         pending={sync.pending}
         undecided={sync.notices.filter((n) => n.code === "note_conflict").length}
+        reviewTexts={sync.notices.filter((n) => n.op?.type === "review.save").length}
+        closes={sync.closeIntents?.filter((c) => !c.opId).length ?? 0}
       />
     </>
   )
@@ -151,16 +153,22 @@ function SignOutDialog({
   onOpenChange,
   pending,
   undecided,
+  reviewTexts,
+  closes,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   pending: number
   /** Reflections waiting for a decision after a conflict (D47): they live only on this device. */
   undecided: number
+  /** Review sections kept after a conflict or refusal (M3.4c): also only on this device. */
+  reviewTexts: number
+  /** Review closes asked for and not sent yet. */
+  closes: number
 }) {
   const [wipe, setWipe] = useState(false)
   const [busy, setBusy] = useState(false)
-  const loses = wipe && (pending > 0 || undecided > 0)
+  const loses = wipe && (pending > 0 || undecided > 0 || reviewTexts > 0 || closes > 0)
 
   async function confirm() {
     setBusy(true)
@@ -200,6 +208,11 @@ function SignOutDialog({
               (undecided === 1
                 ? "Hay una reflexión tuya pendiente de decidir que solo está en este dispositivo: decide en Mente y energía si quieres conservarla."
                 : `Hay ${undecided} reflexiones tuyas pendientes de decidir que solo están en este dispositivo: decide en Mente y energía si quieres conservarlas.`)}
+            {reviewTexts > 0 &&
+              (reviewTexts === 1
+                ? " Hay un texto de revisión pendiente de decidir que solo está en este dispositivo: decide en su aviso si quieres conservarlo."
+                : ` Hay ${reviewTexts} textos de revisión pendientes de decidir que solo están en este dispositivo: decide en sus avisos si quieres conservarlos.`)}
+            {closes > 0 && ` ${closes === 1 ? "Un cierre de revisión pendiente no se enviará" : `${closes} cierres de revisión pendientes no se enviarán`}.`}
           </p>
         )}
         <DialogFooter>
