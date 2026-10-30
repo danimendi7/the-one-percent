@@ -2,8 +2,9 @@
 
 **Estado (30/10/2026)**:
 - **Arquitectura aprobada**, con 18 decisiones registradas como **D59–D69** en `docs/decisions.md`. La valoración pasa a ser **de 1 a 10**, no de 1 a 5 como se propuso.
-- **M4a hecha en local** (§16).
-- **M4b no empieza sin tu autorización.**
+- **M4a y M4b hechas en local** (§16 y §17).
+- N2 (D71) y N1 (D72) aprobadas.
+- **M4c no empieza sin tu autorización.**
 - Las propuestas aún abiertas siguen marcadas como **P** (§15 y §16.6).
 
 ---
@@ -917,3 +918,195 @@ scripts/bench/knowledge-volume.entry.ts
 - la ampliación de `apply_ops` y `pull_changes` (cubierta por la comparación con la versión de la nube).
 
 **Necesita de ti**: autorización de M4b y decisión sobre N2. N1 puede esperar a M4c.
+
+---
+
+## 17. M4b · Persistencia y descarga incremental (30/10/2026, hecho en local)
+Autorizado por el propietario, que además aprobó **N1** (almacenamiento local por elemento, para M4c) y **N2** (descarga incremental con cursores, en M4b). Quedan registradas como **D70–D72**.
+
+Migración `supabase/migrations/20261101090000_library.sql`:
+- aplicada **solo al stack local** (`supabase migration up --local`);
+- es aditiva: cuatro tablas, funciones `private.lib*`, una RPC nueva (`pull_library`) y ramas nuevas en `apply_ops` y `pull_changes`;
+- sin `drop`, `delete` ni `truncate`; no toca datos existentes.
+
+### 17.1 Tablas
+| Tabla | Contenido | Claves e índices |
+|---|---|---|
+| `podcast_shows` | Programa: título, presentador, descripción, temas, portada, enlace, referencia externa | PK `id` (del cliente), `unique (id, user_id)`; `(user_id, server_seq)`; único parcial por id externo |
+| `library_items` | Libro o episodio (`kind`): campos comunes y columnas de cada formato | PK `id`, `unique (id, user_id)`; FK `(show_id, user_id)` → programa; `(user_id, server_seq)`; `show_id`; único parcial `(user_id, kind, proveedor, id externo)` |
+| `knowledge_notes` | Nota (6 tipos), `format = 'plain'`, localizador, destacada, aplicación con vínculo, temas, `captured_at` (momento real de la captura) | PK `id`, `unique (id, user_id)`; FK `(item_id, user_id)` → contenido; FK `(application_habit_id, user_id)` → hábito; FK `(application_goal_id, user_id)` → objetivo; `(user_id, server_seq)` y `(user_id, item_id)` |
+| `knowledge_links` | Enlace no dirigido entre contenido, programa y nota | `unique (user_id, a_type, a_id, b_type, b_id)` en orden canónico (`CHECK`); `(user_id, server_seq)` |
+
+Todas las tablas llevan `server_seq` (secuencia global `change_seq`), `version`, `created_at`, `updated_at` y `deleted_at` (lápida). Las tres editables llevan además `field_seqs` (versión de cada campo: la base de los conflictos) y `field_stamps` (sello del cliente por campo, que solo usa el servidor).
+
+No se ha creado índice GIN de temas: la búsqueda es local (D67) y no habría consultas que lo usaran.
+
+### 17.2 Reglas: las mismas que en TypeScript
+- **`CHECK` y funciones `private.lib_*`**, que reproducen `text.ts` y `validation.ts`:
+  - líneas limpias (sin espacios en los bordes, sin dobles espacios, sin saltos de línea, sin caracteres de control) y bloques recortados;
+  - longitudes de D65: 300, 10.000, 2.000 en citas, 10 temas de 40, 20 creadores de 200, 2.048 en URL;
+  - valoración 1–10 y los 5 estados;
+  - ISBN-13 e ISBN-10 con dígito de control;
+  - URLs solo `http(s)` y sin credenciales;
+  - fechas ordenadas;
+  - página y minuto dentro del contenido;
+  - cada formato solo con sus columnas;
+  - el estado de una aplicación solo (y siempre) en aplicaciones, con un vínculo como mucho;
+  - una nota suelta, sin localizador;
+  - temas y creadores sin duplicados por acentos y mayúsculas.
+- **Reglas que necesitan otra fila** van en el trigger `private.guard_library`:
+  - el programa de un episodio existe y está vivo;
+  - una nota solo se escribe sobre un contenido vivo;
+  - la página solo en libros y el minuto solo en episodios, dentro de su longitud;
+  - los dos extremos de un enlace existen y son del mismo usuario.
+- **Paridad comprobada**: los tests de integración pasan las mismas entidades por Zod y por PostgreSQL. Son 27 casos de contenido y 16 de notas (11 comparados con Zod y 5 de reglas entre filas), y en todos coinciden.
+  - La demo completa entra y vuelve idéntica.
+  - Para la paridad se añadió a Zod la regla de caracteres de control que aplica la base de datos (`cleanText` ya los quitaba).
+- **Diferencia conocida, inocua**: para detectar duplicados, la base de datos quita los acentos del español y del Latin-1, mientras TypeScript los quita de todo Unicode. Lo que TypeScript acepta, la base de datos también. Al revés solo podría pasar con escrituras directas, que no existen (§17.3).
+
+### 17.3 Seguridad
+- **Una sola vía de escritura**:
+  - las cuatro tablas solo se escriben con `apply_ops` → `private.apply_library_op`, que activa una marca local de la transacción;
+  - el trigger rechaza cualquier `insert` o `update` sin ella (`library_via_ops_only`), también desde la API REST con la sesión del propio usuario;
+  - no hay permiso `delete` ni `truncate`, y `anon` no tiene ningún permiso.
+- **RLS**: `select`, `insert` y `update` solo de filas propias (`user_id = auth.uid()`), en las cuatro tablas.
+- **Pertenencia**:
+  - FK compuestas `(id, user_id)` para programa, contenido, hábito y objetivo;
+  - los enlaces se comprueban en el trigger.
+  - Un id de otro usuario responde `not_found`, **igual que uno inexistente**. Así no se puede comprobar si existe (encontrado y corregido en las pruebas: antes respondía «duplicate key»).
+  - Una nota sobre contenido ajeno responde igual que sobre contenido borrado.
+- **Funciones**:
+  - todas `security invoker` (ninguna `security definer`) y con `search_path` vacío;
+  - sin ejecución para `anon`;
+  - `pull_library` solo para `authenticated`. Un test lo comprueba en el catálogo.
+- **Lápidas sin texto personal**: al borrar se vacían título, descripción, cuerpo, temas, enlaces y metadatos.
+- **Auditoría sin textos**: crear, cambiar de estado, borrar y restaurar, sin ningún contenido escrito.
+
+### 17.4 Operaciones (`apply_ops`, idempotentes por `op_id`)
+| Operación | Cuerpo | Respuesta |
+|---|---|---|
+| `library.{show\|item\|note}.create` | `id`, `fields` (nombres de columna), `at` (sello), `kind` (contenido), `captured_at` (nota) | `applied` + `seq`. Si el id ya está vivo: `superseded/exists`. Si es una lápida: `conflict/deleted` (**no resucita**). Nota sobre contenido borrado o inexistente: `conflict/item_deleted` |
+| `library.{…}.update` | `id`, `fields`, `base_seqs` por campo, `at` | Por campo (D68): sin cambios desde la base, se aplica. Mismo valor, no hace nada. **Texto protegido** (`body`, `description`) cambiado a la vez: `conflict/field_conflict` con `fields` y `current`, y no se escribe nada. Otro campo: gana el sello más reciente; si el tuyo es anterior, `superseded/stale_fields`. Sobre una lápida: `conflict/deleted` |
+| `library.{…}.delete` | `id`, `base_seq` (y `notes_seq` en un contenido) | Solo la versión vista: si no, `conflict/changed`. Un contenido con notas cambiadas o añadidas sin ver: `conflict/notes_changed`. En cascada, lápidas de sus notas y enlaces. Borrar un programa **desasocia** sus episodios, que conservan sus notas |
+| `library.{…}.restore` | `id`, `fields` completos | La única forma de revivir una lápida («Deshacer»). Si está viva: `superseded/exists` |
+| `library.link.set` | `a_*`, `b_*`, `linked` | Estado deseado, en orden canónico. Extremo inexistente o ajeno: `link_target_not_found` |
+
+- **`apply_ops` devuelve ahora `seq`**, la versión de la fila tras escribir. Es aditivo: los clientes publicados lo ignoran. Sirve de base para la siguiente edición sin esperar al pull, y evita falsos conflictos al editar justo después de crear.
+
+### 17.5 Descarga incremental (N2)
+- **`pull_library(p_since, p_limit = 500, p_full = false)`**:
+  - devuelve, en orden de `server_seq` (único y global, así que el orden es estable), las altas, modificaciones y lápidas de las cuatro tablas con `server_seq > p_since`, como mucho `p_limit` (1–1.000);
+  - devuelve también `cursor` (el último `seq` de la página), `has_more`, `full` y `head` (el último cambio del usuario).
+- **Cursor**:
+  - el cliente guarda el cursor y lo avanza solo **después de persistir la página**. En M4c, la página y el cursor se guardan en la misma transacción de IndexedDB;
+  - una fila que cambia durante la descarga recibe un `seq` mayor y llega en una página posterior.
+- **Reconstrucción**: `p_since = 0`, o `p_full` en todas las páginas, reconstruye el estado sin lápidas. Es lo que hace un dispositivo sin copia.
+- **Sin perder cambios con escrituras concurrentes**:
+  - cada escritura de la biblioteca toma un bloqueo transaccional por usuario (`pg_advisory_xact_lock`), y `pull_library` lo toma en modo compartido antes de leer;
+  - por eso las escrituras de un usuario se confirman en orden de `server_seq`, y una lectura espera a la que está en curso;
+  - **ningún cambio puede quedar detrás del cursor**. Es más fuerte que el solape de 500 posiciones de `pull_changes`.
+  - Probado: una lectura espera a una escritura sin confirmar y la recibe al confirmarse, y una segunda escritura espera y obtiene un `seq` mayor.
+- **`pull_changes` no cambia**: mismas claves, mismo cursor y sin datos de la biblioteca. Solo añade `library: { head }`, que anuncia que la cuenta guarda la biblioteca (bandera de M4c) y si hay cambios nuevos.
+  - Así los clientes publicados no descargan la biblioteca en cada pull.
+  - No es un cambio sustancial del protocolo de los módulos ya desplegados: es una clave nueva que ellos ignoran (comprobado: el cliente lee solo sus claves, y las E2E de cuenta pasan contra la base migrada).
+- **Filas compactas**: sin el propietario, sin `field_stamps` y sin columnas nulas (una clave ausente es nula). Medido: −43 % de JSON (§17.7).
+
+### 17.6 Pruebas
+| Suite | Resultado |
+|---|---|
+| `npm run check` | Typecheck y lint limpios. Unitarias **454/454** (40 ficheros; +5 de `library-wire.test.ts`) |
+| Integración (Supabase local) | **137/137**, 7/7 ficheros. Los 84 anteriores (Hábitos, Objetivos, Deep Work, Mente y energía, Life Review) más **53 nuevos** en `library.int.test.ts`. La puerta de CI (`ci-gate.mjs vitest --dir`) acepta 7/7 |
+| E2E en modo cuenta contra la base migrada | `account.spec.ts` y `reviews-account.spec.ts`: **34 superadas, 10 omitidas** (las «covered once» de siempre) |
+| Migración desde cero | Aplicada en un stack aislado y desechable (`the-one-percent-drill`): **241 objetos idénticos** al stack local (24 funciones, 87 restricciones, 16 índices, 12 políticas, 4 triggers, 94 columnas, 4 tablas en realtime), 0 diferencias. Stack y volúmenes eliminados |
+| Aditividad | `apply_ops`: solo la rama `library.%` y el paso de `seq`. `pull_changes`: solo la clave `library`. En la nube (solo lectura) las dos son idénticas a `20261031090000_reviews`, la base de esta migración, y no existe ningún objeto con los nombres nuevos |
+
+Los 53 tests de integración cubren:
+- paridad con Zod;
+- formato propio de cada tipo;
+- aplicaciones con hábito propio, ajeno o inexistente;
+- aislamiento entre usuarios: leer, descargar, escribir, notas, enlaces e ids ajenos;
+- `anon`;
+- escrituras directas por REST;
+- privilegios y `search_path`;
+- auditoría sin texto;
+- idempotencia;
+- campos distintos desde dos dispositivos;
+- mismo campo simple (gana el sello);
+- mismo texto (conflicto sin escribir nada);
+- campos no permitidos y sello obligatorio;
+- borrado con versión vista;
+- cascada con `notes_seq`;
+- lápidas sin texto;
+- programa borrado;
+- ediciones, altas, notas y enlaces atrasados sin resurrección, y restauración explícita;
+- enlaces como estado deseado;
+- paginación de unas 1.400 filas en páginas de 250;
+- lápidas en el incremental y no en la reconstrucción;
+- cambios mientras se descarga;
+- dispositivo que pierde la copia;
+- espera ante una escritura en curso;
+- `pull_changes` intacto;
+- y el volumen de §17.7.
+
+**Problemas encontrados y corregidos en M4b**:
+1. La página siguiente de una reconstrucción traía lápidas. Se añadió `p_full`.
+2. Un id ajeno revelaba que existía. Ahora responde `not_found`.
+3. `rowToNote` devolvía las fechas con `+00:00` en vez de ISO. Ahora se normalizan.
+4. Las filas del pull llevaban nulos y sellos. Ahora son compactas.
+
+Las funciones corregidas se sustituyeron en el stack local con el texto exacto del fichero, y la comparación desde cero confirma que coinciden.
+
+### 17.7 Rendimiento medido con 5.000 notas (PostgreSQL local, `docs/reports/m4b-sync.json`)
+Biblioteca sintética de M4a: 40 programas, 560 contenidos, 5.000 notas y 1.000 enlaces, en total **6.600 filas**. Medido con el cliente Supabase sobre la API REST local (loopback), en este PC.
+
+| Medida | Resultado |
+|---|---|
+| Carga inicial: 6.600 operaciones en 66 llamadas de 100 | 11,2 s |
+| Descarga completa, páginas de 500 | 14 páginas, **1,38 s**, 5,92 MB de JSON (1,56 MB en gzip) |
+| Descarga completa, páginas de 1.000 | 7 páginas, **0,80 s**, 5,91 MB de JSON (1,55 MB en gzip) |
+| **Descarga incremental tras 5 ediciones** | 1 página, **8,9 ms**, **4.118 bytes** (1.608 en gzip) |
+| `pull_changes` de ese usuario | 507 bytes, 11 ms: la biblioteca no viaja por aquí |
+| Antes de compactar las filas (misma descarga completa) | 10,3 MB de JSON (1,69 MB en gzip) |
+
+- **Con N2**, abrir la app con la biblioteca al día cuesta una consulta de `head` y, si hay cambios, solo esos cambios: **unas 1.500 veces menos datos** que descargar todo (4,1 KB frente a 5,9 MB).
+- La descarga completa queda solo para el primer arranque o una copia perdida.
+- Los tamaños en gzip se calculan en el test. No se ha medido si la pasarela de Supabase comprime las respuestas en tránsito.
+
+### 17.8 Riesgos y límites para M4c
+1. **Primera sincronización**: 5,9 MB (1,55 MB en gzip) con 5.000 notas. Debe hacerse por páginas de 1.000, guardando cada una, con progreso visible y reanudable desde el cursor si se corta.
+2. **`field_seqs`** pesa unos 300 bytes por fila. Hace falta como base de conflictos; no se reduce.
+3. **El cliente debe enviar** `at` (sello), `base_seqs`, `notes_seq` al borrar un contenido, `captured_at` en las notas y `restore` para «Deshacer». Usará `seq` de la respuesta como nueva base.
+4. **Bloqueo por usuario**: las escrituras de la biblioteca de un mismo usuario se serializan y una descarga espera a la escritura en curso (milisegundos con lotes de 100). Los demás módulos no se ven afectados.
+5. **Lápidas**: se conservan indefinidamente, sin texto. La purga queda para la decisión pendiente P14.
+6. **Realtime** avisará de cada fila. M4c debe agrupar los avisos y descargar solo cuando cambie `head`.
+7. **Sin interfaz todavía** (M4d). El cliente actual no sabe nada de la biblioteca y lo ignora sin problemas.
+
+### 17.9 Plan de M4c (cliente: almacenamiento por elemento y sincronización; requiere tu autorización)
+1. **Almacenamiento local por elemento (N1, D72)**: base de IndexedDB propia, `the-one-percent-library`.
+   - Almacenes `shows`, `items`, `notes` y `links`, más `meta` con el cursor de cada usuario. Claves `<usuario>:<id>`.
+   - Se escriben **solo las entidades que cambiaron** (comparación por identidad de objeto, que es barata con los reductores de M4a) y, **en la misma transacción**, el cursor de la página aplicada.
+   - El registro actual `v1:<usuario>` (hábitos, objetivos, enfoque, check-ins, revisiones, cola, `pendingNotes` y D58) no cambia; la cola de operaciones de la biblioteca vive en él. Los guardados de hábitos siguen en ~1 ms.
+   - **Medición**: repetir el banco de M4a con 5.000 notas guardadas; guardar una nota debe costar milisegundos, no 122 ms.
+2. **Sincronización**:
+   - al arrancar y cuando cambie `library.head` (o llegue un aviso de realtime agrupado): `pull_library` desde el cursor guardado, por páginas de 1.000;
+   - reconstrucción con `p_full` si no hay copia;
+   - progreso y reanudación.
+3. **Operaciones desde los reductores**:
+   - crear y actualizar con `changedFields` de `library-wire.ts`, `base_seqs` desde `field_seqs` y sello del reloj híbrido;
+   - borrar con `base_seq` y `notes_seq`; «Deshacer» con `restore`; enlaces con estado deseado;
+   - compactación por fila y campo en la cola (D55);
+   - aplicación de la cola en bloque al rehacer la vista (optimización 4 de M4a).
+4. **Conflictos sin pérdida (D68)**:
+   - `field_conflict` guarda el texto en `pendingNotes` y ofrece «Aplicar la mía», «Mantener la otra» o «Guardar las dos»;
+   - `deleted` e `item_deleted` conservan el texto y ofrecen restaurar o guardarlo como idea suelta;
+   - `stale_fields` no avisa (gana el más reciente).
+5. **Compatibilidad**:
+   - `upgradePersisted` con la forma de M3.4 y la forma de M3.4 en `upgrade.spec.ts` (D38/D39);
+   - `libraryEnabled()` según `library` en `pull_changes`; sin él, la biblioteca guarda en el dispositivo y lo dice;
+   - cerrar sesión borrando el dispositivo también borra la base de la biblioteca de ese usuario, con aviso si hay ideas sin enviar (D27).
+6. **Pruebas**:
+   - unitarias del almacén (diferencias, transacción con cursor, reanudación) y del motor;
+   - integración con dos dispositivos reales contra PostgreSQL local;
+   - E2E: idea escrita sin conexión con la app cerrada y reabierta, dos pestañas, dos navegadores con el mismo texto (las dos versiones) y copia antigua;
+   - medida de volumen en Chromium con el almacén nuevo.
+7. **Esfuerzo**: 2–2,5 días. **Sin nube, sin despliegue y sin interfaz definitiva** (la interfaz es M4d).

@@ -102,6 +102,14 @@
 | D68 | Conflictos de texto | Se conservan las dos versiones y se ofrece «Aplicar la mía», «Mantener la otra» o «Guardar las dos» (crea otra nota). Los campos simples se resuelven por sello (D26/D42). Borrar algo editado en otro dispositivo es un conflicto | Aprobación 10; D47/D55 generalizado |
 | D69 | Alcance y orden de M4 | Repaso espaciado opcional, solo con tarjetas creadas por el usuario; IA generativa y Descubrir con IA en M6; integraciones externas y portadas subidas en sus subfases (M4g); prioridad a la captura rápida y al uso sin conexión; misma arquitectura de sincronización, IndexedDB y Supabase; dos despliegues, cada uno con su autorización | Aprobaciones 13–18 |
 
+## M4b · Persistencia de la Biblioteca (aprobadas el 30/10/2026)
+
+| # | Tema | Decisión | Motivo |
+| --- | --- | --- | --- |
+| D70 | Persistencia | `podcast_shows`, `library_items`, `knowledge_notes` y `knowledge_links` (migración `20261101090000_library.sql`). Las reglas de `validation.ts` se repiten como `CHECK` y en el trigger `guard_library`. Solo `apply_ops` → `apply_library_op` escribe (marca local de transacción). RLS propia y sin `delete`; FK compuestas `(id, user_id)`; `security invoker` y `search_path` vacío. Las lápidas no guardan texto personal; solo `restore` revive una, y una edición, alta o nota atrasada nunca lo hace. Conflictos por campo (D68): textos protegidos con las dos versiones y el resto por sello. Un id ajeno responde como inexistente. `apply_ops` devuelve `seq` | Requisitos de M4b; mismas garantías que D54 |
+| D71 | Descarga incremental (**N2**) | `pull_library(p_since, p_limit, p_full)`: páginas ordenadas por `server_seq` con altas, cambios y lápidas; cursor que el cliente avanza solo tras guardar la página; reconstrucción con `p_full`. Las escrituras de la biblioteca de un usuario toman un bloqueo transaccional que la lectura toma en modo compartido, así que ningún cambio queda detrás del cursor. Filas sin nulos ni sellos. `pull_changes` conserva claves y cursor y solo anuncia `library.head` | Aprobada por el propietario. Medido con 5.000 notas: el incremental tras 5 ediciones ocupa 4,1 KB frente a 5,9 MB de la descarga completa |
+| D72 | Almacenamiento local por elemento (**N1**) | La biblioteca se guardará en una base de IndexedDB propia, una entrada por entidad, escribiendo solo lo que cambia y el cursor en la misma transacción. El registro `v1:<usuario>` y la cola no cambian. Se implementa en M4c | Aprobada por el propietario. Medido en M4a: el registro único costaría 122 ms por guardado (×4) con 5.000 notas |
+
 ## M4 · Propuestas aún abiertas (30/10/2026)
 
 El detalle está en `docs/m4-knowledge-os-plan.md` (§15 y §16.10). Las aprobadas ya figuran arriba como D59–D69; la tabla siguiente es el registro original de la propuesta.
@@ -135,8 +143,8 @@ El detalle está en `docs/m4-knowledge-os-plan.md` (§15 y §16.10). Las aprobad
 | P6 | Aprobada con cambio: valoración 1–10 (D61) |
 | P10 y P11 | Aplazadas a M4g (D69); se confirman antes de esa subfase |
 | P14, P15, P16 y P17 | Abiertas: antes de M4d, M4h, M4d y M4f respectivamente |
-| N1 | **Nueva (M4a)**: guardar el conocimiento en un almacén propio de IndexedDB, por entidad, escribiendo solo lo que cambió. Medido: el registro único cuesta 122 ms por guardado (×4) con 5.000 notas. Antes de M4c |
-| N2 | **Nueva (M4a)**: pull incremental del conocimiento al arrancar. Medido: el pull completo pesa 1,10 MB comprimidos con 5.000 notas y 2,07 MB con 10.000. Antes de M4b |
+| N1 | **Aprobada → D72 (M4c)**. Propuesta original: guardar el conocimiento en un almacén propio de IndexedDB, por entidad, escribiendo solo lo que cambió. Medido: el registro único cuesta 122 ms por guardado (×4) con 5.000 notas. Antes de M4c |
+| N2 | **Aprobada → D71 (M4b)**. Propuesta original: pull incremental del conocimiento al arrancar. Medido: el pull completo pesa 1,10 MB comprimidos con 5.000 notas y 2,07 MB con 10.000. Antes de M4b |
 
 ## Decisiones abiertas (para ti)
 

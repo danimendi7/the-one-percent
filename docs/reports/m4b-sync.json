@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-30T11:12:44.638Z",
+  "library": {
+    "shows": 40,
+    "items": 560,
+    "notes": 5000,
+    "links": 1000,
+    "ops": 6600
+  },
+  "load": {
+    "ms": 11175.297800000002,
+    "rpcs": 66
+  },
+  "fullPull500": {
+    "ms": 1375.4559999999983,
+    "pages": 14,
+    "rows": 6600,
+    "bytes": 6202432,
+    "gzipBytes": 1631022,
+    "cursor": 63729
+  },
+  "fullPull1000": {
+    "ms": 798.2016999999978,
+    "pages": 7,
+    "rows": 6600,
+    "bytes": 6201607,
+    "gzipBytes": 1622896,
+    "cursor": 63729
+  },
+  "incrementalAfter5Edits": {
+    "ms": 8.86200000000099,
+    "pages": 1,
+    "rows": 5,
+    "bytes": 4118,
+    "gzipBytes": 1608,
+    "cursor": 63734
+  },
+  "pullChanges": {
+    "ms": 11.27219999999943,
+    "bytes": 507
+  }
+}

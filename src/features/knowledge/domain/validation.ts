@@ -25,8 +25,10 @@ import {
 const id = z.string().min(1).max(100)
 const instant = z.string().refine((s) => !Number.isNaN(Date.parse(s)), "invalid instant")
 const localDate = z.string().refine(isLocalDate, "invalid date")
-const line = (max: number) => z.string().min(1).max(max).refine((s) => s.trim() === s && !/\s{2,}|\n/.test(s), "not a clean line")
-const block = (max: number) => z.string().min(1).max(max).refine((s) => s.trim() === s, "not trimmed")
+// Same character rules as the database (private.lib_line_ok / lib_block_ok, M4b).
+const CONTROL = /[\u0001-\u0008\u000B\u000C\u000D\u000E-\u001F\u007F]/
+const line = (max: number) => z.string().min(1).max(max).refine((s) => s.trim() === s && !/\s{2,}|\n/.test(s) && !CONTROL.test(s), "not a clean line")
+const block = (max: number) => z.string().min(1).max(max).refine((s) => s.trim() === s && !CONTROL.test(s), "not trimmed")
 const url = z.string().refine((s) => safeUrl(s) === s, "unsafe url")
 
 const uniqueNormalized = (xs: string[]) => new Set(xs.map(normalize)).size === xs.length
