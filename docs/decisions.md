@@ -86,6 +86,33 @@
 | D57 | Interfaz de revisiones | Un único árbol de secciones: pasos libres en móvil (con el paso recordado) y dos columnas en escritorio. Guardado automático por sección (800 ms, al salir del campo y en `pagehide`), sin botón. La línea de estado solo dice «Sincronizado» cuando el servidor tiene todas las escrituras de esa revisión. Los conflictos se resuelven en un panel dentro de la revisión, con las dos versiones. Las cifras de un borrador son en vivo, con el mismo builder que la snapshot. La revisión cerrada es un documento de solo lectura. El borrado exige escribir «borrar» | M3.4d: experiencia premium y honesta, sin perder texto ni afirmar una sincronización que no ha ocurrido |
 | D58 | Cola compartida entre pestañas | Al guardar, cada pestaña fusiona la cola de IndexedDB con la suya: adopta las operaciones de otras pestañas y descarta las que cualquier pestaña retiró, recordadas en `goneOps`. Todo ocurre dentro de un Web Lock por usuario. La idempotencia por `op_id` del servidor cubre los reenvíos | Riesgo B: pérdida demostrada de escrituras sin conexión al cerrar una de dos pestañas. Se corrige sin borrar ni reconstruir colas |
 
+## M4 · Knowledge OS: propuestas pendientes de aprobación (30/10/2026)
+
+No están aprobadas. El detalle, las alternativas y las recomendaciones están en `docs/m4-knowledge-os-plan.md`, §15. Al aprobarse, cada una pasará a una decisión D59+ con su motivo.
+
+| # | Tema | Propuesta recomendada |
+| --- | --- | --- |
+| P1 | Alcance de M4 | Biblioteca (libros y podcasts), conocimiento, búsqueda, sesiones con hábito y repaso básico; Descubrir pasa a M6 con la IA |
+| P2 | Repaso espaciado | Subfase opcional M4i, solo con tarjetas manuales |
+| P3 | Modelo de datos | `library_items` única con `CHECK` por tipo, `podcast_shows` y capa común `knowledge_notes` y `knowledge_links` |
+| P4 | Estados | Pendiente, en curso, en pausa, terminado y abandonado, con etiquetas por tipo; favorito independiente |
+| P5 | Tipos de nota | Idea, aprendizaje, cita, aplicación, nota y pregunta; notas sueltas permitidas |
+| P6 | Valoración | 1–5 para contenidos (1–10 sigue en Descubrir, D10) |
+| P7 | Temas | Lista libre normalizada `topics`, sin tabla de etiquetas |
+| P8 | Formato | Texto plano con saltos de línea |
+| P9 | Episodios sin programa | Permitidos |
+| P10 | Metadatos | Open Library y Google Books; iTunes Search y oEmbed de Spotify y YouTube; sin claves y por el servidor |
+| P11 | Portadas | Proxy del mismo origen y portada tipográfica; subida a Storage aplazada |
+| P12 | Búsqueda | En el cliente, sin servidor ni embeddings |
+| P13 | Conflictos | Una nota por fila; textos con las dos versiones y «Guardar las dos»; borrar algo editado en otro sitio da conflicto |
+| P14 | Borrado | Lápida con Deshacer y confirmación si hay notas; sin papelera |
+| P15 | Integraciones | Resumen, Análisis, hábito por sesiones y aplicaciones vinculadas; Life Review v2 y objetivos derivados, aplazados |
+| P16 | Vista global | Cerebro como centro de conocimiento (Ideas y Repaso) |
+| P17 | Service worker | Shell sin conexión en una subfase pequeña tras M4f |
+| P18 | Despliegues | Dos: tras M4e y tras M4i |
+| P19 | Límites | Título 300, nota 10.000, cita 2.000 y temas ≤ 10 × 40 |
+| P20 | Sesiones | `library_sessions` común para lectura y escucha |
+
 ## Decisiones abiertas (para ti)
 
 1. ~~Inicio de sesión~~: resuelto en M2, enlace mágico más código.

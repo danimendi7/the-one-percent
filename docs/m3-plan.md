@@ -2,6 +2,8 @@
 
 Estado: **aprobado el 27/10/2026**. M3.0 desplegado el 27/10/2026. Orden cambiado el 27/10/2026: M3.1 = Objetivos, M3.2 = Deep Work. Las migraciones y despliegues de M3 en producción requieren autorización expresa.
 
+**M3 cerrada el 30/10/2026**: los cinco módulos están en producción (`85fd1a0`) y se ha superado la prueba manual de M3.4. Informe de cierre: `docs/reports/m3-closure.md`. Siguiente: `docs/m4-knowledge-os-plan.md` (propuesta pendiente de aprobación).
+
 ## 0. Decisiones aprobadas y ajustes tras revisarlas
 | Decisión | Encaje con el plan | Ajuste |
 | --- | --- | --- |
