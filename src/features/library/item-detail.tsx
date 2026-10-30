@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { BookOpen, ExternalLink, Heart, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -129,15 +129,22 @@ function Chrome({ snap, back, children }: { snap: LibrarySnapshot; back: { href:
   )
 }
 
-/** `/knowledge/library/items/[id]`: one book or episode, its knowledge first, editing at hand. */
+/** `/knowledge/library/item?id=`: reads the id from the URL (behind the page's Suspense). */
+export function ItemDetailFromUrl() {
+  const id = useSearchParams().get("id") ?? ""
+  return <ItemDetail key={id} id={id} />
+}
+
+/** One book or episode, its knowledge first, editing at hand. */
 export function ItemDetail({ id }: { id: string }) {
   const snap = useLibrary()
   const router = useRouter()
   const form = useContentForm(snap?.state)
   if (!snap) return <LibrarySkeleton />
   const s: KnowledgeState = snap.state
-  const item = s.items[id]
-  if (!item) return <NotHere back={LIBRARY_HREF} />
+  const found = Object.hasOwn(s.items, id) ? s.items[id] : undefined
+  if (!found) return <NotHere back={LIBRARY_HREF} />
+  const item = found
   const show = item.kind === "episode" && item.episode.showId ? s.shows[item.episode.showId] : null
   const sections = sectionsOf(s, id).filter((x) => x.notes.length > 0)
   const noteCount = sections.reduce((n, x) => n + x.notes.length, 0)
@@ -271,13 +278,19 @@ export function ItemDetail({ id }: { id: string }) {
   )
 }
 
-/** `/knowledge/library/shows/[id]`: a show, its episodes and the ideas taken from them. */
+/** `/knowledge/library/show?id=`: reads the id from the URL (behind the page's Suspense). */
+export function ShowDetailFromUrl() {
+  const id = useSearchParams().get("id") ?? ""
+  return <ShowDetail key={id} id={id} />
+}
+
+/** A show, its episodes and the ideas taken from them. */
 export function ShowDetail({ id }: { id: string }) {
   const snap = useLibrary()
   const router = useRouter()
   const form = useContentForm(snap?.state)
   if (!snap) return <LibrarySkeleton />
-  const show = snap.state.shows[id]
+  const show = Object.hasOwn(snap.state.shows, id) ? snap.state.shows[id] : undefined
   if (!show) return <NotHere back={PODCASTS_HREF} />
   const episodes = episodesOfShow(snap.state, id)
   const notes = notesOfShow(snap.state, id)

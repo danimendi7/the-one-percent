@@ -13,8 +13,9 @@ export const LIBRARY_HREF = "/knowledge/library"
 export const BOOKS_HREF = "/knowledge/library/books"
 export const PODCASTS_HREF = "/knowledge/library/podcasts"
 export const BRAIN_HREF = "/knowledge/brain"
-export const itemHref = (id: string) => `/knowledge/library/items/${id}`
-export const showHref = (id: string) => `/knowledge/library/shows/${id}`
+// Static pages with the id in the query (not dynamic segments): prefetched once, they open offline.
+export const itemHref = (id: string) => `/knowledge/library/item?id=${encodeURIComponent(id)}`
+export const showHref = (id: string) => `/knowledge/library/show?id=${encodeURIComponent(id)}`
 
 export const KIND_ICON: Record<ContentKind | "show", typeof BookOpen> = { book: BookOpen, episode: Headphones, show: Mic }
 
@@ -61,11 +62,11 @@ export function CoverArt({
       {!square && <div className="absolute inset-y-0 left-[6%] w-px bg-white/10" />}
       {square && size !== "sm" && <Icon className="absolute top-[10%] right-[10%] size-[18%] text-white/35" strokeWidth={1.5} />}
       {size !== "sm" && (
-        <div className={cn("absolute inset-0 flex flex-col justify-end gap-1", size === "lg" ? "p-4" : "p-[10%]")}>
+        <div className={cn("absolute inset-0 flex flex-col justify-end gap-1", size === "lg" ? "p-3 sm:p-4" : "p-[10%]")}>
           <p
             className={cn(
               "leading-[1.15] font-semibold text-balance text-white/92",
-              size === "lg" ? "line-clamp-3 text-lg" : "line-clamp-3 text-[clamp(0.6875rem,2.6vw,0.8125rem)]"
+              size === "lg" ? "line-clamp-3 text-[0.9375rem] sm:text-lg" : "line-clamp-3 text-[clamp(0.6875rem,2.6vw,0.8125rem)]"
             )}
           >
             {title}

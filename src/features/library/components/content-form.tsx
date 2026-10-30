@@ -1,6 +1,6 @@
 "use client"
 
-import { useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,12 +24,41 @@ const date = (s: string) => (s === "" ? null : s)
 /** Create or edit a book, an episode or a show (manual entry; external search arrives in M4g). Only the title is required. */
 export function ContentFormSheet({ target, state, open, onOpenChange, onDone }: { target: FormTarget; state: KnowledgeState; open: boolean; onOpenChange: (v: boolean) => void; onDone?: (id: string) => void }) {
   const desktop = useMediaQuery("(min-width: 768px)")
+  // Closing with Esc, outside or a swipe never drops what was typed without asking.
+  const [dirty, setDirty] = useState(false)
+  const [asking, setAsking] = useState(false)
+  const close = () => (setDirty(false), setAsking(false), onOpenChange(false))
+  // Inside the sheet, not a second modal on top of it (two focus traps would fight).
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={(v) => (v ? onOpenChange(true) : dirty ? setAsking(true) : close())}>
       <SheetContent side={desktop ? "right" : "bottom"} className={cn("gap-0 p-0", desktop ? "w-full sm:max-w-md" : "max-h-[92dvh] rounded-t-3xl border-x-0")}>
-        {open && <ContentForm key={target.kind + ("item" in target ? (target.item?.id ?? "") : "show" in target ? (target.show?.id ?? "") : "")} target={target} state={state} onDone={(id) => (onOpenChange(false), onDone?.(id))} />}
+        {asking && <DiscardPrompt onKeep={() => setAsking(false)} onDiscard={close} />}
+        {open && <ContentForm key={target.kind + ("item" in target ? (target.item?.id ?? "") : "show" in target ? (target.show?.id ?? "") : "")} target={target} state={state} onDirty={setDirty} onDone={(id) => (close(), onDone?.(id))} />}
       </SheetContent>
     </Sheet>
+  )
+}
+
+function DiscardPrompt({ onKeep, onDiscard }: { onKeep: () => void; onDiscard: () => void }) {
+  const keep = useRef<HTMLButtonElement>(null)
+  useEffect(() => keep.current?.focus(), [])
+  return (
+    <div role="alertdialog" aria-labelledby="discard-title" aria-describedby="discard-desc" className="border-b border-warning/40 bg-warning/10 px-5 py-4">
+      <p id="discard-title" className="font-medium">
+        ¿Descartar lo escrito?
+      </p>
+      <p id="discard-desc" className="mt-0.5 text-sm text-text-secondary">
+        Hay cambios sin guardar en este formulario.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button ref={keep} variant="outline" onClick={onKeep} data-testid="form-keep">
+          Seguir editando
+        </Button>
+        <Button variant="destructive" onClick={onDiscard} data-testid="form-discard">
+          Descartar
+        </Button>
+      </div>
+    </div>
   )
 }
 
@@ -45,7 +74,7 @@ function Field({ id, label, children, hint }: { id: string; label: string; child
 
 const selectClass = "h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
 
-function ContentForm({ target, state, onDone }: { target: FormTarget; state: KnowledgeState; onDone: (id: string) => void }) {
+function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; state: KnowledgeState; onDone: (id: string) => void; onDirty: (dirty: boolean) => void }) {
   const id = useId()
   const f = (k: string) => `${id}-${k}`
   const item = "item" in target ? target.item : undefined
@@ -77,6 +106,9 @@ function ContentForm({ target, state, onDone }: { target: FormTarget; state: Kno
     publishedOn: ep?.publishedOn ?? "",
     episodeNumber: ep?.episodeNumber?.toString() ?? "",
   })
+  const [initial] = useState(v)
+  const dirty = JSON.stringify(v) !== JSON.stringify(initial)
+  useEffect(() => onDirty(dirty), [dirty, onDirty])
   const [more, setMore] = useState(editing)
   const [error, setError] = useState<string | null>(null)
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setV({ ...v, [k]: e.target.value })

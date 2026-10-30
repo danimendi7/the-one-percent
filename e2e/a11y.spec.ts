@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test"
 import AxeBuilder from "@axe-core/playwright"
 import { expect, FIXED_NOW, test } from "./fixtures"
 
-const ROUTES = ["/login", "/", "/habits", "/analytics", "/focus", "/knowledge/library", "/knowledge/library/books", "/knowledge/library/podcasts", "/knowledge/library/items/demo-book-outlive", "/knowledge/library/shows/demo-show-ritmo", "/knowledge/discover", "/knowledge/brain", "/settings/notifications", "/more"]
+const ROUTES = ["/login", "/", "/habits", "/analytics", "/focus", "/knowledge/library", "/knowledge/library/books", "/knowledge/library/podcasts", "/knowledge/library/item?id=demo-book-outlive", "/knowledge/library/show?id=demo-show-ritmo", "/knowledge/discover", "/knowledge/brain", "/settings/notifications", "/more"]
 
 async function blocking(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()

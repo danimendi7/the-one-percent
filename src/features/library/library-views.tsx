@@ -242,7 +242,7 @@ const shelfLabel = (kind: ContentKind, s: Shelf) => (s === "all" ? "Todos" : s =
 function Shelves({ kind, state, shelf, onShelf }: { kind: ContentKind; state: KnowledgeState; shelf: Shelf; onShelf: (s: Shelf) => void }) {
   const counts = shelfCounts(state, kind)
   return (
-    <div role="radiogroup" aria-label="Estantería" className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
+    <div role="radiogroup" aria-label="Estantería" className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1 md:flex-wrap md:overflow-visible">
       {SHELVES.filter((s) => s === "all" || counts[s] > 0 || s === shelf).map((s) => (
         <button
           key={s}

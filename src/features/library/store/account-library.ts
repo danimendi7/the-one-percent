@@ -31,6 +31,20 @@ export function accountLibrary(engine: SyncEngine): LibraryBackend {
 
   const refused = (r: { ok: false; error: KnowledgeError }): LibraryResult<never> => ({ ok: false, error: r.error })
 
+  // Which removed rows the server had when they were deleted. Decided at delete time, not at undo
+  // time: by then the delete may be confirmed and the row gone from the device copy, and only a
+  // restore revives a tombstone (D70); a create with that id would be refused.
+  const confirmedAtDelete = new WeakMap<Removed, Set<string>>()
+  function removedOk(removed: Removed): { ok: true; undo: Removed } {
+    const ids = new Set<string>()
+    const mark = (entity: "show" | "item" | "note", id: string) => engine.libraryIsConfirmed(entity, id) && ids.add(`${entity}:${id}`)
+    for (const x of removed.shows) mark("show", x.id)
+    for (const x of removed.items) mark("item", x.id)
+    for (const x of removed.notes) mark("note", x.id)
+    confirmedAtDelete.set(removed, ids)
+    return { ok: true, undo: removed }
+  }
+
   const actions: LibraryActions = {
     createItem(kind: "book" | "episode", input: BookInput & EpisodeInput) {
       const id = uuidv4()
@@ -49,9 +63,10 @@ export function accountLibrary(engine: SyncEngine): LibraryBackend {
     deleteItem(id) {
       const r = deleteItem(state(), id)
       if (!r.ok) return refused(r)
+      const confirmed = removedOk(r.removed)
       const d = engine.libraryDelete("item", id)
       if (!d.ok) return { ok: false, error: { code: d.reason, detail: id } }
-      return { ok: true, undo: r.removed }
+      return confirmed
     },
     createShow(input) {
       const id = uuidv4()
@@ -70,9 +85,10 @@ export function accountLibrary(engine: SyncEngine): LibraryBackend {
     deleteShow(id) {
       const r = deleteShow(state(), id, ctx())
       if (!r.ok) return refused(r)
+      const confirmed = removedOk(r.removed)
       const d = engine.libraryDelete("show", id)
       if (!d.ok) return { ok: false, error: { code: d.reason, detail: id } }
-      return { ok: true, undo: r.removed }
+      return confirmed
     },
     createNote(input) {
       const id = uuidv4()
@@ -98,9 +114,10 @@ export function accountLibrary(engine: SyncEngine): LibraryBackend {
     deleteNote(id) {
       const r = deleteNote(state(), id)
       if (!r.ok) return refused(r)
+      const confirmed = removedOk(r.removed)
       const d = engine.libraryDelete("note", id)
       if (!d.ok) return { ok: false, error: { code: d.reason, detail: id } }
-      return { ok: true, undo: r.removed }
+      return confirmed
     },
     setLink(a, b, linked) {
       const r = setLink(state(), a, b, linked, ctx())
@@ -111,8 +128,9 @@ export function accountLibrary(engine: SyncEngine): LibraryBackend {
     undo(removed: Removed) {
       // What reached the server is restored explicitly (the only way to revive a tombstone, D70);
       // what never reached it is simply created again with the same id.
+      const confirmed = confirmedAtDelete.get(removed)
       const put = (entity: "show" | "item" | "note", id: string, fields: Record<string, unknown>, kind?: ContentItem["kind"], capturedAt?: string) => {
-        if (engine.libraryIsConfirmed(entity, id)) engine.libraryRestore(entity, id, fields, kind)
+        if (confirmed?.has(`${entity}:${id}`) || engine.libraryIsConfirmed(entity, id)) engine.libraryRestore(entity, id, fields, kind)
         else engine.libraryCreate(entity, fields, { id, kind, capturedAt })
       }
       for (const s of removed.shows) put("show", s.id, showFields(s))

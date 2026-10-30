@@ -8,7 +8,7 @@ import { expect, isMobile, test } from "./fixtures"
  */
 
 const KEY = "the-one-percent:demo:library:v1"
-const OUTLIVE = "/knowledge/library/items/demo-book-outlive"
+const OUTLIVE = "/knowledge/library/item?id=demo-book-outlive"
 
 async function savedInDemo(page: Page) {
   await expect.poll(() => page.evaluate((k) => localStorage.getItem(k) !== null, KEY)).toBe(true)
@@ -36,7 +36,7 @@ test.describe("library (demo)", () => {
     await expect(page).toHaveURL(/\/knowledge\/library\/books$/)
     await expect(page.getByTestId("item-tile").filter({ hasText: "Outlive" }).first()).toBeVisible()
     await page.getByTestId("item-tile").filter({ hasText: "Outlive" }).first().click()
-    await expect(page).toHaveURL(/demo-book-outlive$/)
+    await expect(page).toHaveURL(/id=demo-book-outlive$/)
     await expect(page.getByRole("heading", { level: 1, name: "Outlive" })).toBeVisible()
     await expect(page.getByTestId("note").locator("visible=true")).toHaveCount(3)
     await noOverflow(page, info.project.use.viewport!.width)
@@ -48,7 +48,7 @@ test.describe("library (demo)", () => {
     await page.getByTestId("add-book").click()
     await page.getByTestId("form-title").fill("Libro de prueba E2E")
     await page.getByTestId("form-save").click()
-    await expect(page).toHaveURL(/\/knowledge\/library\/items\/[^/]+$/)
+    await expect(page).toHaveURL(/\/knowledge\/library\/item\?id=[^&]+$/)
     await expect(page.getByRole("heading", { level: 1, name: "Libro de prueba E2E" })).toBeVisible()
     await expect(page.getByText("Todavía no hay ideas")).toBeVisible()
     // no invented metadata: no author, no cover image, no rating
@@ -119,12 +119,12 @@ test.describe("library (demo)", () => {
     await page.getByRole("menuitem", { name: "Programa de podcast" }).click()
     await page.getByTestId("form-title").fill("Programa E2E")
     await page.getByTestId("form-save").click()
-    await expect(page).toHaveURL(/\/knowledge\/library\/shows\/[^/]+$/)
+    await expect(page).toHaveURL(/\/knowledge\/library\/show\?id=[^&]+$/)
     await expect(page.getByText("Aún no hay episodios de este programa.")).toBeVisible()
     await page.getByTestId("add-episode").click()
     await page.getByTestId("form-title").fill("Episodio con programa E2E")
     await page.getByTestId("form-save").click()
-    await expect(page).toHaveURL(/\/knowledge\/library\/items\/[^/]+$/)
+    await expect(page).toHaveURL(/\/knowledge\/library\/item\?id=[^&]+$/)
     await expect(page.getByRole("link", { name: "Programa E2E" }).last()).toBeVisible()
 
     await page.goto("/knowledge/library/podcasts")
@@ -165,6 +165,32 @@ test.describe("library (demo)", () => {
     expect(consoleErrors).toEqual([])
   })
 
+  test("Cerebro with many notes shows them in pages of 60", async ({ page, consoleErrors }) => {
+    await page.goto("/knowledge/brain")
+    await page.getByTestId("capture-open").click()
+    await page.getByTestId("capture-text").fill("Primera")
+    await expect(page.getByTestId("capture-save")).toHaveText("Guardado en este navegador · demo")
+    await expect(page.getByText("16 notas")).toBeVisible()
+    await page.getByTestId("capture-text").blur()
+    await savedInDemo(page)
+    await page.evaluate((k) => {
+      const s = JSON.parse(localStorage.getItem(k)!)
+      const base = Object.values(s.notes)[0] as Record<string, unknown>
+      for (let i = 0; i < 120; i++) s.notes[`bulk-${i}`] = { ...base, id: `bulk-${i}`, itemId: null, body: `Nota en bloque ${i}` }
+      localStorage.setItem(k, JSON.stringify(s))
+    }, KEY)
+    await page.reload()
+    await expect(page.getByText("136 notas")).toBeVisible()
+    await expect(page.getByTestId("note")).toHaveCount(60)
+    await page.getByTestId("brain-more").click()
+    await expect(page.getByTestId("note")).toHaveCount(120)
+    await expect(page.getByTestId("brain-more")).toHaveText("Mostrar 16 más")
+    await page.getByTestId("brain-more").click()
+    await expect(page.getByTestId("note")).toHaveCount(136)
+    await expect(page.getByTestId("brain-more")).toHaveCount(0)
+    expect(consoleErrors).toEqual([])
+  })
+
   test("rating with the keyboard: arrows move and choose, and it is kept", async ({ page }) => {
     await page.goto(OUTLIVE)
     const group = page.getByRole("radiogroup", { name: "Valoración de 1 a 10" })
@@ -177,10 +203,51 @@ test.describe("library (demo)", () => {
     await expect(page.getByRole("radiogroup", { name: "Valoración de 1 a 10" }).getByRole("radio", { name: "2 de 10" })).toHaveAttribute("aria-checked", "true")
   })
 
+  test("with no connection, links still open Libros, a book and Cerebro, and an idea is captured there", async ({ page, context, consoleErrors }) => {
+    await page.goto("/knowledge/library")
+    await page.waitForLoadState("networkidle")
+    await context.setOffline(true)
+    await page.getByTestId("door-Libros").click()
+    await expect(page.getByRole("heading", { level: 1, name: "Libros" })).toBeVisible()
+    await page.getByTestId("item-tile").filter({ hasText: "Hábitos atómicos" }).first().click()
+    await expect(page.getByRole("heading", { level: 1, name: "Hábitos atómicos" })).toBeVisible()
+    await page.getByTestId("capture-open").locator("visible=true").click()
+    await page.getByTestId("capture-text").locator("visible=true").fill("Capturada sin conexión")
+    await expect(page.getByTestId("capture-save").locator("visible=true")).toHaveText("Guardado en este navegador · demo")
+    await page.getByRole("link", { name: /Libros/ }).first().click()
+    await expect(page.getByRole("heading", { level: 1, name: "Libros" })).toBeVisible()
+    await page.getByTestId("item-tile").filter({ hasText: "Outlive" }).first().click()
+    await expect(page.getByRole("heading", { level: 1, name: "Outlive" })).toBeVisible()
+    await context.setOffline(false)
+    await page.goto("/knowledge/brain")
+    await expect(page.getByTestId("note").filter({ hasText: "Capturada sin conexión" })).toBeVisible()
+    expect(consoleErrors.filter((e) => !/ERR_INTERNET_DISCONNECTED|Failed to fetch|net::/.test(e))).toEqual([])
+  })
+
+  test("closing the form with something typed asks first; nothing is created if discarded", async ({ page, consoleErrors }) => {
+    await page.goto("/knowledge/library/books")
+    await page.getByTestId("add-book").click()
+    await page.getByTestId("form-title").fill("Título a medio escribir")
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("alertdialog", { name: "¿Descartar lo escrito?" })).toBeVisible()
+    await page.getByTestId("form-keep").click()
+    await expect(page.getByTestId("form-title")).toHaveValue("Título a medio escribir")
+    await page.keyboard.press("Escape")
+    await page.getByTestId("form-discard").click()
+    await expect(page.getByTestId("form-title")).toHaveCount(0)
+    await expect(page.getByText("Título a medio escribir")).toHaveCount(0)
+    // an untouched form closes at once
+    await page.getByTestId("add-book").click()
+    await page.keyboard.press("Escape")
+    await expect(page.getByTestId("form-title")).toHaveCount(0)
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    expect(consoleErrors).toEqual([])
+  })
+
   test("an id that is not on this device says so instead of failing", async ({ page, consoleErrors }) => {
-    await page.goto("/knowledge/library/items/no-existe")
+    await page.goto("/knowledge/library/item?id=constructor")
     await expect(page.getByText("No está en este dispositivo")).toBeVisible()
-    await page.goto("/knowledge/library/shows/no-existe")
+    await page.goto("/knowledge/library/show?id=no-existe")
     await expect(page.getByText("No está en este dispositivo")).toBeVisible()
     expect(consoleErrors).toEqual([])
   })
@@ -194,7 +261,7 @@ test.describe("library (demo)", () => {
   })
 
   test("item, show and Cerebro pages: no serious accessibility violations; touch targets ≥ 44 px on mobile", async ({ page }, info) => {
-    for (const url of [OUTLIVE, "/knowledge/library/shows/demo-show-ritmo", "/knowledge/brain", "/knowledge/library/podcasts"]) {
+    for (const url of [OUTLIVE, "/knowledge/library/show?id=demo-show-ritmo", "/knowledge/brain", "/knowledge/library/podcasts"]) {
       await page.goto(url)
       await expect(page.locator("h1").first()).toBeVisible()
       expect(await blocking(page), url).toEqual([])

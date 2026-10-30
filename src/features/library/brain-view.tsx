@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { Brain } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/common/empty-state"
 import { SourceBadge } from "@/components/common/demo-note"
 import { PageHeader } from "@/components/shell/page-header"
@@ -16,6 +17,9 @@ import { LIBRARY_HREF, BackLink } from "./components/library-ui"
 
 type Filter = "all" | NoteType | "free" | "starred"
 
+/** Notes rendered at a time: thousands of cards at once would make the page slow on a phone. */
+const PAGE = 60
+
 /**
  * `/knowledge/brain` · Cerebro (P16, first version): every idea, learning, quote, application,
  * question and note in one place, newest first, with simple filters and the content it came from.
@@ -24,6 +28,7 @@ type Filter = "all" | NoteType | "free" | "starred"
 export function BrainView() {
   const snap = useLibrary()
   const [filter, setFilter] = useState<Filter>("all")
+  const [shown, setShown] = useState(PAGE)
   const notes = useMemo(() => {
     if (!snap) return []
     const all = Object.values(snap.state.notes).sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
@@ -55,14 +60,14 @@ export function BrainView() {
             </div>
           ) : (
             <>
-              <div role="radiogroup" aria-label="Mostrar" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+              <div role="radiogroup" aria-label="Mostrar" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 md:flex-wrap md:overflow-visible">
                 {options.map((o) => (
                   <button
                     key={o.value}
                     type="button"
                     role="radio"
                     aria-checked={filter === o.value}
-                    onClick={() => setFilter(o.value)}
+                    onClick={() => (setFilter(o.value), setShown(PAGE))}
                     className={cn("min-h-11 md:min-h-10 shrink-0 rounded-full border px-3.5 text-[0.8125rem] font-medium", filter === o.value ? "border-signal/60 bg-signal/12 text-foreground" : "border-border text-text-secondary hover:bg-surface-raised")}
                   >
                     {o.label}
@@ -75,10 +80,15 @@ export function BrainView() {
               {notes.length === 0 ? (
                 <p className="panel rounded-2xl p-5 text-sm text-text-secondary">No hay notas de este tipo todavía.</p>
               ) : (
-                notes.map((n) => {
+                notes.slice(0, shown).map((n) => {
                   const it = n.itemId ? snap.state.items[n.itemId] : null
                   return <NoteCard key={n.id} note={n} snap={snap} kind={it?.kind ?? null} origin={it ? { id: it.id, title: it.title } : null} />
                 })
+              )}
+              {notes.length > shown && (
+                <Button variant="outline" className="w-full" onClick={() => setShown(shown + PAGE)} data-testid="brain-more">
+                  Mostrar {Math.min(PAGE, notes.length - shown)} más
+                </Button>
               )}
             </>
           )}

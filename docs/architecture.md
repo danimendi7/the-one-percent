@@ -40,9 +40,11 @@ domain (dates, schedule, metrics): funciones puras, sin React ni E/S
 | `/analytics` | Analítica | Pestaña Análisis | Calculado de los registros locales |
 | `/goals` | Objetivos | Más | Resultado demo, esfuerzo calculado |
 | `/focus` | Enfoque | Pestaña Enfoque | Temporizador funcional, no guarda sesiones |
-| `/knowledge/library` | Biblioteca | Más | Fixtures, búsqueda y filtros funcionales |
+| `/knowledge/library` | Biblioteca | Más | Portada de la Biblioteca (M4d): Libros, Podcasts y Cerebro, en demo o cuenta |
+| `/knowledge/library/books`, `/knowledge/library/podcasts` | Libros, Podcasts | Desde Biblioteca | Estanterías, episodios y programas (M4d) |
+| `/knowledge/library/item?id=`, `/knowledge/library/show?id=` | Ficha, Programa | Desde Biblioteca | Páginas estáticas que abren sin conexión (D79) |
 | `/knowledge/discover` | Descubrir | Más | Tema curado, valoración 1–10 en memoria |
-| `/knowledge/brain` | Cerebro | Más | Cola de repaso demo |
+| `/knowledge/brain` | Cerebro | Más | Todas las notas con filtros sencillos e ideas sueltas (D78) |
 | `/mind` | Mente y energía | Más | Formulario demo, no guarda |
 | `/reviews` | Revisiones | Más | Agregados reales de la semana anterior |
 | `/intelligence` | Inteligencia | Más | Informativa |

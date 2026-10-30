@@ -119,6 +119,15 @@
 | D75 | Conflictos y borrados en el cliente (D68) | Una edición rechazada conserva el texto de forma duradera: `field_conflict` guarda solo los campos en conflicto y reenvía los demás con sus bases; `deleted` e `item_deleted` guardan el texto junto con lo último visto de la entidad. Las salidas son «Aplicar la mía», «Mantener la otra», «Guardar las dos» (nota nueva), «Restaurar» (envío explícito de la entidad entera) y «Guardar como idea suelta»; lo decidido no vuelve (`resolvedNotes`). Las bases se toman de `field_seqs` y suben a la versión propia ya confirmada (`seq` de la respuesta), así que las ediciones seguidas del mismo texto no chocan. Lo que nunca llegó al servidor se elimina de la cola al borrarlo. **Borrar un contenido se rechaza (`pending`) mientras él o sus notas tengan ediciones sin enviar**, para no perderlas ni provocar un `notes_changed` propio (precedente D55) | «No descartar texto ni borrar operaciones para resolver errores» |
 | D76 | Robustez del motor | `sync()` impide un segundo ciclo paralelo durante el arranque síncrono de `cycle()` (antes reenviaba operaciones en curso y mandaba ediciones con bases viejas). Una fila con un instante roto o ausente se convierte con el instante 0 en vez de lanzar: una fila dañada nunca vacía una copia entera | Fallos reales encontrados por los tests de M4c (re-entrada) y por el banco de volumen (conversión) |
 
+## M4d · Interfaz de la Biblioteca (30/10/2026)
+
+| # | Tema | Decisión | Motivo |
+| --- | --- | --- | --- |
+| D77 | Borrado (**P14**, aprobada) | Borrar un contenido con notas pide confirmación y dice cuántas se van con él; una nota o un contenido sin notas se borra sin diálogo. Después, «Deshacer» en el aviso. Sin papelera visible; las lápidas se conservan y no se purgan. Qué se restaura y qué se vuelve a crear se decide **al borrar**: lo que el servidor tenía entonces se revive con `restore` (D70), lo que nunca llegó se crea de nuevo con el mismo id. Las ediciones pendientes y los textos en conflicto nunca se borran: el borrado se rechaza con `pending` (D75) | Aprobada por el propietario. Decidirlo al deshacer fallaba: si el borrado ya estaba confirmado y descargado, la fila había salido de la copia y se enviaba un alta que el servidor rechaza (encontrado por la E2E de cuenta) |
+| D78 | Vista global (**P16**, aprobada) | «Cerebro» (`/knowledge/brain`) reúne todas las notas, de la más reciente a la más antigua, con filtros sencillos (tipo, sueltas y destacadas), su origen enlazado y captura de ideas sueltas. Sin búsqueda de texto ni filtros combinados (M4e) y sin IA. El Cerebro de demostración de M1 se elimina | Aprobada por el propietario |
+| D79 | Fichas sin conexión | Las fichas son páginas estáticas con el id en la consulta (`/knowledge/library/item?id=` y `/knowledge/library/show?id=`), no segmentos dinámicos. Next las precarga una vez y abren sin red; un segmento `[id]` pedía al servidor cada ficha y, sin conexión, acababa en la página de error del navegador. Un id ajeno o heredado (`constructor`) se trata como inexistente | Riesgo R1 comprobado en M4d: sin conexión no se podía abrir el libro que se está leyendo para capturar una idea |
+| D80 | Honestidad del guardado | Cada contenido y cada nota muestran su estado: «Sincronizado» solo cuando el servidor tiene la fila y nada suyo espera en la cola; si no, «Guardado en este dispositivo · sincronizando…», «… se enviará al recuperar la conexión», «tu cuenta aún no guarda la biblioteca», «Hay otra versión: decide cuál se queda» o «No se pudo guardar en la nube». En la demo, «Guardado en este navegador · demo». Cerrar un formulario con texto escrito pregunta antes de descartarlo | Requisitos de M4d; precedente D57 |
+
 ## M4 · Propuestas aún abiertas (30/10/2026)
 
 El detalle está en `docs/m4-knowledge-os-plan.md` (§15 y §16.10). Las aprobadas ya figuran arriba como D59–D69; la tabla siguiente es el registro original de la propuesta.
@@ -151,7 +160,8 @@ El detalle está en `docs/m4-knowledge-os-plan.md` (§15 y §16.10). Las aprobad
 | P1, P2, P3, P4, P5, P7, P8, P9, P12, P13, P18, P19 y P20 | Aprobadas: D59–D69 |
 | P6 | Aprobada con cambio: valoración 1–10 (D61) |
 | P10 y P11 | Aplazadas a M4g (D69); se confirman antes de esa subfase |
-| P14, P15, P16 y P17 | Abiertas: antes de M4d, M4h, M4d y M4f respectivamente |
+| P14 y P16 | Aprobadas: D77 y D78 (M4d) |
+| P15 y P17 | Abiertas: antes de M4h y M4f respectivamente |
 | N1 | **Aprobada → D72 (M4c)**. Propuesta original: guardar el conocimiento en un almacén propio de IndexedDB, por entidad, escribiendo solo lo que cambió. Medido: el registro único cuesta 122 ms por guardado (×4) con 5.000 notas. Antes de M4c |
 | N2 | **Aprobada → D71 (M4b)**. Propuesta original: pull incremental del conocimiento al arrancar. Medido: el pull completo pesa 1,10 MB comprimidos con 5.000 notas y 2,07 MB con 10.000. Antes de M4b |
 

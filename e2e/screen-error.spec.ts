@@ -101,3 +101,82 @@ test.describe("account · a failing screen keeps syncing", () => {
     expect(errors).toEqual([])
   })
 })
+
+/**
+ * M4d · the same guarantee for the Library: a content whose device copy is damaged fails inside its
+ * own page; the shell stays, a note captured offline still reaches the server once, and Cerebro
+ * (which does not render that field) keeps working.
+ */
+test.describe("account · a failing Library page keeps syncing", () => {
+  test.use({ mode: "account" })
+  let account: Account
+  test.beforeEach(async ({}, info) => {
+    account = await newAccount(`screenerr-lib-${info.project.name}`)
+  })
+  test.afterEach(async () => {
+    await removeAccount(account)
+  })
+
+  test("a book with a broken date in the device copy; the shell, the queue and the sync survive", async ({ page, context }) => {
+    await signIn(page, account)
+    await page.goto("/knowledge/library/books")
+    await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ }).first()).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId("add-book").click()
+    await page.getByTestId("form-title").fill("Libro dañado")
+    await page.getByTestId("form-save").click()
+    await expect(page.getByTestId("item-save")).toHaveText("Sincronizado", { timeout: 15_000 })
+    const id = new URL(page.url()).searchParams.get("id")!
+
+    await context.setOffline(true)
+    await page.getByTestId("capture-open").click()
+    await page.getByTestId("capture-text").fill("Idea pendiente")
+    await expect(page.getByTestId("capture-save")).toContainText("se enviará al recuperar la conexión")
+    // Damage the confirmed row in the Library's own IndexedDB: an impossible start date.
+    const damaged = await page.evaluate(async ({ uid, id }) => {
+      const db: IDBDatabase = await new Promise((res) => {
+        const r = indexedDB.open("the-one-percent-library")
+        r.onsuccess = () => res(r.result)
+      })
+      const store = () => db.transaction("item", "readwrite").objectStore("item")
+      const key = `${uid}:${id}`
+      const row = await new Promise<Record<string, unknown> | undefined>((res) => {
+        const r = store().get(key)
+        r.onsuccess = () => res(r.result)
+      })
+      if (!row) return false
+      row.started_on = "fecha-rota"
+      await new Promise((res) => {
+        const r = store().put(row, key)
+        r.onsuccess = res
+      })
+      return true
+    }, { uid: account.id, id })
+    expect(damaged).toBe(true)
+    await page.close()
+    await context.setOffline(false)
+
+    // Hold the Library download back so the damaged copy is what renders; pushes go through.
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    await context.route("**/rest/v1/rpc/pull_library", async (route) => {
+      await gate
+      await route.continue()
+    })
+
+    const p = await context.newPage()
+    const errors: string[] = []
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.goto(`/knowledge/library/item?id=${id}`)
+    await expect(p.getByRole("alert").getByText("No se pudo mostrar esta pantalla")).toBeVisible()
+    await expect.poll(() => countRows("select count(*)::int n from public.knowledge_notes where user_id = $1 and body = 'Idea pendiente'", [account.id]), { timeout: 15_000 }).toBe(1)
+    await expect(p.getByRole("button", { name: /Estado de datos/ }).first()).toBeVisible()
+    // Cerebro still works, without a reload.
+    const brain = p.getByRole("link", { name: "Cerebro" }).locator("visible=true")
+    if ((await brain.count()) === 0) await p.getByRole("link", { name: "Más" }).locator("visible=true").click()
+    await brain.first().click()
+    await expect(p.getByTestId("note").locator("visible=true").filter({ hasText: "Idea pendiente" })).toBeVisible()
+    release()
+    expect(await countRows("select count(*)::int n from public.sync_operations where user_id = $1 and operation_type = 'library.note.create'", [account.id])).toBe(1)
+    expect(errors).toEqual([])
+  })
+})

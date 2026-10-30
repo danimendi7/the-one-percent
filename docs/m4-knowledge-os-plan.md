@@ -2,9 +2,9 @@
 
 **Estado (30/10/2026)**:
 - **Arquitectura aprobada**, con 18 decisiones registradas como **D59–D69** en `docs/decisions.md`. La valoración pasa a ser **de 1 a 10**, no de 1 a 5 como se propuso.
-- **M4a, M4b y M4c hechas en local** (§16, §17 y §18; decisiones D73–D76).
+- **M4a, M4b, M4c y M4d hechas en local** (§16–§19; decisiones D73–D80). P14 y P16 aprobadas (D77 y D78).
 - N2 (D71) y N1 (D72) aprobadas.
-- **M4d no empieza sin tu autorización.**
+- **M4e no empieza sin tu autorización** (propuesta en §19.9). Nada de M4 está en la nube ni en producción.
 - Las propuestas aún abiertas siguen marcadas como **P** (§15 y §16.6).
 
 ---
@@ -402,7 +402,7 @@ Como en M3:
 - Los programas, en cuadrícula 1:1.
 - Ficha del programa (`/knowledge/library/shows/[id]`): cabecera con la imagen, episodios por estado e «Ideas de este programa».
 
-**4 y 5. Ficha de libro o de episodio** (`/knowledge/library/items/[id]`, una ruta para los dos tipos)
+**4 y 5. Ficha de libro o de episodio** (`/knowledge/library/item?id=`, una ruta para los dos tipos; era `items/[id]` hasta D79)
 ```
 Móvil 375                                   Escritorio 1440
 ┌──────────────────────────┐               ┌───────────────┬──────────────────────────────┐
@@ -1231,3 +1231,188 @@ Tamaños de M4b: 5,9 MB de JSON (1,55 MB en gzip) completo y 4,1 KB incremental.
 **Pruebas**: E2E de demo y de cuenta (alta, captura, edición, conflicto y recuperación, sin conexión, dos pestañas), axe, capturas a 375 y 1440 px, y `screen-error.spec.ts` con Biblioteca.
 
 **Esfuerzo**: 2,5–3 días. Sin nube ni despliegue (eso es M4f).
+
+
+## 19. M4d · Interfaz de la Biblioteca y captura rápida (30/10/2026, hecho en local)
+
+Decisiones nuevas en `docs/decisions.md`:
+- **D77** (P14, borrado);
+- **D78** (P16, Cerebro);
+- **D79** (fichas sin conexión);
+- **D80** (honestidad del guardado).
+
+No cambian el protocolo de sincronización ni la base de datos: la interfaz usa el motor de M4c tal cual. Solo se añadieron dos lecturas, `libraryIsConfirmed` y `librarySyncStateOf`.
+
+### 19.1 Pantallas
+| Ruta | Qué muestra |
+|---|---|
+| `/knowledge/library` | Tres puertas (Libros, Podcasts, Cerebro) con recuentos reales, «En curso», ideas recientes y captura de una idea suelta. Estado vacío con «Añadir libro» y «Añadir episodio» |
+| `/knowledge/library/books` | Estanterías con recuento (todos, leyendo, pendiente, terminado, en pausa, abandonado, favoritos), orden, cuadrícula o lista |
+| `/knowledge/library/podcasts` | Episodios, con y sin programa, y programas |
+| `/knowledge/library/item?id=` | Ficha de libro o episodio: portada tipográfica, captura rápida arriba, estado, progreso (página o minuto), valoración 1–10, temas, notas agrupadas por tipo, relacionados, editar y eliminar |
+| `/knowledge/library/show?id=` | Programa: episodios, ideas de sus episodios, temas, editar y eliminar (los episodios se conservan sin programa) |
+| `/knowledge/brain` | Cerebro (P16): todas las notas, filtros sencillos, origen enlazado e ideas sueltas, de 60 en 60 |
+| Resumen | Tarjeta discreta «Sigue con «título»» o «Biblioteca», sin cifras inventadas |
+
+Código en `src/features/library/`:
+
+| Archivo | Contenido |
+|---|---|
+| `store/` | Contrato común de demo y cuenta |
+| `components/library-ui.tsx` | `CoverArt`, `StatusPill`, `ProgressLine`, `RatingInput` y `SyncLine` |
+| `components/knowledge-notes.tsx` | `QuickCapture`, `NoteCard` y autoguardado |
+| `components/content-form.tsx` | Formulario de alta y edición |
+| `components/library-sync.tsx` | Descarga, cuenta sin migración, errores y panel de conflictos |
+| `library-views.tsx`, `item-detail.tsx`, `brain-view.tsx` | Vistas |
+
+Se retiró el prototipo de M1: Biblioteca y Cerebro de demostración, `fixtures` y su buscador.
+
+### 19.2 Flujos
+- **Libro**:
+  1. «Añadir libro» → solo el título → se abre su ficha.
+  2. «Añadir idea» → escribir. Se guarda sin botón a los 800 ms, al salir del campo y al ocultar la pestaña. La página es opcional.
+  3. Ctrl/Cmd+Enter o «Nueva idea» empiezan otra.
+- **Podcast**: «Añadir» → «Programa de podcast» o «Episodio» (con programa o sin él) → ficha → minuto opcional (12:34).
+- **Cerebro**: filtros «Todas», por tipo, «Sueltas» y «Destacadas»; cada nota enlaza a su origen; captura de ideas sueltas.
+- **Editar una nota**: se toca el texto y se guarda solo. Además se puede destacar, cambiar de tipo, marcar el estado de una aplicación y eliminar con «Deshacer».
+- **Borrar** (D77): si hay notas, un diálogo dice cuántas se van; después aparece «Deshacer». Con ediciones sin enviar se rechaza con un mensaje claro.
+- **Conflictos**: un panel con las dos versiones y estas salidas:
+  - «Aplicar la mía»;
+  - «Mantener la otra»;
+  - «Guardar las dos»;
+  - «Restaurar con mi texto»;
+  - «Guardar como idea suelta»;
+  - «Descartar mi texto».
+- **Formulario**: si se cierra con algo escrito (Esc, tocar fuera o deslizar), pregunta «¿Descartar lo escrito?» dentro de la propia hoja.
+
+### 19.3 Comportamientos validados (E2E)
+**Demo** (`e2e/library.spec.ts`, 13 casos en 2 tamaños):
+- recuentos reales;
+- alta solo con el título, sin metadatos inventados;
+- autoguardado que sobrevive a recargar;
+- edición, borrado y «Deshacer»;
+- confirmación al borrar un libro con notas;
+- programa, episodio y episodio sin programa;
+- filtros de Cerebro e idea suelta;
+- paginación con 136 notas;
+- valoración con teclado;
+- navegación y captura **sin conexión**;
+- formulario que no descarta texto;
+- id inexistente o heredado (`constructor`);
+- tarjeta de Resumen;
+- axe sin violaciones graves;
+- zonas táctiles de al menos 44 px.
+
+**Cuenta** contra el stack local (`e2e/library-account.spec.ts`, 9 casos):
+- filas reales en la base de datos y una sola operación por captura;
+- sin conexión: «se enviará al recuperar la conexión», nunca «Sincronizado», y después llega una sola vez;
+- dos navegadores con conflicto resuelto con «Guardar las dos»;
+- borrado remoto mientras se editaba sin conexión, resuelto con «Restaurar con mi texto»;
+- borrado rechazado con ediciones pendientes, y después borrado y «Deshacer» del libro con sus notas;
+- idea suelta con `item_id` nulo;
+- aislamiento entre cuentas y respecto a la demo;
+- cierre de sesión con un cambio sin enviar: lo avisa, y al borrar el dispositivo advierte antes de perder nada.
+
+**Puerta permanente** (`e2e/screen-error.spec.ts`): si la copia local de una ficha está dañada, el fallo se queda dentro de esa pantalla. La barra, la cola (la nota pendiente llega una vez) y Cerebro siguen funcionando.
+
+### 19.4 Resultados (30/10/2026, build de producción local)
+| Prueba | Resultado |
+|---|---|
+| `npm run check` (tipos, lint y unitarias) | 43 archivos, **495/495**. Incluye 4 nuevas de `account-library` y ya no las del buscador del prototipo M1 |
+| Integración contra PostgreSQL local | 8 archivos, **145/145** |
+| `npm run e2e` (todo, demo y cuenta, móvil y escritorio) | **279 superadas, 0 fallos, 23 omitidas**. Las omisiones son deliberadas: casos que se cubren en un solo tamaño |
+| Biblioteca: demo · cuenta · `screen-error` | 26/26 · 15 superadas y 3 omitidas · 4/4 |
+| `npm run smoke` (local) | **22/22** |
+| `npm run test:browser` | **6/6** |
+
+**Incidencia del entorno**: dos ejecuciones completas fallaron a partir de cierto punto porque murió el `next start` que la herramienta había lanzado en segundo plano (código 127, sin error de la aplicación). Todos los fallos eran conexiones rechazadas. Con el servidor gestionado por Playwright, la suite completa pasó entera.
+
+### 19.5 Capturas revisadas
+Están en `docs/screenshots/m4d/`, solo con datos de demostración, a 375 y 1440 px:
+- Biblioteca;
+- Libros;
+- ficha de libro;
+- captura;
+- Podcasts;
+- episodio;
+- programa;
+- Cerebro;
+- formulario;
+- Resumen;
+- contenido inexistente.
+
+Revisadas una a una: sin desbordamiento horizontal ni errores de consola.
+
+### 19.6 Incidencias encontradas y corregidas
+1. **«Deshacer» tras un borrado ya confirmado** enviaba un alta que el servidor rechaza, y la fila no volvía. Ahora se decide al borrar (D77), con prueba unitaria y E2E.
+2. **Sin conexión no se abría una ficha** (R1): el segmento `[id]` pedía la ficha al servidor. Ahora son páginas estáticas con `?id=` (D79), con E2E.
+3. **Zonas táctiles de 36–40 px** (estrella, menú de nota, chips y botones pequeños del panel de conflictos): ahora miden 44 px en móvil.
+4. **Las notas se anunciaban solo como «Editar nota»** en lectores de pantalla, sin su texto. Ahora se lee el texto.
+5. **El formulario descartaba lo escrito al cerrarse**. Ahora pregunta. Una primera versión con un diálogo encima de la hoja se cerraba sola (dos trampas de foco), y se resolvió dentro de la hoja.
+6. **Un id como `constructor` en la URL** leía una propiedad heredada del objeto. Ahora cuenta como inexistente.
+7. **Visual**:
+   - filtros cortados en escritorio (ahora saltan de línea);
+   - título de la portada grande cortado a 375 px;
+   - desbordamientos y chips ocultos en móvil (corregidos antes de la interrupción).
+8. **Cerebro con miles de notas** las pintaba todas. Ahora va de 60 en 60.
+
+### 19.7 Seguridad y datos
+- **Aislamiento**: la demo y la cuenta no se mezclan; ni otra cuenta ni la demo ven los datos (E2E).
+- **Datos personales**: las capturas son solo de la demo. Las cuentas de prueba son sintéticas (`@theonepercent.local`) y se borran al terminar.
+- **Textos**:
+  - ningún formulario descarta texto sin preguntar;
+  - las notas se guardan solas;
+  - si el dominio rechaza un texto, se queda en su campo con el motivo (`role="alert"`).
+- **Estado honesto**: «Sincronizado» solo aparece con la fila en el servidor y nada pendiente (D80).
+- **Borrados**: nunca quitan operaciones pendientes ni textos en conflicto (D75 y D77).
+- **Validación**: la interfaz usa los mismos reductores del dominio que la demo y el motor (título de hasta 300 caracteres, valoración 1–10, página o minuto dentro del contenido). No ofrece nada que el servidor rechazaría.
+
+### 19.8 Límites y riesgos pendientes
+1. **Previsto en §18.6 y no implementado: la página de diagnóstico sintético** para medir en un móvil real. Se propone hacerla antes de M4f (§19.9). Los criterios de aceptación de M4d (§13) no dependen de ella.
+2. **Arranque en frío sin conexión**: sin service worker (P17, abierta), la aplicación no se abre sin red desde cero. Una vez cargada, sí se navega sin red.
+3. **Portadas externas y metadatos**: llegan en M4g. Hoy solo hay portadas tipográficas generadas.
+4. **Importación masiva**: la cola la hace cuadrática (§18.5). Necesita su propio camino por lotes.
+5. **CI**: todavía no ejecuta `test:browser`.
+6. **Páginas anteriores montadas y ocultas**: Next 16 conserva las rutas con `Activity`, así que las pruebas filtran por elementos visibles. El usuario no lo nota, pero hay que tenerlo en cuenta al escribir pruebas.
+7. **Propagación entre dispositivos**: en la Biblioteca se ha probado abriendo la ficha en el segundo navegador, no esperando en vivo sin recargar.
+8. **Nada está en la nube**: la migración de la Biblioteca solo existe en el stack local y producción sigue en M3.4.
+
+### 19.9 Propuesta de M4e (requiere tu autorización)
+**Objetivo**: recuperar lo aprendido, rápido y sin conexión.
+
+**Qué incluye**:
+1. **Búsqueda global en Cerebro**:
+   - el índice de M4a (`search.ts`, con acentos y prefijos) se construye **de forma perezosa**, al abrir Cerebro o enfocar el buscador;
+   - se actualiza con cada cambio, sin reconstruirlo entero;
+   - si con la CPU ×4 tarda más de 100 ms, pasa a un **Web Worker**;
+   - resultados resaltados y con su origen.
+2. **Filtros combinados en la URL** (`?q=&tipo=&tema=`): tipo, contenido, tema, destacadas, sueltas y estado de aplicación. Sobreviven a recargar y se pueden compartir entre pestañas. Se aplican a Cerebro, Libros y Podcasts.
+3. **Agrupar** por contenido o por tema.
+4. **Relaciones**:
+   - enlazar y desenlazar a mano notas y contenidos (`setLink`, que ya existe en el dominio, el servidor y el motor);
+   - «Relacionados» por temas;
+   - sección «Enlaces» en la ficha.
+5. **Aplicaciones**: vista de las aplicaciones prácticas por estado, con vínculo opcional a un hábito u objetivo existente. Sin crear hábitos automáticamente (eso es M4h).
+6. **Mover una nota** a otro contenido o dejarla suelta (`moveNote`, ya en el dominio).
+7. **Página de diagnóstico sintético** (pendiente de M4d):
+   - genera N notas en una base de IndexedDB **propia y separada**;
+   - mide en tu móvil el guardado, la búsqueda y el pintado;
+   - borra solo esa base al terminar, sin tocar tus datos.
+
+**Pruebas**:
+- unitarias del índice incremental;
+- E2E de búsqueda: acentos, sin conexión y 5.000 notas;
+- filtros tras recargar;
+- enlazar y desenlazar en dos navegadores;
+- axe y capturas.
+
+**Aceptación**:
+- encontrar una idea por palabra en menos de 100 ms con 5.000 notas, medido con la CPU ×1 y ×4;
+- filtros reproducibles por URL;
+- sin cambios de protocolo.
+
+**Riesgos**:
+- memoria del índice (13,4 MB medidos en M4a): se mitiga con la carga perezosa y liberándolo al salir;
+- coste de las relaciones con muchas notas.
+
+**Esfuerzo**: 2–2,5 días. Sin nube ni despliegue (eso es M4f).
