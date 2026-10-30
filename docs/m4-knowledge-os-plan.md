@@ -1580,7 +1580,7 @@ Sin desbordamiento ni errores de consola.
 0. **Estado de partida** (verificar en solo lectura):
    - `origin/main = 85fd1a0`;
    - nube con 10 migraciones (la última, `20261031090000`);
-   - local con 11 commits sin publicar (de `3082b4f` al commit de M4e).
+   - local con 9 commits sin publicar (de `3082b4f` a `baa16a4`, M4e) y este de corrección.
 1. **Revisión de los commits acumulados**:
    - `git log origin/main..HEAD` y una revisión del diff completo;
    - búsqueda de secretos y de datos personales en el diff;
