@@ -86,9 +86,25 @@
 | D57 | Interfaz de revisiones | Un único árbol de secciones: pasos libres en móvil (con el paso recordado) y dos columnas en escritorio. Guardado automático por sección (800 ms, al salir del campo y en `pagehide`), sin botón. La línea de estado solo dice «Sincronizado» cuando el servidor tiene todas las escrituras de esa revisión. Los conflictos se resuelven en un panel dentro de la revisión, con las dos versiones. Las cifras de un borrador son en vivo, con el mismo builder que la snapshot. La revisión cerrada es un documento de solo lectura. El borrado exige escribir «borrar» | M3.4d: experiencia premium y honesta, sin perder texto ni afirmar una sincronización que no ha ocurrido |
 | D58 | Cola compartida entre pestañas | Al guardar, cada pestaña fusiona la cola de IndexedDB con la suya: adopta las operaciones de otras pestañas y descarta las que cualquier pestaña retiró, recordadas en `goneOps`. Todo ocurre dentro de un Web Lock por usuario. La idempotencia por `op_id` del servidor cubre los reenvíos | Riesgo B: pérdida demostrada de escrituras sin conexión al cerrar una de dos pestañas. Se corrige sin borrar ni reconstruir colas |
 
-## M4 · Knowledge OS: propuestas pendientes de aprobación (30/10/2026)
+## M4 · Knowledge OS (aprobadas el 30/10/2026)
 
-No están aprobadas. El detalle, las alternativas y las recomendaciones están en `docs/m4-knowledge-os-plan.md`, §15. Al aprobarse, cada una pasará a una decisión D59+ con su motivo.
+| # | Tema | Decisión | Motivo |
+| --- | --- | --- | --- |
+| D59 | Modelo de contenido | Biblioteca con dos secciones, **Libros** y **Podcasts**, sobre un solo modelo: `ContentItem` (`book` o `episode`) con campos comunes y un bloque propio por formato. Los **programas** (`PodcastShow`) son una entidad propia que guarda sus datos una vez. Un episodio puede no tener programa, y borrar un programa no borra sus episodios ni su conocimiento | Aprobaciones 1–3. Evita dos sistemas paralelos; un formato nuevo es un `kind` más (P3) |
+| D60 | Estados | `planned`, `active`, `paused`, `done` y `abandoned` para todos los formatos, con etiquetas propias («Leyendo» / «En curso», «Terminado» / «Completado»). Empezar rellena la fecha de inicio y terminar la de fin, solo si están vacías; terminar no inventa la de inicio; reabrir algo terminado no contradice sus fechas; nada se borra solo. Favorito, independiente | Aprobación 4; cubre los estados del PRD más «Abandonado» |
+| D61 | Valoración | Entero de **1 a 10**, opcional, para libros y episodios | Aprobación 6 (sustituye a la propuesta P6, que era 1–5). Es la misma escala que Descubrir (D10) |
+| D62 | Conocimiento común | Una nota por fila (`KnowledgeNote`) para todos los formatos: idea, aprendizaje, cita, aplicación (con estado y vínculo opcional a un hábito u objetivo), nota personal y pregunta; página solo en libros, minuto solo en episodios; ideas sueltas sin contenido. Enlaces no dirigidos con clave canónica | Aprobación 5; dos dispositivos que añaden ideas nunca chocan. «Curiosidad» del PRD se integra en «idea» |
+| D63 | Formato de texto | Texto plano (`format: "plain"`). Un formato enriquecido futuro irá junto a `body`, que seguirá siendo la proyección en texto plano para búsqueda y exportación | Aprobación 8: evolucionar sin perder ni convertir lo escrito |
+| D64 | Sesiones | Modelo común `LibrarySession` (minutos y páginas opcionales) para lectura y escucha; se almacena y sincroniza en M4h y podrá alimentar hábitos como Enfoque (D33) | Aprobación 12; generaliza `reading_sessions` |
+| D65 | Límites | Título 300, nota 10.000, cita 2.000, descripción 10.000, temas ≤ 10 de 40 caracteres, creadores ≤ 20 y URL 2.048 (solo `http(s)`, sin credenciales) | Aprobación 11; la medición de M4a no detecta problemas (media de 476 caracteres por nota) |
+| D66 | Temas | Libres, sin taxonomía: limpiados, sin «#» y sin duplicados por acentos o mayúsculas (gana la primera grafía). Un episodio hereda los de su programa al filtrar y buscar | Aprobación 7 |
+| D67 | Búsqueda | Índice invertido local en el dispositivo, sin conexión: palabras normalizadas con peso por campo, todas las palabras (por prefijo de palabra), filtros combinables y **actualización incremental** tras cada edición. No sale ninguna consulta ni texto | Aprobación 9; medido con 5.000 notas: p95 < 30 ms con la CPU ×4 (`docs/reports/m4a-volume.md`) |
+| D68 | Conflictos de texto | Se conservan las dos versiones y se ofrece «Aplicar la mía», «Mantener la otra» o «Guardar las dos» (crea otra nota). Los campos simples se resuelven por sello (D26/D42). Borrar algo editado en otro dispositivo es un conflicto | Aprobación 10; D47/D55 generalizado |
+| D69 | Alcance y orden de M4 | Repaso espaciado opcional, solo con tarjetas creadas por el usuario; IA generativa y Descubrir con IA en M6; integraciones externas y portadas subidas en sus subfases (M4g); prioridad a la captura rápida y al uso sin conexión; misma arquitectura de sincronización, IndexedDB y Supabase; dos despliegues, cada uno con su autorización | Aprobaciones 13–18 |
+
+## M4 · Propuestas aún abiertas (30/10/2026)
+
+El detalle está en `docs/m4-knowledge-os-plan.md` (§15 y §16.10). Las aprobadas ya figuran arriba como D59–D69; la tabla siguiente es el registro original de la propuesta.
 
 | # | Tema | Propuesta recomendada |
 | --- | --- | --- |
@@ -112,6 +128,15 @@ No están aprobadas. El detalle, las alternativas y las recomendaciones están e
 | P18 | Despliegues | Dos: tras M4e y tras M4i |
 | P19 | Límites | Título 300, nota 10.000, cita 2.000 y temas ≤ 10 × 40 |
 | P20 | Sesiones | `library_sessions` común para lectura y escucha |
+
+| # | Estado (30/10) |
+| --- | --- |
+| P1, P2, P3, P4, P5, P7, P8, P9, P12, P13, P18, P19 y P20 | Aprobadas: D59–D69 |
+| P6 | Aprobada con cambio: valoración 1–10 (D61) |
+| P10 y P11 | Aplazadas a M4g (D69); se confirman antes de esa subfase |
+| P14, P15, P16 y P17 | Abiertas: antes de M4d, M4h, M4d y M4f respectivamente |
+| N1 | **Nueva (M4a)**: guardar el conocimiento en un almacén propio de IndexedDB, por entidad, escribiendo solo lo que cambió. Medido: el registro único cuesta 122 ms por guardado (×4) con 5.000 notas. Antes de M4c |
+| N2 | **Nueva (M4a)**: pull incremental del conocimiento al arrancar. Medido: el pull completo pesa 1,10 MB comprimidos con 5.000 notas y 2,07 MB con 10.000. Antes de M4b |
 
 ## Decisiones abiertas (para ti)
 

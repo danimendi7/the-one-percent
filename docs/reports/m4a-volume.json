@@ -1,0 +1,536 @@
+{
+  "date": "2026-10-30T10:34:00.817Z",
+  "env": {
+    "chromium": "156.0.8078.4",
+    "cpu": "AMD Ryzen 5 7535HS with Radeon Graphics        ",
+    "cores": 12,
+    "ramGB": 15,
+    "node": "v24.15.0"
+  },
+  "runs": [
+    {
+      "preset": "5k",
+      "cpuThrottle": 1,
+      "generated": {
+        "ms": 55.09999990463257,
+        "items": 560,
+        "shows": 40,
+        "notes": 5000,
+        "links": 1000,
+        "noteChars": 2380227
+      },
+      "heapMB": {
+        "state": 4.555889129638672,
+        "index": 13.430290222167969
+      },
+      "sizes": {
+        "jsonBytes": 4830727,
+        "gzipBytes": 1153296,
+        "stringifyMs": 9.5,
+        "parseMs": 8.900000095367432,
+        "cloneMs": 23.199999809265137
+      },
+      "indexedDb": {
+        "baselinePut": {
+          "median": 0.40000009536743164,
+          "p95": 0.7000000476837158,
+          "max": 0.7000000476837158
+        },
+        "put": {
+          "median": 26,
+          "p95": 27.200000047683716,
+          "max": 27.200000047683716
+        },
+        "get": {
+          "median": 15.699999809265137,
+          "p95": 20.800000190734863,
+          "max": 20.800000190734863
+        },
+        "saveCycle": {
+          "median": 44.40000009536743,
+          "p95": 47.59999990463257,
+          "max": 47.59999990463257
+        }
+      },
+      "index": {
+        "coldMs": 144.29999995231628,
+        "reducerMs": 3.5,
+        "incrementalMs": 5.799999952316284,
+        "fullRebuildMs": 129.79999995231628,
+        "tokens": 12790,
+        "docs": 5600
+      },
+      "queries": {
+        "palabra frecuente (atención)": {
+          "median": 0.6000001430511475,
+          "p95": 1,
+          "max": 1.0999999046325684,
+          "hits": 977
+        },
+        "otra palabra frecuente (hipótesis)": {
+          "median": 0.6000001430511475,
+          "p95": 0.8000001907348633,
+          "max": 0.9000000953674316,
+          "hits": 937
+        },
+        "palabra rara (tensiocuna)": {
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "hits": 1
+        },
+        "dos palabras (hábito sueño)": {
+          "median": 0.40000009536743164,
+          "p95": 0.7000000476837158,
+          "max": 0.7999999523162842,
+          "hits": 318
+        },
+        "prefijo corto (en)": {
+          "median": 1.4000000953674316,
+          "p95": 2.299999952316284,
+          "max": 2.299999952316284,
+          "hits": 2422
+        },
+        "solo filtros (ideas destacadas)": {
+          "median": 1.3000001907348633,
+          "p95": 2,
+          "max": 2.1000001430511475,
+          "hits": 105
+        },
+        "texto + filtros (atención, libros, valoración ≥ 7)": {
+          "median": 0.2999999523162842,
+          "p95": 0.5,
+          "max": 0.8000001907348633,
+          "hits": 73
+        },
+        "filtro de tema (sueño)": {
+          "median": 2.0999999046325684,
+          "p95": 4.200000047683716,
+          "max": 4.5,
+          "hits": 532
+        },
+        "todas las notas, recientes primero": {
+          "median": 3.1999998092651367,
+          "p95": 3.9000000953674316,
+          "max": 4.200000047683716,
+          "hits": 5000
+        }
+      },
+      "lists": {
+        "libros por título (todos)": {
+          "median": 0.40000009536743164,
+          "p95": 0.5,
+          "max": 1
+        },
+        "episodios con filtro de texto": {
+          "median": 0.40000009536743164,
+          "p95": 0.7000000476837158,
+          "max": 0.7999999523162842
+        },
+        "recuentos por estantería": {
+          "median": 0.09999990463256836,
+          "p95": 0.10000014305114746,
+          "max": 0.2999999523162842
+        },
+        "relacionados por temas": {
+          "median": 0.7999999523162842,
+          "p95": 1,
+          "max": 1.4000000953674316
+        }
+      }
+    },
+    {
+      "preset": "5k",
+      "cpuThrottle": 4,
+      "generated": {
+        "ms": 434.40000009536743,
+        "items": 560,
+        "shows": 40,
+        "notes": 5000,
+        "links": 1000,
+        "noteChars": 2380227
+      },
+      "heapMB": {
+        "state": 4.535968780517578,
+        "index": 13.401790618896484
+      },
+      "sizes": {
+        "jsonBytes": 4830727,
+        "gzipBytes": 1153296,
+        "stringifyMs": 50.799999952316284,
+        "parseMs": 38.5,
+        "cloneMs": 108.40000009536743
+      },
+      "indexedDb": {
+        "baselinePut": {
+          "median": 0.7999999523162842,
+          "p95": 1.7000000476837158,
+          "max": 1.7000000476837158
+        },
+        "put": {
+          "median": 66.70000004768372,
+          "p95": 74.89999985694885,
+          "max": 74.89999985694885
+        },
+        "get": {
+          "median": 55.90000009536743,
+          "p95": 77.89999985694885,
+          "max": 77.89999985694885
+        },
+        "saveCycle": {
+          "median": 121.90000009536743,
+          "p95": 148.5,
+          "max": 148.5
+        }
+      },
+      "index": {
+        "coldMs": 932.1999998092651,
+        "reducerMs": 21.899999856948853,
+        "incrementalMs": 27.200000047683716,
+        "fullRebuildMs": 971.5,
+        "tokens": 12790,
+        "docs": 5600
+      },
+      "queries": {
+        "palabra frecuente (atención)": {
+          "median": 3.3999998569488525,
+          "p95": 6.800000190734863,
+          "max": 9.699999809265137,
+          "hits": 977
+        },
+        "otra palabra frecuente (hipótesis)": {
+          "median": 3.200000047683716,
+          "p95": 4.1000001430511475,
+          "max": 4.599999904632568,
+          "hits": 937
+        },
+        "palabra rara (tensiocuna)": {
+          "median": 0,
+          "p95": 0.09999990463256836,
+          "max": 0.10000014305114746,
+          "hits": 1
+        },
+        "dos palabras (hábito sueño)": {
+          "median": 2.6000001430511475,
+          "p95": 3.299999952316284,
+          "max": 3.5,
+          "hits": 318
+        },
+        "prefijo corto (en)": {
+          "median": 9.099999904632568,
+          "p95": 12.700000047683716,
+          "max": 15.5,
+          "hits": 2422
+        },
+        "solo filtros (ideas destacadas)": {
+          "median": 7.400000095367432,
+          "p95": 12,
+          "max": 15.200000047683716,
+          "hits": 105
+        },
+        "texto + filtros (atención, libros, valoración ≥ 7)": {
+          "median": 2.9000000953674316,
+          "p95": 6.700000047683716,
+          "max": 8.5,
+          "hits": 73
+        },
+        "filtro de tema (sueño)": {
+          "median": 12.100000143051147,
+          "p95": 18.399999856948853,
+          "max": 24.90000009536743,
+          "hits": 532
+        },
+        "todas las notas, recientes primero": {
+          "median": 21.59999990463257,
+          "p95": 29.5,
+          "max": 36.89999985694885,
+          "hits": 5000
+        }
+      },
+      "lists": {
+        "libros por título (todos)": {
+          "median": 3.1999998092651367,
+          "p95": 5,
+          "max": 5.700000047683716
+        },
+        "episodios con filtro de texto": {
+          "median": 3.4000000953674316,
+          "p95": 6,
+          "max": 7
+        },
+        "recuentos por estantería": {
+          "median": 0.40000009536743164,
+          "p95": 0.9000000953674316,
+          "max": 1.5
+        },
+        "relacionados por temas": {
+          "median": 5.400000095367432,
+          "p95": 6.700000047683716,
+          "max": 9.899999856948853
+        }
+      }
+    },
+    {
+      "preset": "10k",
+      "cpuThrottle": 1,
+      "generated": {
+        "ms": 86.29999995231628,
+        "items": 560,
+        "shows": 40,
+        "notes": 10000,
+        "links": 2000,
+        "noteChars": 4746504
+      },
+      "heapMB": {
+        "state": 8.254779815673828,
+        "index": 22.24956512451172
+      },
+      "sizes": {
+        "jsonBytes": 9069157,
+        "gzipBytes": 2169530,
+        "stringifyMs": 16.09999990463257,
+        "parseMs": 15.900000095367432,
+        "cloneMs": 39.19999980926514
+      },
+      "indexedDb": {
+        "baselinePut": {
+          "median": 0.40000009536743164,
+          "p95": 0.5999999046325684,
+          "max": 0.5999999046325684
+        },
+        "put": {
+          "median": 49.10000014305115,
+          "p95": 57.700000047683716,
+          "max": 57.700000047683716
+        },
+        "get": {
+          "median": 27.5,
+          "p95": 33.200000047683716,
+          "max": 33.200000047683716
+        },
+        "saveCycle": {
+          "median": 84.29999995231628,
+          "p95": 94.40000009536743,
+          "max": 94.40000009536743
+        }
+      },
+      "index": {
+        "coldMs": 272.09999990463257,
+        "reducerMs": 4.700000047683716,
+        "incrementalMs": 7.5,
+        "fullRebuildMs": 253,
+        "tokens": 13019,
+        "docs": 10600
+      },
+      "queries": {
+        "palabra frecuente (atención)": {
+          "median": 1,
+          "p95": 1.8999998569488525,
+          "max": 2.299999952316284,
+          "hits": 1986
+        },
+        "otra palabra frecuente (hipótesis)": {
+          "median": 0.9000000953674316,
+          "p95": 1.1000001430511475,
+          "max": 1.3999998569488525,
+          "hits": 1860
+        },
+        "palabra rara (briquebrique)": {
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "hits": 1
+        },
+        "dos palabras (hábito sueño)": {
+          "median": 0.9000000953674316,
+          "p95": 1.5,
+          "max": 1.7000000476837158,
+          "hits": 626
+        },
+        "prefijo corto (en)": {
+          "median": 2.700000047683716,
+          "p95": 3.8000001907348633,
+          "max": 3.8999998569488525,
+          "hits": 4817
+        },
+        "solo filtros (ideas destacadas)": {
+          "median": 2.5,
+          "p95": 3.5,
+          "max": 3.5,
+          "hits": 219
+        },
+        "texto + filtros (atención, libros, valoración ≥ 7)": {
+          "median": 0.5,
+          "p95": 0.7999999523162842,
+          "max": 1,
+          "hits": 153
+        },
+        "filtro de tema (sueño)": {
+          "median": 3.6999998092651367,
+          "p95": 5.299999952316284,
+          "max": 7,
+          "hits": 972
+        },
+        "todas las notas, recientes primero": {
+          "median": 6.299999952316284,
+          "p95": 7.5,
+          "max": 7.8999998569488525,
+          "hits": 10000
+        }
+      },
+      "lists": {
+        "libros por título (todos)": {
+          "median": 0.40000009536743164,
+          "p95": 0.5,
+          "max": 0.8999998569488525
+        },
+        "episodios con filtro de texto": {
+          "median": 0.5,
+          "p95": 0.6000001430511475,
+          "max": 0.9000000953674316
+        },
+        "recuentos por estantería": {
+          "median": 0.09999990463256836,
+          "p95": 0.20000004768371582,
+          "max": 0.20000004768371582
+        },
+        "relacionados por temas": {
+          "median": 1,
+          "p95": 1.2999999523162842,
+          "max": 1.8000001907348633
+        }
+      }
+    },
+    {
+      "preset": "10k",
+      "cpuThrottle": 4,
+      "generated": {
+        "ms": 566.7999999523163,
+        "items": 560,
+        "shows": 40,
+        "notes": 10000,
+        "links": 2000,
+        "noteChars": 4746504
+      },
+      "heapMB": {
+        "state": 8.256019592285156,
+        "index": 22.220325469970703
+      },
+      "sizes": {
+        "jsonBytes": 9069157,
+        "gzipBytes": 2169530,
+        "stringifyMs": 77.90000009536743,
+        "parseMs": 66.70000004768372,
+        "cloneMs": 190.59999990463257
+      },
+      "indexedDb": {
+        "baselinePut": {
+          "median": 0.8999998569488525,
+          "p95": 1.5,
+          "max": 1.5
+        },
+        "put": {
+          "median": 135.70000004768372,
+          "p95": 147,
+          "max": 147
+        },
+        "get": {
+          "median": 133,
+          "p95": 145.39999985694885,
+          "max": 145.39999985694885
+        },
+        "saveCycle": {
+          "median": 266.40000009536743,
+          "p95": 369.2999999523163,
+          "max": 369.2999999523163
+        }
+      },
+      "index": {
+        "coldMs": 1991.8000001907349,
+        "reducerMs": 35.5,
+        "incrementalMs": 47.5,
+        "fullRebuildMs": 1797.1000001430511,
+        "tokens": 13019,
+        "docs": 10600
+      },
+      "queries": {
+        "palabra frecuente (atención)": {
+          "median": 9.200000047683716,
+          "p95": 18.799999952316284,
+          "max": 20.299999952316284,
+          "hits": 1986
+        },
+        "otra palabra frecuente (hipótesis)": {
+          "median": 7,
+          "p95": 10.099999904632568,
+          "max": 11.600000143051147,
+          "hits": 1860
+        },
+        "palabra rara (briquebrique)": {
+          "median": 0,
+          "p95": 0.20000004768371582,
+          "max": 0.20000004768371582,
+          "hits": 1
+        },
+        "dos palabras (hábito sueño)": {
+          "median": 4.199999809265137,
+          "p95": 9.600000143051147,
+          "max": 9.900000095367432,
+          "hits": 626
+        },
+        "prefijo corto (en)": {
+          "median": 22,
+          "p95": 37.90000009536743,
+          "max": 44,
+          "hits": 4817
+        },
+        "solo filtros (ideas destacadas)": {
+          "median": 18.90000009536743,
+          "p95": 32.200000047683716,
+          "max": 38.59999990463257,
+          "hits": 219
+        },
+        "texto + filtros (atención, libros, valoración ≥ 7)": {
+          "median": 3.3000001907348633,
+          "p95": 4.799999952316284,
+          "max": 5,
+          "hits": 153
+        },
+        "filtro de tema (sueño)": {
+          "median": 29.5,
+          "p95": 49.200000047683716,
+          "max": 57.40000009536743,
+          "hits": 972
+        },
+        "todas las notas, recientes primero": {
+          "median": 44.5,
+          "p95": 72.29999995231628,
+          "max": 77.5,
+          "hits": 10000
+        }
+      },
+      "lists": {
+        "libros por título (todos)": {
+          "median": 3.299999952316284,
+          "p95": 6.799999952316284,
+          "max": 11.100000143051147
+        },
+        "episodios con filtro de texto": {
+          "median": 3.1000001430511475,
+          "p95": 4.699999809265137,
+          "max": 6.799999952316284
+        },
+        "recuentos por estantería": {
+          "median": 0.40000009536743164,
+          "p95": 0.7999999523162842,
+          "max": 1.3999998569488525
+        },
+        "relacionados por temas": {
+          "median": 7,
+          "p95": 10.600000143051147,
+          "max": 14.599999904632568
+        }
+      }
+    }
+  ]
+}

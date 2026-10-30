@@ -1,12 +1,11 @@
+import { normalize } from "@/features/knowledge/domain/text"
 import type { Book, BookStatus } from "../fixtures"
+
+// M1 prototype. Its normalisation now lives in the knowledge domain, shared with the search index (M4a).
+export { normalize }
 
 export type Shelf = "all" | BookStatus | "favorites"
 export type SortKey = "recent" | "title" | "rating"
-
-/** Accent- and case-insensitive normalisation for search. */
-export function normalize(s: string): string {
-  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim()
-}
 
 export function filterBooks(books: Book[], opts: { shelf: Shelf; query: string; sort: SortKey }): Book[] {
   const q = normalize(opts.query)

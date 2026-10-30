@@ -1,6 +1,10 @@
 # Plan M4 · Knowledge OS: Biblioteca (Libros y Podcasts) y conocimiento personal
 
-**Estado: propuesta del 30/10/2026, pendiente de tu aprobación.** Nada de este documento está implementado ni aprobado. Las decisiones que debes aprobar llevan numeración **P1–P20** (§15). Las decisiones aprobadas siguen siendo D1–D58 en `docs/decisions.md`. No se empieza M4a sin tu visto bueno.
+**Estado (30/10/2026)**:
+- **Arquitectura aprobada**, con 18 decisiones registradas como **D59–D69** en `docs/decisions.md`. La valoración pasa a ser **de 1 a 10**, no de 1 a 5 como se propuso.
+- **M4a hecha en local** (§16).
+- **M4b no empieza sin tu autorización.**
+- Las propuestas aún abiertas siguen marcadas como **P** (§15 y §16.6).
 
 ---
 
@@ -57,7 +61,7 @@ Fuentes: `docs/spec/PRODUCT_REQUIREMENTS.md` §4 y §9, `DATABASE_ARCHITECTURE.m
 | X6 | La spec separa `books` y `book_notes` | Tabla común de contenidos y de notas (P3). Mismos principios (RLS, propietario, deduplicación) |
 | X7 | La spec define `knowledge_tags` como tabla | Lista `topics text[]` normalizada, sin tabla de etiquetas en M4 (P7) |
 | X8 | `reading_sessions` solo para libros | `library_sessions` para lectura y escucha (P20) |
-| X9 | La spec no fija la escala de valoración de libros (D10 fija 1–10 para temas) | 1–5 para contenidos (P6) |
+| X9 | La spec no fija la escala de valoración de libros (D10 fija 1–10 para temas) | **Aprobado: 1–10** para contenidos, opcional (D61), la misma escala que Descubrir (D10) |
 | X10 | `data-model.md` sitúa las revisiones persistidas en M6 | Ya están hechas en M3.4. Sin efecto en M4 |
 
 ## 3. Lo que ya existe y se reutiliza
@@ -106,7 +110,7 @@ Fuentes: `docs/spec/PRODUCT_REQUIREMENTS.md` §4 y §9, `DATABASE_ARCHITECTURE.m
 | Bloque | Libro | Episodio |
 |---|---|---|
 | Información general | Título, subtítulo, autores, portada, temas, descripción o sinopsis, año, editorial, ISBN, páginas e idioma | Título, programa, invitados, imagen, plataforma (Spotify, Apple Podcasts, YouTube, iVoox u otra), enlace original, duración, fecha de publicación y n.º de episodio |
-| Estado y valoración | Estado (P4), favorito, valoración 1–5 (P6), fecha de inicio y de fin, y progreso (página actual o %) | Estado, favorito, valoración, fecha de escucha o visualización (inicio y fin) y minuto en que te quedaste (opcional) |
+| Estado y valoración | Estado (P4), favorito, valoración 1–10 (D61), fecha de inicio y de fin, y progreso (página actual o %) | Estado, favorito, valoración, fecha de escucha o visualización (inicio y fin) y minuto en que te quedaste (opcional) |
 | Ideas principales | Notas de tipo **idea**; las destacadas (⭐) encabezan | Igual |
 | Citas o momentos | Tipo **cita**, con página opcional | Tipo **cita**, con marca de tiempo opcional (`mm:ss`) que abre el enlace en ese punto si la plataforma lo admite (YouTube `t=` y Spotify) |
 | Aprendizajes | Tipo **aprendizaje** | Igual |
@@ -181,7 +185,7 @@ Común a todas, como en M3:
 - **Comunes**:
   - `kind` (`book` | `episode`), `title` (1–300), `subtitle` (≤ 300), `creators text[]` (autores de un libro o invitados de un episodio; ≤ 20 × 200);
   - `description` (≤ 10.000), `topics text[]` (P7), `language` (≤ 10);
-  - `status` (`planned` | `active` | `paused` | `done` | `abandoned`), `is_favorite bool` y `rating smallint` (1–5 o nulo);
+  - `status` (`planned` | `active` | `paused` | `done` | `abandoned`), `is_favorite bool` y `rating smallint` (1–10 o nulo, D61);
   - `started_on date` y `finished_on date` (con `finished_on ≥ started_on`), `progress_percent numeric(5,2)` (0–100 o nulo);
   - `cover_source`, `cover_ref` y `source_url`;
   - `external_provider` (`openlibrary` | `googlebooks` | `itunes` | `spotify` | `youtube` | `manual`), `external_id` y `metadata_attribution` (≤ 200).
@@ -691,7 +695,7 @@ Las recomendaciones están en negrita. Ninguna se considera aprobada.
 3. **P3 · Modelo de datos**: **tabla única `library_items` con `CHECK` por tipo, `podcast_shows` aparte y capa común `knowledge_notes` y `knowledge_links`**, frente a tablas separadas por formato (spec) o herencia por tablas.
 4. **P4 · Estados**: **5 estados comunes (pendiente, en curso, en pausa, terminado, abandonado) con etiquetas por tipo** («Leyendo» o «Escuchando»…) y favorito independiente.
 5. **P5 · Tipos de nota**: **idea, aprendizaje, cita, aplicación, nota y pregunta; «curiosidad» se fusiona con idea; se permiten notas sueltas sin contenido**.
-6. **P6 · Valoración**: **1–5 enteros** para libros y episodios (1–10 sigue reservado a Descubrir, D10).
+6. **P6 · Valoración**: propuesto 1–5; **aprobado 1–10, opcional** (D61).
 7. **P7 · Temas**: **lista libre `topics` normalizada (sin tabla de etiquetas)**, que sirve también como «categoría». Renombrar un tema en bloque llegaría después.
 8. **P8 · Formato de texto**: **texto plano con saltos de línea** en M4 (sin Markdown ni editor enriquecido).
 9. **P9 · Episodios sin programa**: **permitidos**, para charlas o vídeos sueltos.
@@ -708,3 +712,208 @@ Las recomendaciones están en negrita. Ninguna se considera aprobada.
 20. **P20 · Sesiones**: **una tabla `library_sessions` para lectura y escucha** (generaliza `reading_sessions` de la spec), en M4h.
 
 **Recomendación del primer paso**: aprobar P1–P8, P12, P13, P19 y P20, que son las que fijan el modelo, y empezar **M4a**. Es solo código local y pruebas, incluye la medición de volumen y no toca la nube. El resto puede aprobarse antes de la subfase que lo necesita (P10 y P11 antes de M4g; P15 antes de M4h; P2 antes de M4i; P17 y P18 antes de M4f).
+
+---
+
+## 16. M4a · Fundamentos del dominio (30/10/2026, hecho en local)
+### 16.1 Decisiones aprobadas
+| Tu aprobación | Registro |
+|---|---|
+| 1–3. Biblioteca con Libros y Podcasts; modelo de contenido común y capa de conocimiento común; programas con entidad propia y episodios sin programa | **D59** |
+| 4. Estados: pendiente, en curso, en pausa, terminado y abandonado | **D60** |
+| 6. Valoración de 1 a 10, opcional (**cambia P6**, que proponía 1–5) | **D61** |
+| 5. Notas, ideas, citas y aplicaciones en un modelo compartido, con ideas independientes | **D62** |
+| 8. Texto plano preparado para evolucionar a contenido enriquecido | **D63** |
+| 12. Modelo compartido para las sesiones de lectura y escucha | **D64** |
+| 11. Límites de 10.000 caracteres por nota y 2.000 por cita, revisables con datos | **D65** |
+| 7. Temas libres | **D66** |
+| 9. Búsqueda local y sin conexión | **D67** |
+| 10. Conflictos con las dos versiones: «Aplicar la mía», «Mantener la otra» o «Guardar las dos» | **D68** |
+| 13–18. Repaso opcional con tarjetas propias; IA y Descubrir con IA en M6; integraciones externas y portadas subidas en sus subfases; prioridad a la captura y al uso sin conexión; arquitectura de sincronización actual; dos despliegues | **D69** |
+
+**Siguen abiertas, como P**:
+- antes de M4g: **P10** (proveedores concretos) y **P11** (proxy de portadas);
+- antes de M4d: **P14** (borrado con «Deshacer» y sin papelera) y **P16** (Cerebro como vista global);
+- antes de M4h: **P15** (integraciones);
+- antes de M4f: **P17** (service worker);
+- antes de M4b y M4c: las nuevas **N1–N2** de §16.10.
+
+### 16.2 Conflictos con requisitos anteriores y su resolución
+- **Valoración 1–10 frente a la propuesta P6 (1–5)**: se aplica tu decisión. Es coherente con la escala 1–10 que ya tenía Descubrir (D10), así que la app usa una sola escala.
+- **Estados del PRD** (Quiero leer, Leyendo, Terminado, En pausa): se cubren todos y se añade **Abandonado**. «Quiero leer» es «Pendiente».
+- **Tipos de nota del PRD**: se conservan idea, cita, reflexión (como «nota personal»), pregunta y aplicación, y se añade «aprendizaje». «Curiosidad» pasa a ser una idea; si algún día se necesita, es un tipo nuevo sin migrar datos.
+- **`books`, `book_notes` y `reading_sessions` de la spec**: generalizados como D59, D62 y D64, con las mismas garantías (RLS, propietario, deduplicación por id externo, notas conservadas al editar metadatos, páginas desconocidas admitidas).
+- **Relecturas** (detectado en las pruebas): al reabrir algo terminado, la app ya no rellena la fecha de inicio con hoy, porque contradiría la fecha de fin registrada. Conserva las fechas y no borra nada; se cambian a mano. Registrar varias lecturas de un mismo libro queda **pendiente** (§16.10).
+
+### 16.3 Arquitectura de M4a
+```
+src/features/knowledge/
+  domain/                      ← lógica pura, sin React ni E/S, común a todos los formatos
+    types.ts                   tipos, estados, etiquetas por formato, límites (D59–D66)
+    text.ts                    normalización, tokens, texto limpio, temas, URLs seguras, ISBN, marcas de tiempo, resaltado
+    validation.ts              esquemas Zod de las entidades (los mismos invariantes que los CHECK de M4b)
+    ops.ts                     reductores: crear, editar por campo, borrar con «Deshacer», mover notas, enlaces
+    relations.ts               enlaces canónicos, episodios de un programa, secciones de la ficha, relacionados por temas
+    library.ts                 estanterías, filtros, orden, progreso y «En curso»
+    search.ts                  índice invertido local, incremental (D67)
+    stats.ts                   cifras sencillas con N/D
+    synthetic.ts               biblioteca SINTÉTICA para tests y medición (nunca en la app)
+  demo.ts                      biblioteca DEMO para las pantallas de M4d
+scripts/bench-knowledge.mjs    medición de volumen en Chromium (npm run bench:knowledge)
+scripts/bench/knowledge-volume.entry.ts
+```
+- **Funciones puras**: los reductores no leen el reloj (`now` y `today` llegan del llamador) y devuelven el mismo estado si nada cambia. Son las que la demo usará en M4d y el motor repetirá en M4c.
+- **Validación en un solo sitio**: cada reductor construye la entidad limpia y la comprueba con su esquema. Los errores son tipados (`invalid`, `not_found`, `kind_mismatch`, `duplicate`).
+- **Sin dependencias externas nuevas**: solo Zod, que ya estaba. `rolldown` (ya instalado con Vite) solo se usa en la medición.
+
+### 16.4 Libros y Podcasts
+- **`ContentItem = Book | Episode`**: campos comunes más un bloque propio (`book` o `episode`).
+  - **Comunes**: título, subtítulo, creadores (autores o invitados), descripción, temas, idioma, estado, favorito, valoración, fechas, portada, enlace y referencia externa.
+  - **`book`**: ISBN-13 y ISBN-10 con dígito de control (el 13 se deriva del 10), páginas, página actual, % manual, editorial y año.
+  - **`episode`**: programa (opcional), plataforma, duración, fecha de publicación, número y minuto en que te quedaste.
+- **`PodcastShow`**: datos del programa guardados una vez; sus episodios apuntan a él. Borrar un programa **no borra conocimiento**: los episodios quedan sin programa, y «Deshacer» los vuelve a asociar.
+- **Comportamiento común** en un solo código: estanterías, orden, filtros, progreso y sugerencia de «terminado» al llegar al final (nunca automática). Solo cambian las palabras («Leyendo» / «En curso», «Cita» / «Momento destacado»).
+
+### 16.5 Modelo compartido de conocimiento
+- **`KnowledgeNote`**: una fila por nota.
+  - Tipo (idea, aprendizaje, cita, aplicación, nota o pregunta).
+  - Texto con `format: "plain"`. Un formato enriquecido futuro añadirá su documento junto a `body`, y `body` seguirá siendo la proyección en texto plano para búsqueda, exportación y clientes antiguos (D63).
+  - Localizador: página **solo** en libros y minuto **solo** en episodios, dentro de su longitud, con una etiqueta libre en ambos.
+  - Destacada y temas propios.
+  - En las aplicaciones: estado (pendiente, en marcha, hecha o descartada) y vínculo opcional a un hábito u objetivo.
+  - `itemId` nulo para una idea suelta.
+- **Mover una nota** a otro formato descarta solo el localizador que no encaja; conserva la etiqueta y siempre el texto.
+- **`KnowledgeLink`**: enlace no dirigido con clave canónica (sin duplicados A–B y B–A), en estado deseado. Se borra con su extremo y se restaura con «Deshacer».
+- **Relaciones derivadas, sin copiar datos**:
+  - las secciones de la ficha;
+  - las notas de un programa, sacadas de sus episodios;
+  - los temas de un programa;
+  - los relacionados por temas compartidos, con el motivo explicado y sin IA.
+
+### 16.6 Búsqueda local (D67)
+- **Índice invertido** de palabras normalizadas (sin acentos ni mayúsculas) con peso por campo: título e ISBN 8, temas y autores 5, subtítulo y editorial 4, programa 3, etiqueta 2, texto 1.
+- **Consultas**:
+  - todas las palabras deben coincidir, enteras o como prefijo, y nunca en mitad de una palabra;
+  - las letras sueltas se ignoran;
+  - las destacadas suben;
+  - resaltado sobre el texto original con acentos.
+- **Filtros**: tipo de nota, formato (libro, episodio o suelta), contenido, programa, valoración mínima, destacadas, estado de aplicación, temas (los de la nota, su contenido y su programa) y periodo. Orden por relevancia, recientes o antiguas.
+- **Actualización incremental** tras cada edición, comprobada por tests contra un índice nuevo.
+- **No sale nada del dispositivo**: ni consultas ni texto.
+
+### 16.7 Preparado para formatos futuros, IA y búsqueda semántica (sin implementarlos)
+- **Un formato nuevo** (artículo, vídeo, curso) es un `kind` más con su bloque. Notas, enlaces, búsqueda, estadísticas y sincronización no cambian.
+- **Contenido enriquecido**: `format` y `body` como proyección plana (D63).
+- **IA**:
+  - los enlaces llevan `origin` (`manual` hoy; `suggested` reservado para propuestas que tú aprobarías);
+  - la referencia externa lleva atribución;
+  - las notas privadas no salen del dispositivo salvo hacia tu propia cuenta.
+- **Búsqueda semántica**: el índice es una pieza separada (`search.ts`). Podría añadirse un segundo índice vectorial detrás de la misma interfaz `search()` sin tocar el modelo.
+
+### 16.8 Prototipo de M1 y componentes
+- **`normalize` del prototipo** ahora viene del dominio nuevo (una sola implementación). La pantalla de Biblioteca de M1 sigue igual hasta M4d.
+- **Se reutilizarán en M4d**:
+  - `BookCover`: portada tipográfica 2:3 sin deformación, que pasará a ser `CoverArt` con 1:1 para podcasts;
+  - el patrón de estanterías, búsqueda, orden y cuadrícula o lista de `library-view.tsx`;
+  - `PageHeader`, `EmptyState`, `Segmented`, `ChoiceGroup`, `SaveIndicator`, `useAutosave` y `ConflictPanel` (Life Review).
+- **Se sustituye** la hoja de detalle por fichas con ruta propia.
+- **La demo nueva** (`demo.ts`, «Demo»):
+  - **libros reales** con estados, fechas, valoraciones y notas **ficticios**, en palabras del usuario de la demo y sin citas atribuidas a autores;
+  - **programas y episodios inventados** que lo dicen en su nombre;
+  - sin ISBN, portadas ni enlaces. Un test lo comprueba.
+
+### 16.9 Pruebas y medición
+- **Unitarias**: **90 pruebas nuevas en 6 ficheros** (suite completa: 449/449 en 39 ficheros).
+  - Modelos, validación y límites (incluidos 10.000 y 2.000).
+  - Valoración de 1 a 10.
+  - Los 5 estados en los dos formatos y las fechas automáticas, incluida la relectura.
+  - Localizadores por formato.
+  - Aplicaciones.
+  - Mover notas.
+  - Borrado con «Deshacer» exacto.
+  - Programas y episodios.
+  - Enlaces canónicos.
+  - Relacionados.
+  - Estanterías, orden y progreso.
+  - Búsqueda: acentos, prefijos, varias palabras, pesos, todos los filtros, límite y total.
+  - Índice incremental igual a uno nuevo.
+  - Estadísticas con N/D.
+  - Demo sin datos «verificables» inventados.
+  - Generador sintético válido y determinista.
+  - Normalización rápida idéntica a la de referencia.
+- **Cobertura del dominio**: ~99 % de líneas.
+- **Volumen**: `docs/reports/m4a-volume.md`, con medidas reales en Chromium con 5.000 y 10.000 notas.
+
+### 16.10 Problemas detectados, riesgos y decisiones nuevas
+1. **N1 · Guardado local** (medido): el motor reescribe el registro entero en cada guardado. Con 5.000 notas dentro, son **122 ms (p95 149) con la CPU ×4**, y lo pagaría también cada toque en un hábito.
+   - **Propuesta**: almacén propio de IndexedDB para el conocimiento, por entidad, escribiendo solo lo que cambió.
+   - La cola, `pendingNotes` y D58 no cambian.
+   - Hay que decidirlo **antes de M4c**.
+2. **N2 · Pull completo** al arrancar: 1,10 MB comprimidos con 5.000 notas y 2,07 MB con 10.000.
+   - **Propuesta**: pull incremental del conocimiento desde el cursor guardado. El servidor se prepara en M4b.
+   - Hay que decidirlo **antes de M4b**: afecta a `pull_changes`.
+3. **Índice en frío**: 932 ms (×4).
+   - Se construirá de forma perezosa (al abrir la búsqueda o Cerebro), por partes o en un Worker (M4e). Después, incremental: 27 ms (×4).
+4. **Reductor**: 21,9 ms (×4) por operación con 5.000 notas.
+   - Optimización interna en M4c: aplicar la cola en bloque.
+5. **Relecturas**: un contenido guarda una sola pareja de fechas. Registrar varias lecturas pide sesiones (M4h) o un historial de lecturas. Pendiente de decidir, sin urgencia.
+6. **Medición en móvil real pendiente**: la CPU ×4 es una aproximación. Se propone una página de diagnóstico sintético en M4d.
+7. **Copias antiguas de IndexedDB**: M4a no toca el estado persistido. `upgradePersisted` y `upgrade.spec.ts` se amplían en M4c (D38/D39).
+
+### 16.11 Plan concreto de M4b (base de datos, solo en el stack local; requiere tu autorización)
+**Objetivo**: persistencia segura de la Biblioteca, con las mismas garantías que M3.
+
+1. **Migración `supabase/migrations/20261101090000_library.sql`** (aditiva, solo local):
+   - **Tablas** `podcast_shows`, `library_items`, `knowledge_notes` y `knowledge_links`:
+     - columnas planas para los bloques `book` y `episode`;
+     - `CHECK` iguales a `validation.ts`: longitudes, valoración 1–10, 5 estados, nulos por tipo, fechas ordenadas, página o minuto dentro de la longitud, citas ≤ 2.000 y estado solo en aplicaciones;
+     - ISBN con dígito de control en una función SQL inmutable;
+     - URLs solo `http(s)`.
+   - **Claves e índices**:
+     - FK compuestas `(id, user_id)`: episodio → programa, nota → contenido, y vínculo de una aplicación → hábito u objetivo;
+     - únicos parciales por id externo;
+     - índices `(user_id, server_seq)` y `(user_id, item_id)`, y GIN en `topics`.
+   - **Triggers**:
+     - marca local de transacción (D54): solo `apply_ops` escribe;
+     - `field_seqs` por campo, `server_seq` y `updated_at`;
+     - propiedad de los dos extremos de un enlace;
+     - auditoría sin textos.
+   - **RLS**: `select`, `insert` y `update` propios; sin `delete` ni `truncate`; `anon` sin permisos; las cuatro tablas en `supabase_realtime`.
+2. **`private.apply_library_op`** (`security invoker`, `search_path` vacío) con las operaciones de §8.1:
+   - `library.item.create|update|delete|restore`;
+   - `library.show.create|update|delete`;
+   - `library.note.create|update|move|delete`;
+   - `library.link.set`.
+   - **Semántica D68**:
+     - campos simples por base y sello;
+     - `body` y `description` en conflicto devuelven las dos versiones;
+     - borrar algo cambiado después de la versión vista da conflicto;
+     - borrar un contenido deja lápida a sus notas y enlaces en la misma transacción;
+     - borrar un programa desasocia sus episodios.
+3. **`apply_ops` y `pull_changes`**: ampliación estrictamente aditiva (rama `library.%` y bloques nuevos), comprobada contra la versión de la nube como en M3.4. Diseño del **pull incremental del conocimiento** si se aprueba N2.
+4. **Formato de red** `src/features/sync/domain/library-wire.ts`: conversión pura entre camelCase y las columnas, con tests. Todavía no se conecta al motor (eso es M4c).
+5. **Integración** (`tests/integration/library.int.test.ts`; la puerta pasa a 7/7 ficheros):
+   - idempotencia;
+   - cada `CHECK` frente a `validation.ts`, con las mismas entradas (paridad);
+   - conflictos por campo y por texto;
+   - borrar con una versión vieja;
+   - cascadas y desasociación;
+   - lápidas en pulls completos e incrementales;
+   - **aislamiento entre usuarios**: leer, escribir, enlazar o vincular hábitos u objetivos ajenos;
+   - realtime;
+   - la biblioteca sintética de 5.000 notas cargada por `apply_ops` y leída por `pull_changes` (tiempo y tamaño reales en PostgreSQL local).
+6. **Sin nube, sin UI y sin tocar el motor del cliente.**
+
+**Aceptación**:
+- integración completa en verde (los 6 ficheros actuales y el nuevo);
+- migración aditiva demostrada;
+- ninguna `security definer`;
+- `npm run check` limpio.
+
+**Esfuerzo**: 1,5–2 días.
+
+**Riesgos**:
+- la paridad entre `CHECK` y Zod (cubierta por tests);
+- la ampliación de `apply_ops` y `pull_changes` (cubierta por la comparación con la versión de la nube).
+
+**Necesita de ti**: autorización de M4b y decisión sobre N2. N1 puede esperar a M4c.
