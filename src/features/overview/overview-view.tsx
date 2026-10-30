@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { ArrowRight, BarChart3, Brain, Check, CloudUpload, Compass, ListChecks, Plus, Timer } from "lucide-react"
+import { ArrowRight, BarChart3, Check, CloudUpload, Compass, Library as LibraryIcon, ListChecks, Plus, Timer } from "lucide-react"
 import { EmptyState } from "@/components/common/empty-state"
 import { useHasDemoData } from "@/features/habits/store/demo-store"
 import { Button } from "@/components/ui/button"
@@ -23,7 +23,9 @@ import { FEATURED_TOPIC } from "@/features/discover/fixtures"
 import { focusToday } from "@/features/focus/domain/metrics"
 import { minutesLabel } from "@/features/focus/components/focus-ui"
 import { useFocusModel } from "@/features/focus/use-focus"
-import { RECALL_CARDS } from "@/features/brain/fixtures"
+import { useLibrary } from "@/features/library/store/use-library"
+import { inProgress } from "@/features/knowledge/domain/library"
+import { itemHref, LIBRARY_HREF } from "@/features/library/components/library-ui"
 import { CheckinCard } from "@/features/mind/components/checkin-card"
 import { ReviewCard } from "@/features/reviews/components/review-card"
 
@@ -66,7 +68,7 @@ export function OverviewView() {
           <ReviewCard />
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-1 xl:grid-cols-2">
             <FocusCta />
-            <LearnCta source={model?.source} />
+            <LearnCta />
           </div>
         </div>
 
@@ -209,7 +211,10 @@ function FocusCta() {
   )
 }
 
-function LearnCta({ source }: { source?: "demo" | "account" }) {
+/** Discover, and the Library: what you are reading or listening to now (M4d), or the Library itself. */
+function LearnCta() {
+  const lib = useLibrary()
+  const current = lib ? inProgress(lib.state, 1)[0] : undefined
   return (
     <div className="panel flex min-h-[132px] flex-col justify-between rounded-2xl p-2">
       <Link
@@ -220,11 +225,12 @@ function LearnCta({ source }: { source?: "demo" | "account" }) {
         <span className="line-clamp-2 text-sm font-semibold">{FEATURED_TOPIC.title}</span>
       </Link>
       <Link
-        href="/knowledge/brain"
-        className="flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-xs text-text-tertiary transition-colors hover:bg-surface-raised hover:text-text-secondary"
+        href={current ? itemHref(current.id) : LIBRARY_HREF}
+        className="flex min-h-11 min-w-0 items-center gap-1.5 rounded-xl px-2 text-xs text-text-tertiary transition-colors hover:bg-surface-raised hover:text-text-secondary"
+        data-testid="overview-library"
       >
-        <Brain className="size-3.5" aria-hidden />
-        {source === "account" ? "Repaso espaciado · M4" : `${RECALL_CARDS.length} tarjetas por repasar`}
+        <LibraryIcon className="size-3.5 shrink-0" aria-hidden />
+        <span className="truncate">{current ? `Sigue con «${current.title}»` : "Biblioteca"}</span>
       </Link>
     </div>
   )

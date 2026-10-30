@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { BrainView } from "@/features/brain/brain-view"
+import { BrainView } from "@/features/library/brain-view"
 
 export const metadata: Metadata = { title: "Cerebro" }
 

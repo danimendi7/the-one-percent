@@ -30,6 +30,11 @@ export function getActiveBackend(): Backend | null {
   return backend
 }
 
+/** The data source's change signal (also the Library's, M4d). */
+export function subscribeData(listener: () => void) {
+  return subscribe(listener)
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener)
   return () => listeners.delete(listener)

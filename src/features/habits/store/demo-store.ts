@@ -6,6 +6,7 @@
  * configured. Never synced, never imported automatically into an account.
  */
 import { useSyncExternalStore } from "react"
+import { clearDemoLibrary, createDemoLibrary } from "@/features/library/store/demo-library"
 import { localDateInZone, type LocalDate } from "../domain/dates"
 import {
   addHabit,
@@ -82,6 +83,7 @@ export function readDemoState(): HabitsState | null {
 export function clearDemoState(): void {
   try {
     window.localStorage.removeItem(STORAGE_KEY)
+    clearDemoLibrary()
   } catch {
     // ignore
   }
@@ -159,10 +161,13 @@ function subscribe(listener: () => void) {
   }
 }
 
+const demoLib = createDemoLibrary(() => getSnapshot().today, () => emit())
+
 export const demoBackend: Backend = {
   source: "demo",
   subscribe,
   getSnapshot,
+  library: demoLib,
   actions: {
     setEntry(habitId, date, value) {
       const s = getSnapshot()
@@ -320,6 +325,7 @@ export const demoBackend: Backend = {
     resetDemo() {
       const s = getSnapshot()
       commit(createDemoState(s.today, s.state.timezone))
+      demoLib.reset()
     },
     exportJson() {
       return JSON.stringify(getSnapshot().state, null, 2)

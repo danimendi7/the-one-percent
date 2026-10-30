@@ -14,6 +14,7 @@ import { uuidv4 } from "@/lib/ids"
 import { SyncEngine } from "./engine"
 import { clearUserCache, deviceId, idbStorage, tabLock } from "./idb-storage"
 import { idbLibraryStore, memoryLibraryStore } from "./library-store"
+import { accountLibrary } from "@/features/library/store/account-library"
 import { supabaseTransport } from "./supabase-transport"
 import type { Op } from "./domain/types"
 import type { ReviewField } from "@/features/reviews/domain/types"
@@ -183,6 +184,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
     source: "account",
     userId: user.id,
     engine,
+    library: accountLibrary(engine),
     subscribe: (l) => engine.subscribe(l),
     getSnapshot,
     dispose() {

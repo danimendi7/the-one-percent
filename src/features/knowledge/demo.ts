@@ -11,7 +11,8 @@ import type { ContentItem, KnowledgeNote, KnowledgeState, PodcastShow } from "./
  * - No ISBNs, covers or URLs: nothing that could pass for verified external data.
  * Dates are relative to `today`, so the demo always looks current.
  */
-export const DEMO_NOTICE = "Demo · libros reales con notas ficticias; programas y episodios inventados"
+/** Badge text (short, it lives in headers). The full statement is the comment above and the item names. */
+export const DEMO_NOTICE = "Demo · datos de ejemplo"
 
 export function demoLibrary(today: LocalDate): KnowledgeState {
   const d = (days: number) => addDays(today, -days)

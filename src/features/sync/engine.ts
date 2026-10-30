@@ -365,6 +365,26 @@ export class SyncEngine {
     return this.libRows[entity].get(id)
   }
 
+  /** The server has confirmed this row (it is in the device copy). */
+  libraryIsConfirmed(entity: LibraryEntity, id: string): boolean {
+    return this.libRows[entity].has(id)
+  }
+
+  /**
+   * What the UI says about one row (M4d; D57 precedent): «synced» only when the server has it and
+   * nothing about it waits in the queue; a write only on this device is «local» or «pending».
+   */
+  librarySyncStateOf(entity: LibraryEntity, id: string): "local" | "pending" | "synced" | "conflict" | "error" {
+    const about = (op: Op) => isLibraryOp(op) && "id" in op && op.id === id && entityOfOp(op) === entity
+    if (this.notices.some((n) => n.op && about(n.op) && isLibraryText(n))) return "conflict"
+    if (this.queue.some((q) => about(q.op))) {
+      if (!this.persisted) return "error"
+      return this.offline || this.status === "error" || !this.cache.features?.library ? "local" : "pending"
+    }
+    if (this.libError) return "error"
+    return this.libRows[entity].has(id) ? "synced" : "local"
+  }
+
   /** Creates a show, a book or episode, or a note; returns its id. The server applies it once (idempotent id). */
   libraryCreate(entity: LibraryEntity, fields: Record<string, unknown>, opts: { id?: string; kind?: "book" | "episode"; capturedAt?: string } = {}): string {
     const id = opts.id ?? uuidv4()

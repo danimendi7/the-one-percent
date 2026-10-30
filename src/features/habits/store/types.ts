@@ -10,6 +10,7 @@ import type { ReviewField, ReviewKind } from "@/features/reviews/domain/types"
 import type { EditInput, FocusRejection } from "@/features/focus/domain/ops"
 import type { CheckinRejection } from "@/features/mind/domain/ops"
 import type { CheckinConfig, CheckinPhase, CheckinValues } from "@/features/mind/domain/types"
+import type { LibraryBackend } from "@/features/library/store/types"
 
 export type DataSource = "demo" | "account"
 
@@ -132,5 +133,7 @@ export interface Backend {
   subscribe(listener: () => void): () => void
   getSnapshot(): HabitsSnapshot | null
   actions: HabitActions
+  /** Knowledge OS (M4d): same change signal as the rest of the data source. */
+  library?: LibraryBackend
   dispose?(): void
 }
