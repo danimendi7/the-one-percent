@@ -40,6 +40,9 @@ jobs:
       # Choices only (no free text reaches a shell). ci/** pushes use the pre-deploy criterion.
       E2E_REPEAT_EACH: ${{ inputs.repeat_each || (startsWith(github.ref, 'refs/heads/ci/') && '2') || '1' }}
       E2E_WORKERS: ${{ inputs.workers || '2' }}
+      # Deliberate skips per pass (two-browser cases run on desktop only). Changing the suite's skips
+      # means changing this number on purpose: the gate requires it exactly (M4f).
+      E2E_SKIPS_PER_PASS: "27"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -102,12 +105,22 @@ jobs:
       - if: steps.pw-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
+      # M4c/M4f: engine tests in real Chromium with real IndexedDB against the local stack (no app build).
+      - name: Browser tests (IndexedDB)
+        id: browser
+        run: npm run test:browser
+      - name: Browser acceptance (exactly the 6 engine tests, all passed)
+        if: always() && steps.browser.outcome != 'skipped'
+        run: node scripts/ci-gate.mjs report e2e-results/browser.json --expect 6
+
+      - name: E2E list (what must run)
+        run: npx playwright test --list --reporter=json --grep-invert @screens > e2e-results/e2e-list.json
       - name: E2E
         id: e2e
         run: npx playwright test --grep-invert @screens --workers="$E2E_WORKERS" --repeat-each="$E2E_REPEAT_EACH"
-      - name: E2E acceptance (0 failed · 0 flaky · 0 interrupted · every spec ran)
+      - name: E2E acceptance (0 failed · 0 flaky · 0 interrupted · every spec ran · every listed test ran)
         if: always() && steps.e2e.outcome != 'skipped'
-        run: node scripts/ci-gate.mjs report e2e-results/e2e.json --all-specs
+        run: node scripts/ci-gate.mjs report e2e-results/e2e.json --all-specs --list e2e-results/e2e-list.json --repeat "$E2E_REPEAT_EACH" --skips "$E2E_SKIPS_PER_PASS"
       - name: Smoke
         id: smoke
         run: npm run smoke

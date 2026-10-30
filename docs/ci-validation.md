@@ -15,16 +15,18 @@ Un solo workflow, `.github/workflows/ci.yml`, en un runner estándar `ubuntu-24.
    - `supabase status` no es loopback;
    - algún workflow lee `secrets.*`.
 4. Tests de integración (rechazan cualquier host que no sea loopback).
+4b. **`npm run test:browser`** (M4f): pruebas del motor en Chromium real con IndexedDB real contra el stack local. El criterio exige **exactamente 6 superadas** (`ci-gate.mjs report e2e-results/browser.json --expect 6`).
 5. **Suite E2E completa** (`--grep-invert @screens`, móvil y escritorio, build de producción). Incluye todas las specs, entre ellas check-ins, conflictos de reflexiones, offline, sincronización entre dispositivos, `upgrade.spec.ts` (copias de IndexedDB de versiones anteriores) y `screen-error.spec.ts` (D39).
 6. **Criterio de aceptación** (`ci-gate.mjs report --all-specs`):
    - 0 fallidas;
    - **0 inestables**: Playwright reintenta una vez en CI para detectarlas, pero un test que pasa al reintentar suspende igualmente;
    - 0 interrumpidas;
    - 0 errores globales;
-   - cada `e2e/*.spec.ts` con al menos una prueba superada, para detectar una spec que deje de ejecutarse.
+   - cada `e2e/*.spec.ts` con al menos una prueba superada, para detectar una spec que deje de ejecutarse;
+   - **recuento exacto (M4f)**: antes de la suite se guarda el listado (`playwright test --list`); cada prueba listada debe ejecutarse en cada pasada, y las omitidas deben ser exactamente `E2E_SKIPS_PER_PASS` (27) por pasada: los casos de dos navegadores que solo corren en escritorio. Una prueba que desaparece o que empieza a omitirse suspende. Cambiar esas omisiones obliga a cambiar el número a propósito en `ci.yml`.
 7. Smoke contra la build local, con el mismo criterio. `BASE_URL` está prohibida: nunca sale a producción.
 8. **Revisión de secretos** de los informes: borra cualquier fichero que contenga una clave del stack local. Después sube los informes como artefacto `e2e-<run>-<intento>`, conservado 30 días:
-   - `e2e-results/e2e.json` y `smoke.json`;
+   - `e2e-results/e2e.json`, `e2e-list.json`, `browser.json` y `smoke.json`;
    - `playwright-report/` y `playwright-report-smoke/`, con trazas de los fallos.
 
 El resumen con los números aparece en la página del job (*Summary*).

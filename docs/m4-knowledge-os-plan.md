@@ -4,7 +4,7 @@
 - **Arquitectura aprobada**, con 18 decisiones registradas como **D59–D69** en `docs/decisions.md`. La valoración pasa a ser **de 1 a 10**, no de 1 a 5 como se propuso.
 - **M4a, M4b, M4c, M4d y M4e hechas en local** (§16–§20; decisiones D73–D85). P14 y P16 aprobadas (D77 y D78).
 - N2 (D71) y N1 (D72) aprobadas.
-- **M4f no empieza sin tu autorización** (plan en §20.9). Nada de M4 está en la nube ni en producción.
+- **M4f, etapa 1 (local) hecha** (§21; D86–D88): service worker, CI preparada y auditoría. **La validación remota (A) y el despliegue (B) necesitan tu autorización** (§21.8). Nada de M4 está en la nube ni en producción.
 - Las propuestas aún abiertas siguen marcadas como **P** (§15 y §16.6).
 
 ---
@@ -1649,3 +1649,207 @@ Sin desbordamiento ni errores de consola.
     - nada de Uría tocado.
 
 **Esfuerzo**: 1,5–2 días más tu tiempo de prueba, o +1 día con el service worker (opción A del paso 3).
+
+
+## 21. M4f · Etapa 1: preparación y endurecimiento local (30/10/2026, hecho en local)
+
+Aprobadas: **P17, opción A** (service worker mínimo, D86) y **privacidad de Git, opción A** (no reescribir; dirección `noreply` para los commits futuros, D88). Nueva: **D87** (CI de M4). Esta etapa no ha tocado ningún sistema remoto: sin `fetch`, sin `push`, sin Actions, sin nube y sin Vercel. Las únicas lecturas remotas fueron dos `GET` a la API de GitHub (visibilidad del repositorio e identidad del autor) y las comprobaciones habituales de producción.
+
+### 21.1 Auditoría de la release
+**Git**
+- Sin cambios pendientes al empezar.
+- `origin/main` = `85fd1a0`, según la referencia local; no se hizo `fetch`.
+- 10 commits locales antes de esta etapa, de `3082b4f` a `47e1ad0`, con 140 ficheros (106 nuevos, 26 modificados y 8 borrados). Los borrados son el prototipo de M1.
+
+**Secretos y datos personales**
+- Ninguno en el diff acumulado. Se buscaron claves, JWT, `service_role`, `sb_secret`, contraseñas, claves privadas, rutas personales y el correo.
+- `.env.cloud.local` sigue ignorado; solo `.env.example` está en Git.
+- Los ficheros grandes son las capturas de la demo.
+
+**La migración `20261101090000_library.sql` es aditiva**
+- Crea 4 tablas, con sus índices, RLS (lectura, alta y edición de lo propio; sin `delete`), *triggers* de guarda y funciones privadas con `revoke` a `anon`.
+- Añade las 4 tablas a `supabase_realtime`.
+- **Sustituye dos funciones existentes**, `apply_ops` y `pull_changes`, con cabeceras idénticas (seguridad y `search_path`). Comparadas línea a línea con la versión de producción (M3.4), solo **añaden**:
+  - la rama `library.%`;
+  - el campo `seq` en la respuesta;
+  - la clave `library.head`.
+- Un cliente M3.4 ignora esas claves (cubierto por `upgrade.spec.ts`). No se cambia ni borra ninguna tabla, columna, política ni dato existente.
+
+**Contrato validado**
+- `pull_library(p_since, p_limit, p_skip_deleted_upto)`, con el arreglo de las lápidas durante la reconstrucción (D74), está en el fichero.
+- **Aplicando todas las migraciones desde cero** en el stack de simulacro, el resultado es idéntico al stack local: **241 objetos, 0 diferencias** (24 funciones, 87 restricciones, 16 índices, 12 políticas, 4 *triggers*, 94 columnas, 4 tablas en realtime).
+- El stack de simulacro se destruyó al terminar. Los contenedores de Uría y de desarrollo no se tocaron (9 + 8).
+
+**Compatibilidad con M2 y M3**: la suite E2E completa (§21.4) incluye todos sus módulos, `upgrade.spec.ts` con las copias de M3.0 a M3.4 y `screen-error.spec.ts`.
+
+**Riesgos de la migración** (para la etapa B):
+- toma bloqueos breves al crear las tablas y sustituir funciones: hacerla con poco uso;
+- **no tiene vuelta atrás automática**. Si hiciera falta volver, el código anterior funciona con las tablas nuevas presentes, porque solo añaden, así que basta un `revert` del código, sin tocar la base;
+- la cuota del plan Free: las tablas nuevas empiezan vacías.
+
+### 21.2 Service worker (D86)
+| Aspecto | Comportamiento |
+|---|---|
+| Qué guarda | El HTML de 19 rutas prerenderizadas (la lista coincide con las páginas estáticas de la app, comprobado por `sw.test.ts`) y los ficheros con hash que esas páginas usan, más `offline.html` |
+| Qué nunca guarda | Respuestas de Supabase u otros orígenes; peticiones que no sean `GET`; `/auth`; `/api`; RSC (`RSC: 1` o `_rsc`); peticiones con `Authorization`; redirecciones (una sesión caducada que lleva a `/login`); cookies (no se guardan cabeceras salvo tipo, seguridad y versión) |
+| Datos del usuario | Siguen en IndexedDB y localStorage, que el SW no lee ni escribe. La cola offline y los estados «Guardado en este dispositivo» y «Sincronizado» no cambian |
+| HTML | Primero la red. Sin red, la página guardada de esa ruta, sea cual sea la consulta (`?id=`, `?q=`). Para una ruta no preparada, `offline.html`, sin datos y con «Ir al inicio» y «Reintentar» |
+| Preparación | La app, ya arrancada con red, pide al SW que prepare el shell (`top:warm`) a los 3 s |
+| Versiones | `/sw.js?v=<versión>` (el commit en CI y Vercel). Una versión nueva se instala, activa su caché y borra solo las `top-shell-*` antiguas. Las páginas guardadas son siempre de una sola versión, la más reciente vista |
+| Recuperación | Con red, todo vuelve a la red y la cola se envía como siempre |
+| Cabeceras | `/sw.js` con `Cache-Control: no-cache, no-store, must-revalidate`. El proxy no lo intercepta, ni tampoco `offline.html` |
+| Límite | **Una instalación nueva necesita una primera carga con conexión.** Las rutas dinámicas (`/reviews/[tipo]/[inicio]`) no se preparan y sin red muestran `offline.html` |
+
+**Pruebas específicas** (`e2e/offline.spec.ts`, 5 casos × 2 tamaños, **10/10**):
+1. **Demo**:
+   - un dispositivo preparado arranca sin red en otra ruta;
+   - navega a Libros y a una ficha y captura una idea;
+   - recarga sin red y sigue la idea;
+   - busca sin red;
+   - una ruta no preparada muestra `offline.html`;
+   - con red, vuelve a la normalidad.
+2. **Privacidad**:
+   - solo se guarda este origen y nada de `/auth`, `/api`, RSC, REST ni realtime;
+   - sin `set-cookie`;
+   - las páginas guardadas solo tienen las cabeceras permitidas;
+   - el HTML guardado no contiene datos de la demo.
+3. **Versiones**:
+   - una versión nueva sustituye el shell entero y borra solo su propia caché antigua;
+   - una caché ajena sigue intacta;
+   - una página de otra versión se descarta.
+4. **Cuenta**:
+   - arranca sin red con la copia local;
+   - la píldora no dice «Sincronizado»;
+   - una idea capturada dice «se enviará al recuperar la conexión» y no llega a la base de datos hasta que vuelve la red, y entonces llega **una vez**;
+   - el HTML guardado no contiene datos de la cuenta.
+5. **Sin sesión**: la redirección a `/login` nunca se guarda como página.
+
+### 21.3 Diagnóstico en el iPhone (procedimiento; **todavía no ejecutado por ti**)
+`/dev/knowledge` solo existe con `next dev`: con un build de producción responde **404** (comprobado). Usa datos sintéticos en una base de IndexedDB propia que se borra al terminar. Ahora compara cada resultado con la referencia de Chromium de escritorio (×1 y ×4) y llama p50 a la mediana.
+
+**Antes de empezar**
+- El PC y el iPhone en la **misma red Wi-Fi privada** (la de casa, no una pública).
+- Sin túneles ni exposición a internet: el servidor solo escucha en la red local.
+- `next.config.ts` ya admite orígenes de redes privadas (`allowedDevOrigins`) solo en desarrollo.
+
+**Pasos**
+1. En el PC, averigua su IP local: `ipconfig`, «Dirección IPv4» del adaptador Wi-Fi, por ejemplo `192.168.1.40`.
+2. En la carpeta del proyecto, ejecuta: `npx next dev -H 0.0.0.0 -p 3000`.
+3. Si Windows pregunta por el firewall, permite el acceso **solo en redes privadas** (nunca en públicas).
+4. En el iPhone, abre Safari y entra en `http://192.168.1.40:3000/login` (con tu IP). Pulsa **«Explorar la demo sin cuenta»**. No inicies sesión con tu cuenta: el diagnóstico no la necesita.
+5. Abre `http://192.168.1.40:3000/dev/knowledge`. La primera carga en modo desarrollo tarda unos segundos.
+6. Pulsa **«Medir con 5.000 notas»** y espera a «1 medición(es) hechas». La pantalla puede no responder mientras mide.
+7. Pulsa **«Medir con 10.000 notas»**.
+8. **Apunta** (o haz una captura de pantalla) por cada medición:
+   - tecleo p50 y p95, con su ✓ o ✗ frente a 100 ms;
+   - índice de una vez y por tramos;
+   - editar, mover y renombrar (incremental);
+   - la tabla de consultas (p50 y p95), incluidas las filas «Filtros: …»;
+   - la tabla «Este dispositivo frente a Chromium de escritorio».
+9. Pulsa **«Copiar resultados (JSON)»** y pégalos donde quieras guardarlos. Incluyen el modelo del navegador y el número de núcleos, no datos personales.
+10. Pulsa **«Borrar datos sintéticos»** por si una medición se interrumpió. Después cierra el servidor con Ctrl+C en el PC.
+
+**Al interpretarlo**
+- **Safari no ofrece `performance.memory`**: la memoria aparecerá como N/D.
+- El modo desarrollo no afecta a las funciones medidas (el índice y la búsqueda son JavaScript puro), aunque la página tarde más en abrir.
+- Si el p95 del tecleo con 5.000 notas supera 100 ms, la propuesta es la de §20.8 (un Worker solo para la primera construcción), **antes** de añadir nada más.
+
+### 21.4 Resultados (30/10/2026)
+| Prueba | Resultado |
+|---|---|
+| `npm run check` | 46 archivos, **513/513** (incluye `sw.test.ts`) |
+| Integración con PostgreSQL local | 8 archivos, **145/145** |
+| `test:browser` en modo CI, con la puerta `--expect 6` | **6/6** ✓ |
+| E2E completa en modo CI (`CI=1`, servidor gestionado por Playwright y la puerta estricta), **por proyecto** | Móvil: **144 superadas, 25 omitidas, 0 fallos, 0 inestables**; 169/169 listadas ejecutadas.<br>Escritorio: **167 superadas, 2 omitidas, 0 fallos, 0 inestables**; 169/169 listadas ejecutadas.<br>Total: **311 superadas y 27 omitidas deliberadas de 338**. Las 20 specs tienen al menos una prueba superada |
+| `e2e/offline.spec.ts` (service worker) | **10/10** (incluidas en el total) |
+| `npm run smoke` (local) | **22/22** |
+| `/dev/knowledge` en producción | 404 |
+| `/dev/knowledge` con `next dev` (Chromium, 5.000 notas) | Funciona, 0 errores y sin base sintética al terminar. Tecleo p95 6,0 ms frente a 5,6 ms de la referencia |
+
+**Incidencias del entorno Windows** (las mismas de M3.2d, 0xC0000409):
+1. Una ejecución completa con las dos plataformas a la vez falló a partir de la prueba 199. El servidor `next start` gestionado por Playwright murió sin dar error, y todas las siguientes recibieron conexión rechazada (138 fallos, todos de escritorio).
+2. En la primera ejecución por proyecto, en escritorio, el *worker* de Playwright murió (`code=3221226505` = 0xC0000409). La prueba pasó al reintentar y quedó marcada como inestable. La repetición del proyecto salió limpia.
+
+En los dos casos el problema es el proceso Node de Windows, no la aplicación. La CI de Linux no lo ha mostrado nunca (M3.2d, M3.3 y M3.4).
+
+### 21.5 CI preparada (D87; no ejecutada)
+- `ci.yml` añade:
+  - **«Browser tests (IndexedDB)»** con el criterio *exactamente 6*;
+  - **«E2E list»** antes de la suite, para la puerta `--list --repeat --skips` con `E2E_SKIPS_PER_PASS=27`.
+- Comprobado en local: el YAML es válido, las dos puertas pasan sobre informes reales y la puerta detecta un recuento que no cuadra.
+- Sin cambios en el resto:
+  - Supabase efímero dentro del runner;
+  - aislamiento (sin secretos del repositorio ni credenciales de la nube);
+  - acciones fijadas por SHA;
+  - revisión de secretos de los informes antes de subirlos;
+  - runner estándar `ubuntu-24.04`;
+  - dos pasadas en `ci/**`;
+  - Vercel ignora `ci/**`.
+- Los informes no llevan datos de Git (`captureGitInfo` desactivado, también en `test:browser`) y las capturas solo existen en los fallos, con cuentas sintéticas.
+
+### 21.6 Privacidad del repositorio (D88)
+- **Documentos vigentes**: 0 apariciones del correo personal en los ficheros con seguimiento.
+- **Identidad para los commits futuros** (solo en la configuración local de este repositorio): `282313697+danimendi7@users.noreply.github.com`. Es el formato oficial de GitHub; el id y el login se obtuvieron en modo lectura de la API. La configuración global no existe y no se ha creado.
+- **Riesgo residual**:
+  - el correo sigue en el campo de autor de los **50 commits** ya publicados en `main`;
+  - también en el texto de 4 commits antiguos, y en las líneas borradas de `baa16a4`, que es el commit que lo quitó;
+  - el repositorio es **privado**, y ningún artefacto de CI lleva datos de Git desde M3.4e.
+- **Artefacto antiguo** `12963160670` (contiene el correo): sigue sin borrar a la espera de tu autorización.
+- Si algún día el repositorio pasara a público, la solución sería reescribir el historial (opción B, con su `push --force`), y solo con tu autorización.
+- **Comprobación pendiente en la etapa B**: en el plan Hobby, Vercel despliega los commits cuyo autor está asociado a la cuenta de GitHub conectada. La dirección `noreply` lo está, pero conviene confirmar el primer despliegue con ella.
+
+### 21.7 Riesgos residuales
+1. **Windows (0xC0000409)**: las ejecuciones largas en este PC pueden morir. La validación definitiva es la de GitHub Actions (Linux).
+2. **Service worker**:
+   - una instalación nueva necesita red;
+   - las rutas dinámicas no se preparan;
+   - en iOS, Safari puede borrar las cachés de una web que no se usa durante semanas. Los datos de IndexedDB tienen sus propias reglas (y siguen en la nube si se usa una cuenta).
+3. **Una pestaña antigua abierta durante un despliegue** puede pedir un fichero de la versión anterior después de que el SW nuevo borre su caché. Con red se sirve desde Vercel si todavía existe; si no, la página pide recargar.
+4. **Rendimiento en el iPhone**: sin medir (§21.3).
+5. **Migración sin vuelta atrás automática** (ver §21.1). Mitigada: es aditiva y el código anterior funciona con ella.
+
+### 21.8 Siguientes autorizaciones
+**A. Validación remota** (necesita tu autorización)
+1. Comprobación de partida, solo lectura: `origin/main` sigue en `85fd1a0`, la nube tiene 10 migraciones y `vercel.json` excluye `ci/**`.
+2. Subir **solo** la rama `ci/m4`, apuntando al commit de esta etapa: `git push origin <commit>:refs/heads/ci/m4`. Sin tocar `main`.
+3. El *push* lanza el workflow, con 2 pasadas en `ci/**`:
+   - unitarias e integración con su puerta;
+   - `test:browser` (exactamente 6);
+   - E2E con 2 pasadas y recuento exacto (2 × 338 listadas; 54 omitidas);
+   - smoke;
+   - revisión de secretos.
+4. Leer el resultado con `gh-api.mjs`, en solo lectura:
+   - todas las puertas en verde, 0 inestables;
+   - la duración;
+   - **ningún** despliegue de Vercel en `ci/m4`;
+   - el artefacto sin correo ni datos de Git.
+5. Si algo falla: diagnóstico y corrección en local, y un nuevo *push* a `ci/m4` solo con tu permiso.
+6. `main`, Vercel y la nube no se tocan en ningún momento.
+
+**B. Despliegue** (necesita otra autorización, después de A)
+1. **Copia nueva** cifrada de Supabase Cloud (`npm run backup`, con el token propio por variable de entorno y nunca la sesión global de la CLI).
+2. **Restauración aislada** en el stack de simulacro (`npm run restore:drill -- <copia.topbak> --schema-at 20261031090000`). Comprobar que las 17 tablas y sus filas coinciden.
+3. **Ensayo**: aplicar `20261101090000_library.sql` sobre esa restauración y repetir `upgrade.spec.ts` y el smoke contra ella. Destruir el simulacro.
+4. **Revisión previa**: `npm run cloud -- db push --dry-run`. Debe anunciar exactamente una migración: `20261101090000_library.sql`.
+5. **Aplicar solo esa migración**. Después, en solo lectura:
+   - 11 migraciones;
+   - las 4 tablas con RLS;
+   - la publicación realtime;
+   - `pull_library` con `p_skip_deleted_upto`;
+   - `apply_ops` y `pull_changes` iguales al fichero.
+6. **Publicar en `main` exactamente el commit validado en A** (`git push origin <commit>:refs/heads/main`), sin cambios entre medias.
+7. **Comprobar**: Vercel en verde, smoke de producción y CI de `main` en verde. Después, borrar `ci/m4`.
+8. **Pruebas manuales** entre tu móvil y tu ordenador. Te prepararé una guía de 10 casos:
+   - libro con solo el título;
+   - idea sin red en el móvil que aparece sola en el ordenador;
+   - edición en vivo;
+   - «Guardar las dos»;
+   - borrar con «Deshacer»;
+   - búsqueda sin red;
+   - filtros que sobreviven a recargar;
+   - conectar y mover;
+   - aplicaciones;
+   - **arranque en frío sin red** después de una primera carga.
+
+   Además, el diagnóstico del iPhone (§21.3).
+9. **Vuelta atrás** preparada antes de empezar: `revert` del código en `main`, sin tocar la base, porque la migración es aditiva.

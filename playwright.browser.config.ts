@@ -9,7 +9,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
-  reporter: [["list"]],
+  // CI keeps a JSON report for scripts/ci-gate.mjs (M4f: test:browser is part of the validation).
+  reporter: process.env.CI ? [["list"], ["json", { outputFile: "e2e-results/browser.json" }]] : [["list"]],
+  captureGitInfo: { commit: false, diff: false },
   // Precise heap figures for the volume benchmark (a measurement flag only).
   use: { ...devices["Desktop Chrome"], launchOptions: { args: ["--enable-precise-memory-info"] } },
 })

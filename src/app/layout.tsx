@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { BootFallback, HydrationMark } from "@/components/shell/boot"
+import { ServiceWorkerRegistration } from "@/components/shell/sw-register"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -30,6 +31,8 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
   // Private app: never index.
   robots: { index: false, follow: false },
+  // Build version (M4f): the service worker keeps one version of the offline shell at a time.
+  other: { "top-version": process.env.NEXT_PUBLIC_APP_VERSION ?? "0" },
 }
 
 export const viewport: Viewport = {
@@ -48,6 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Toaster position="top-center" offset={16} mobileOffset={{ top: 64 }} />
         <HydrationMark />
         <BootFallback />
+        <ServiceWorkerRegistration />
       </body>
     </html>
   )

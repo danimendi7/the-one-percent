@@ -1,4 +1,20 @@
+import { execSync } from "node:child_process"
 import type { NextConfig } from "next"
+
+/**
+ * The app version (M4f): the service worker is registered as `/sw.js?v=<version>` and every page
+ * carries it in `<meta name="top-version">`, so a new build replaces the offline shell as a whole.
+ * Vercel and CI give the commit; locally, the commit plus the build time.
+ */
+function appVersion(): string {
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA
+  if (sha) return sha.slice(0, 12)
+  try {
+    return `${execSync("git rev-parse --short=12 HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim()}-${Date.now().toString(36)}`
+  } catch {
+    return Date.now().toString(36)
+  }
+}
 
 /**
  * Dev-only: allow the dev server to be opened from a phone on the same private
@@ -65,12 +81,17 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION ?? appVersion() },
   cacheComponents: true,
   partialPrefetching: true,
   allowedDevOrigins: privateLanOrigins,
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }]
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      // The service worker must always be revalidated, or an old one could keep serving an old shell.
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }] },
+    ]
   },
   turbopack: {
     rules: {

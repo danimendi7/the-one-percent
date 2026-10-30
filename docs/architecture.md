@@ -106,3 +106,9 @@ UI ──► habitActions / useHabits()  (fachada, src/features/habits/store/hab
 - Los registros retroactivos quedan en `audit_logs`.
 
 **Auth**: enlace mágico con *token hash* (`/auth/confirm`), válido desde cualquier dispositivo, más un código de 6 dígitos en el mismo correo (red local y PWA de iOS). `src/proxy.ts` refresca la sesión y envía a `/login` a quien no tiene sesión ni ha elegido explícitamente la demo. Las cuentas solo se crean para emails de `private.allowed_emails`.
+
+## M4f: arranque sin conexión (D86)
+- **`public/sw.js`** (registrado por `src/components/shell/sw-register.tsx`, solo en builds de producción): guarda el HTML de las 19 rutas estáticas y sus ficheros con hash para que un dispositivo **ya cargado con red** arranque sin ella. Nunca guarda datos del usuario, respuestas de Supabase, `/auth`, RSC ni cookies; los datos siguen en IndexedDB y localStorage, que el SW no toca.
+- Versión por build (`/sw.js?v=` y `<meta name="top-version">`): un solo conjunto de páginas guardadas a la vez, el más reciente.
+- Rutas no preparadas sin red: `public/offline.html`, sin datos.
+- Pruebas: `e2e/offline.spec.ts` (con el SW activo) y `src/components/shell/sw.test.ts` (lista de rutas). El resto de suites E2E lo bloquean (`serviceWorkers: "block"`).

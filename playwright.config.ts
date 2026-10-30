@@ -23,6 +23,9 @@ export default defineConfig({
     locale: "es-ES",
     timezoneId: "Europe/Madrid",
     colorScheme: "dark",
+    // The service worker (M4f) is off for the regular suites, so they keep testing the app as before;
+    // e2e/offline.spec.ts turns it on and tests it explicitly.
+    serviceWorkers: "block",
     trace: "retain-on-failure",
   },
   projects: [

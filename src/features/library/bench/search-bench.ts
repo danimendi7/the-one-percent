@@ -227,8 +227,9 @@ export async function runSearchBench(size: BenchSize, opts: { runs?: number; sto
     typing: stats(typed),
     combined,
     memoryMB: {
-      state: h0 !== null && h1 !== null ? h1 - h0 : null,
-      index: h1 !== null && h2 !== null ? h2 - h1 : null,
+      // Without precise memory info (or with a GC in between) the difference is meaningless: N/D.
+      state: h0 !== null && h1 !== null && h1 - h0 > 0.1 ? h1 - h0 : null,
+      index: h1 !== null && h2 !== null && h2 - h1 > 0.1 ? h2 - h1 : null,
       note: "Aproximada: diferencia de performance.memory sin forzar la recogida de basura (solo Chromium).",
     },
     storage,

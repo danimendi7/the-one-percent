@@ -7,10 +7,14 @@
  *     no cloud credentials in the environment, no linked project, .env.local with public loopback
  *     values only, and no workflow that reads repository secrets.
  *
- *   node scripts/ci-gate.mjs report <playwright.json> [--all-specs]
+ *   node scripts/ci-gate.mjs report <playwright.json> [--all-specs] [--list <list.json> --repeat <n> --skips <n>] [--expect <n>]
  *     Acceptance criterion: 0 failed, 0 flaky, 0 interrupted, no global errors, at least one test
  *     passed. With --all-specs, every e2e/*.spec.ts (except smoke and screenshots) must have passed
  *     at least one test, so a spec that silently stops running also fails the gate.
+ *     M4f, exact counts: with --list (the output of `playwright test --list --reporter=json`), every
+ *     listed test must have run in each of the --repeat passes, and exactly --skips of them per pass
+ *     may be skipped (the deliberate «covered once» skips): a test that disappears or starts being
+ *     skipped fails the gate. With --expect, exactly that many tests must have passed.
  *
  *   node scripts/ci-gate.mjs vitest <vitest.json> [--dir <dir> <suffix>]
  *     Unit / integration criterion (M3.4e): every test passed, none failed, skipped, todo or left
@@ -118,6 +122,26 @@ function report() {
   if (interrupted > 0) problems.push(`${interrupted} pruebas interrumpidas`)
   if (globalErrors > 0) problems.push(`${globalErrors} errores globales (servidor, configuración o tiempo agotado)`)
   if ((st.expected ?? 0) === 0) problems.push("ninguna prueba superada")
+
+  const flag = (name) => {
+    const i = flags.indexOf(name)
+    return i >= 0 ? flags[i + 1] : undefined
+  }
+  if (flag("--list")) {
+    const listFile = flag("--list")
+    const repeat = Number(flag("--repeat") ?? 1)
+    const skips = Number(flag("--skips") ?? 0)
+    if (!existsSync(listFile)) problems.push(`no existe el listado ${listFile}`)
+    else {
+      const listed = collect(JSON.parse(readFileSync(listFile, "utf8")).suites).length
+      const ran = (st.expected ?? 0) + (st.skipped ?? 0) + (st.unexpected ?? 0) + (st.flaky ?? 0)
+      summary.push("", `Pruebas listadas: ${listed} × ${repeat} pasadas = ${listed * repeat} · ejecutadas: ${ran} · omitidas: ${st.skipped ?? 0} (esperadas ${skips * repeat})`)
+      if (listed === 0) problems.push("el listado de pruebas está vacío")
+      if (ran !== listed * repeat) problems.push(`se ejecutaron ${ran} pruebas y había ${listed * repeat} (${listed} × ${repeat})`)
+      if ((st.skipped ?? 0) !== skips * repeat) problems.push(`${st.skipped ?? 0} omitidas y se esperaban exactamente ${skips * repeat} (${skips} por pasada)`)
+    }
+  }
+  if (flag("--expect") !== undefined && (st.expected ?? 0) !== Number(flag("--expect"))) problems.push(`${st.expected ?? 0} superadas y se esperaban exactamente ${flag("--expect")}`)
 
   if (flags.includes("--all-specs")) {
     const passedFiles = new Set(tests.filter((t) => t.status === "expected").map((t) => basename(t.file)))
