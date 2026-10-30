@@ -13,6 +13,7 @@ import type { Backend, HabitsSnapshot } from "@/features/habits/store/types"
 import { uuidv4 } from "@/lib/ids"
 import { SyncEngine } from "./engine"
 import { clearUserCache, deviceId, idbStorage, tabLock } from "./idb-storage"
+import { idbLibraryStore, memoryLibraryStore } from "./library-store"
 import { supabaseTransport } from "./supabase-transport"
 import type { Op } from "./domain/types"
 import type { ReviewField } from "@/features/reviews/domain/types"
@@ -20,6 +21,8 @@ import type { ReviewField } from "@/features/reviews/domain/types"
 const POLL_MS = 30_000
 /** Faster polling while realtime is not confirmed healthy. */
 const DEGRADED_POLL_MS = 10_000
+/** Realtime events of the library are grouped for this long before one pull (M4c). */
+const LIBRARY_DEBOUNCE_MS = 1_500
 
 export interface AccountBackend extends Backend {
   userId: string
@@ -32,11 +35,14 @@ export interface AccountBackend extends Backend {
  * invalidation and polling while the app is visible.
  */
 export function createAccountBackend(sb: SupabaseClient, user: { id: string; email: string | null }): AccountBackend {
+  // The Library's device copy lives in its own database, one entry per row (N1, D72).
+  const library = typeof indexedDB !== "undefined" ? idbLibraryStore(user.id) : memoryLibraryStore()
   const engine = new SyncEngine({
     transport: supabaseTransport(sb),
     storage: idbStorage(user.id),
     deviceId: deviceId(uuidv4),
     lock: tabLock(`the-one-percent:sync:${user.id}`),
+    library,
   })
 
   let snapshot: HabitsSnapshot | null = null
@@ -110,6 +116,13 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
     if (debounce) clearTimeout(debounce)
     debounce = setTimeout(() => void engine.sync(), 250)
   }
+  // One library write can touch many rows (a content with its notes and links): their events are
+  // grouped into one pull, and the pull only pages if the library head moved (M4c).
+  let libraryDebounce: ReturnType<typeof setTimeout> | null = null
+  const onLibraryChange = () => {
+    if (libraryDebounce) clearTimeout(libraryDebounce)
+    libraryDebounce = setTimeout(() => void engine.sync(), LIBRARY_DEBOUNCE_MS)
+  }
   // Realtime is only an invalidation signal. Changes committed between the initial pull and
   // the moment the subscription is live would otherwise wait for the next poll, so every
   // (re)subscription triggers a catch-up pull. Failed channels are retried with backoff.
@@ -131,6 +144,10 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       .on("postgres_changes", { event: "*", schema: "public", table: "focus_sessions", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "daily_checkins", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "library_items", filter: `user_id=eq.${user.id}` }, onLibraryChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "knowledge_notes", filter: `user_id=eq.${user.id}` }, onLibraryChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "podcast_shows", filter: `user_id=eq.${user.id}` }, onLibraryChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "knowledge_links", filter: `user_id=eq.${user.id}` }, onLibraryChange)
       .subscribe((status) => {
         if (disposed) return
         if (status === "SUBSCRIBED") {
@@ -171,6 +188,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
     dispose() {
       clearInterval(poll)
       if (debounce) clearTimeout(debounce)
+      if (libraryDebounce) clearTimeout(libraryDebounce)
       window.removeEventListener("online", onWake)
       window.removeEventListener("focus", onWake)
       document.removeEventListener("visibilitychange", onVisibility)
@@ -401,6 +419,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         // Stop first so nothing re-persists the cache after it is deleted.
         engine.stop()
         await clearUserCache(user.id)
+        await library.clear()
       },
       diagnostics() {
         return engine.diagnostics()

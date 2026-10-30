@@ -39,6 +39,12 @@ describe("library wire format (M4b)", () => {
     expect(rowToLink(row("x", {}, { a_type: l.a.type, a_id: l.a.id, b_type: l.b.type, b_id: l.b.id, created_at: l.createdAt }))).toEqual(l)
   })
 
+  it("a row with a missing or broken instant still converts (one damaged row never empties a copy)", () => {
+    const s = rowToShow({ id: "s", server_seq: 1, deleted: false, title: "P" })
+    expect(s.createdAt).toBe(new Date(0).toISOString())
+    expect(rowToNote({ id: "n", server_seq: 1, deleted: false, note_type: "idea", body: "x", captured_at: "no es una fecha" }).createdAt).toBe(new Date(0).toISOString())
+  })
+
   it("an update sends only the fields that changed", () => {
     const i = demo.items["demo-book-outlive"]
     const next = { ...i, rating: 8, topics: [...i.topics, "Salud"] }

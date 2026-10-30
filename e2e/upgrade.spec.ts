@@ -7,12 +7,13 @@ import { countRows, newAccount, removeAccount, signIn, type Account } from "./su
  * with «This page couldn't load» on devices that had a persisted copy). Cookies, localStorage,
  * IndexedDB and the offline queue are kept exactly as the old version left them; nothing is cleared.
  * Every phase that adds a persisted field adds its older shape here (M3.2: focusSessions; M3.3: checkins
- * and checkinConfig; M3.4: reviews and closeIntents, with a reflection still waiting for a decision).
+ * and checkinConfig; M3.4: reviews and closeIntents, with a reflection still waiting for a decision;
+ * M4c: the M3.4 copy, without the library capability or database and with a review text kept).
  * PERMANENT regression gate (D39): runs in CI on every push; never delete, skip or weaken it.
  */
 
-type Shape = "m30" | "m31" | "m32" | "m33"
-const SHAPE_NAME: Record<Shape, string> = { m30: "M3.0", m31: "M3.1", m32: "M3.2", m33: "M3.3" }
+type Shape = "m30" | "m31" | "m32" | "m33" | "m34"
+const SHAPE_NAME: Record<Shape, string> = { m30: "M3.0", m31: "M3.1", m32: "M3.2", m33: "M3.3", m34: "M3.4" }
 
 /** Rewrite the persisted copy into the exact shape an older version saved. */
 async function downgradeCopy(page: Page, shape: Shape) {
@@ -32,6 +33,30 @@ async function downgradeCopy(page: Page, shape: Shape) {
         const r = store().get(key)
         r.onsuccess = () => res(r.result)
       })
+      if (shape === "m34") {
+        // M3.4 (the version before the library) knew four capabilities, had no library database and
+        // could hold a review text waiting for a decision.
+        value.cache.features = { goals: true, focus: true, checkins: true, reviews: true }
+        value.pendingNotes = [
+          {
+            id: "op-m34-review",
+            kind: "conflict",
+            opType: "review.save",
+            code: "review_field_conflict",
+            subject: "Revisión: semana del 19 oct al 25 oct",
+            op: { type: "review.save", op_id: "op-m34-review", kind: "week", period_start: "2026-10-19", fields: { "content.wins": "Texto guardado por M3.4" }, base_seqs: { "content.wins": 1 } },
+          },
+        ]
+        await new Promise((res) => {
+          const r = indexedDB.deleteDatabase("the-one-percent-library")
+          r.onsuccess = r.onerror = r.onblocked = res
+        })
+        await new Promise((res) => {
+          const r = store().put(value, key)
+          r.onsuccess = res
+        })
+        continue
+      }
       // M3.3 saved no reviews or close intents, knew three capabilities and could hold a reflection waiting for a decision.
       delete value.cache.state.reviews
       delete value.closeIntents
@@ -94,7 +119,7 @@ async function persistedCopy(page: Page) {
   })
 }
 
-for (const shape of ["m30", "m31", "m32", "m33"] as const) test.describe(`account · update over a copy saved by ${SHAPE_NAME[shape]}`, () => {
+for (const shape of ["m30", "m31", "m32", "m33", "m34"] as const) test.describe(`account · update over a copy saved by ${SHAPE_NAME[shape]}`, () => {
   test.use({ mode: "account" })
   let account: Account
   test.beforeEach(async ({}, info) => {
@@ -136,7 +161,9 @@ for (const shape of ["m30", "m31", "m32", "m33"] as const) test.describe(`accoun
     expect(await countRows("select count(*)::int n from public.sync_operations where user_id = $1 and operation_type = 'entry.set'", [account.id])).toBe(1)
     await expect
       .poll(() => persistedCopy(reopened))
-      .toEqual([{ hasGoals: true, hasFocus: true, hasCheckins: true, hasReviews: true, pendingNotes: shape === "m33" ? ["op-m33-note"] : [], queue: 0 }])
+      .toEqual([{ hasGoals: true, hasFocus: true, hasCheckins: true, hasReviews: true, pendingNotes: shape === "m33" ? ["op-m33-note"] : shape === "m34" ? ["op-m34-review"] : [], queue: 0 }])
+    // The library capability is learned from the server and its own database is created (empty) without touching anything else.
+    await expect.poll(() => reopened.evaluate(() => new Promise((res) => { const r = indexedDB.open("the-one-percent-library"); r.onsuccess = () => res([...r.result.objectStoreNames].sort().join(",")) }))).toBe("item,link,meta,note,show")
 
     // Goals work on the upgraded copy, and the habit is still there.
     await reopened.goto("/goals")

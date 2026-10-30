@@ -1,0 +1,55 @@
+{
+  "date": "2026-10-30T13:27:17.519Z",
+  "chromium": "156.0.8078.4",
+  "x1": {
+    "rows": 5600,
+    "rebuildStoreMs": 507.40000009536743,
+    "incremental5StoreMs": 1,
+    "loadMs": 80.40000009536743,
+    "loadedNotes": 5000,
+    "engineStartMs": 105.40000009536743,
+    "engineNotes": 5000,
+    "heapAfterStartMB": 7.8812408447265625,
+    "saveNotePersistMedianMs": 2.299999952316284,
+    "saveNotePersistMaxMs": 3.6999998092651367,
+    "saveHabitPersistMedianMs": 2.4000000953674316,
+    "saveHabitPersistMaxMs": 2.700000047683716,
+    "snapshotWith5kMs": 2.6799999952316282,
+    "mainRecordKB": 2.921875,
+    "libraryCopyMB": 4.133014678955078
+  },
+  "x4": {
+    "rows": 5600,
+    "rebuildStoreMs": 1624.6000001430511,
+    "incremental5StoreMs": 2.5999999046325684,
+    "loadMs": 122.5,
+    "loadedNotes": 5000,
+    "engineStartMs": 224.69999980926514,
+    "engineNotes": 5000,
+    "heapAfterStartMB": 6.25754451751709,
+    "saveNotePersistMedianMs": 4.700000047683716,
+    "saveNotePersistMaxMs": 7.700000047683716,
+    "saveHabitPersistMedianMs": 4.400000095367432,
+    "saveHabitPersistMaxMs": 5.700000047683716,
+    "snapshotWith5kMs": 6.690000009536743,
+    "mainRecordKB": 2.921875,
+    "libraryCopyMB": 4.133014678955078
+  },
+  "twoTabs": {
+    "oneTab": {
+      "median": 1.2000000476837158,
+      "max": 4.5,
+      "notes": 5020
+    },
+    "tab1": {
+      "median": 3.0999999046325684,
+      "max": 4,
+      "notes": 5051
+    },
+    "tab2": {
+      "median": 3.3999998569488525,
+      "max": 5.599999904632568,
+      "notes": 5060
+    }
+  }
+}

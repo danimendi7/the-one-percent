@@ -1,5 +1,5 @@
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js"
-import { NetworkError, type SyncTransport } from "./engine"
+import { NetworkError, type LibraryPage, type SyncTransport } from "./engine"
 import type { Op, OpResult, PullPayload } from "./domain/types"
 import type { LocalDate } from "@/features/habits/domain/dates"
 
@@ -20,6 +20,11 @@ export function supabaseTransport(sb: SupabaseClient): SyncTransport {
       const { data, error } = await sb.rpc("pull_changes", { p_since: since })
       if (error) throw classify(error)
       return data as PullPayload
+    },
+    async pullLibrary(since: number, limit: number, skipDeletedUpto: number | null) {
+      const { data, error } = await sb.rpc("pull_library", { p_since: since, p_limit: limit, p_skip_deleted_upto: skipDeletedUpto })
+      if (error) throw classify(error)
+      return data as LibraryPage
     },
   }
 }

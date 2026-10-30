@@ -26,7 +26,8 @@
     "smoke": "playwright test --config playwright.smoke.config.ts",
     "cloud:auth": "node scripts/cloud-auth.mjs",
     "e2e:linux": "node scripts/e2e-linux.mjs",
-    "bench:knowledge": "node scripts/bench-knowledge.mjs"
+    "bench:knowledge": "node scripts/bench-knowledge.mjs",
+    "test:browser": "playwright test --config playwright.browser.config.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

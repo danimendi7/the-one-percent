@@ -2,9 +2,9 @@
 
 **Estado (30/10/2026)**:
 - **Arquitectura aprobada**, con 18 decisiones registradas como **D59–D69** en `docs/decisions.md`. La valoración pasa a ser **de 1 a 10**, no de 1 a 5 como se propuso.
-- **M4a y M4b hechas en local** (§16 y §17).
+- **M4a, M4b y M4c hechas en local** (§16, §17 y §18; decisiones D73–D76).
 - N2 (D71) y N1 (D72) aprobadas.
-- **M4c no empieza sin tu autorización.**
+- **M4d no empieza sin tu autorización.**
 - Las propuestas aún abiertas siguen marcadas como **P** (§15 y §16.6).
 
 ---
@@ -1110,3 +1110,124 @@ Biblioteca sintética de M4a: 40 programas, 560 contenidos, 5.000 notas y 1.000 
    - E2E: idea escrita sin conexión con la app cerrada y reabierta, dos pestañas, dos navegadores con el mismo texto (las dos versiones) y copia antigua;
    - medida de volumen en Chromium con el almacén nuevo.
 7. **Esfuerzo**: 2–2,5 días. **Sin nube, sin despliegue y sin interfaz definitiva** (la interfaz es M4d).
+
+---
+
+## 18. M4c · Cliente: almacenamiento por elemento, sincronización y conflictos (30/10/2026, hecho en local)
+Decisiones nuevas: **D73–D76** (`docs/decisions.md`). Continuación del trabajo interrumpido en `3ca0ac5`: se conservó todo el código válido y se revisó línea a línea antes de probarlo.
+
+### 18.1 Diseño
+```
+Registro principal v1:<usuario> (idb-keyval, the-one-percent/sync)   ← sin cambios de forma
+  cache (hábitos, objetivos, enfoque, check-ins, revisiones) · cola ÚNICA (también library.*)
+  pendingNotes (también textos de la biblioteca) · resolvedNotes · closeIntents · goneOps
+Base the-one-percent-library (IndexedDB propia)                      ← nueva (D73)
+  show · item · note · link   una entrada por fila confirmada, clave <usuario>:<id>
+  meta                        { cursor, rebuildUpto, complete } por usuario
+```
+- **Vista de la app** = copia confirmada + operaciones de la cola aplicadas encima (`applyLibraryOps`, una copia por registro y reconstrucción).
+- **Guardar una nota** solo escribe el registro principal (2,9 KB). La base de la biblioteca solo la escribe la descarga.
+- **Sincronización**: `apply_ops` (cola única) → `pull_changes` (sin cambios) → `pull_library` por páginas desde el cursor guardado → las operaciones confirmadas salen de la cola.
+  - La biblioteca solo se declara **«sincronizada»** sin ediciones en cola, sin textos por decidir, sin páginas pendientes, con la copia completa y con el cursor ≥ `head`.
+  - Estados expuestos (`librarySync`): `disabled`, `local`, `pending`, `synced`, `conflict` y `error`, con fase (`downloading` o `rebuilding`) y progreso.
+- **Atomicidad**: página y cursor en una transacción. Solo después cambia la memoria. Un fallo antes del commit no mueve nada; un fallo después deja el disco por delante de la memoria, y el ciclo siguiente converge sin duplicados (por fila solo entra un `seq` mayor).
+- **Reanudación**: el cursor y, en una reconstrucción, su `skip_deleted_upto` se guardan con cada página. Al reabrir, la descarga continúa desde ahí (D74).
+- **Cuenta sin la migración**: las ediciones esperan en el dispositivo (`local`); el resto de módulos sincroniza con normalidad.
+- **Realtime**: 4 suscripciones nuevas con un agrupado de 1,5 s; solo se pagina si `head` avanzó.
+- **Cerrar sesión**: el aviso incluye los textos de la biblioteca por decidir (las ediciones ya cuentan como cambios sin sincronizar); borrar el dispositivo borra también su base.
+
+### 18.2 Problemas encontrados y resueltos en M4c
+| # | Problema | Cómo se encontró | Solución |
+|---|---|---|---|
+| 1 | **El contrato de reconstrucción de M4b perdía borrados**: `p_full` omitía todas las lápidas, así que una fila recibida en la página 1 y borrada antes de la página 3 se quedaba en la copia | Al diseñar la reanudación | `p_skip_deleted_upto` (D74), en la migración local y con tests de integración y del motor (fallarían con el contrato anterior) |
+| 2 | **Re-entrada en `sync()`**: un `sync()` llamado durante el arranque síncrono de un ciclo iniciaba otro en paralelo, que reenviaba operaciones en curso y mandaba ediciones con bases viejas (falso conflicto con el propio texto). Existía desde antes de M4c | Test de ediciones seguidas | Guarda `starting` (D76) |
+| 3 | **Borrar un contenido con notas editadas sin enviar** las descartaba o provocaba un `notes_changed` propio | Revisión del código | Se rechaza con `pending` hasta sincronizar (D75) |
+| 4 | **Una fila con una fecha rota vaciaba la copia entera** (la conversión lanzaba y la carga trataba la base como ilegible) | El banco de volumen dio «0 notas» al abrir sin red | Conversión tolerante (D76) y un test. El banco ahora falla si el motor no abre las 5.000 notas |
+| 5 | **Chromium (Local Network Access) bloqueaba el arnés de pruebas** contra Supabase local | Primera ejecución en Chromium | Se sirve desde un servidor real en `127.0.0.1`. No se desactivó ninguna protección |
+| 6 | Varios errores míos en tests: timing, comillas en SQL, ids | Ejecuciones | Corregidos; ninguno ocultaba un fallo del producto |
+
+### 18.3 Pruebas
+| Suite | Resultado |
+|---|---|
+| `npm run check` | Typecheck y lint limpios. Unitarias **495/495** (43 ficheros; **41 nuevas** en M4c: `library-engine.test.ts` 23, `library-sync.test.ts` 14, `library-store.test.ts` 3 y 1 en `library-wire.test.ts`) |
+| **Mutaciones** (cada protección quitada a propósito) | **10/10 detectadas**: guardar antes de la memoria, límite de reconstrucción, re-entrada, borrado con pendientes, bases propias, textos duraderos, `upgradePersisted`, fila más vieja sobre una nueva, reenvío de los otros campos y espera sin migración. Ficheros restaurados y verificados |
+| Integración (PostgreSQL local) | **145/145**, 8/8 ficheros: los 84 de M3, 54 de `library.int.test.ts` y 7 nuevos de `library-sync.int.test.ts` (motor real con transporte real). Puerta de CI 8/8 |
+| Chromium real (`playwright.browser.config.ts`, IndexedDB real) | **6/6**: contrato del almacén (incluidos aborto real e aislamiento por usuario), D, E, I, K y volumen |
+| E2E de la app | `upgrade.spec.ts` **18/18**, con la forma M3.4 nueva; cuenta (account, goals, focus, mind, reviews, screen-error) **57 superadas y 15 omitidas**; demo (habits, goals, focus, mind, reviews, analytics, navigation, a11y) **153 superadas y 5 omitidas**; smoke **22/22** |
+| Migración desde cero | Stack aislado y desechable: **241 objetos idénticos** al local, 0 diferencias; stack y volúmenes eliminados |
+
+**Escenarios A–N**:
+
+| Escenario | Dónde se prueba |
+|---|---|
+| A | Integración: 5.000 notas, primera sincronización del motor real en 0,99 s y 6 páginas |
+| B | Motor e integración: 5 filas, 21 ms |
+| C | Motor e integración: corte entre páginas, reanudación desde la última guardada |
+| D | Motor y Chromium: aborto real antes del commit; fallo después del commit |
+| E | Motor, integración y Chromium: recarga a mitad de descarga, reanudación con el mismo límite, borrado entre medias aplicado |
+| F, G, H, J | Motor e integración: dos dispositivos |
+| I | Motor y Chromium: dos pestañas sin conexión, la primera cerrada antes de enviar; cada nota aplicada una vez |
+| K | Motor, integración y Chromium: base de la biblioteca perdida con ediciones en cola |
+| L | Integración: otra cuenta no ve ni toca nada. Chromium: claves por usuario en IndexedDB |
+| M | `upgrade.spec.ts` M3.4 y `upgradePersisted` |
+| N | Toda la regresión anterior |
+
+### 18.4 Rendimiento: comparación con M4a (medido; `docs/reports/m4c-volume.json`)
+Chromium 156 en este PC (Ryzen 5 7535HS). «×4» es la CPU ralentizada con DevTools, una aproximación a un móvil medio.
+
+| Medida, con 5.000 notas | M4a (registro único, medido) | M4c ×1 | M4c ×4 |
+|---|---|---|---|
+| **Guardar una nota** (ciclo de guardado del registro principal) | 44 ms ×1 · **122 ms ×4** | **2,3 ms** (máx. 3,7) | **4,7 ms** (máx. 7,7) |
+| **Guardar un hábito** | igual que una nota | **2,4 ms** | **4,4 ms** |
+| Tamaño del registro principal | ~4,6 MB (con la biblioteca dentro) | **2,9 KB** | 2,9 KB |
+| Escrituras en IndexedDB al descargar 5 cambios | todo el registro | 5 filas, 1,0 ms | 2,6 ms |
+| Guardar la copia completa (5.600 filas en 6 transacciones) | — | 507 ms | 1,62 s |
+| Leer la copia completa al abrir | — | 80 ms | 123 ms |
+| Abrir el motor sin red con la copia | — | 105 ms | 225 ms |
+| Recalcular la vista con ediciones pendientes | — | 2,7 ms | 6,7 ms |
+| Memoria del motor con la copia (heap) | 4,5 MB de estado + 13,4 MB de índice | 7,9 MB (sin índice, que llega en M4e) | 6,3 MB |
+| Copia de la biblioteca en disco | — | 4,1 MB de JSON | — |
+| **Dos pestañas guardando a la vez** (Web Lock) | — | 3,1 y 3,4 ms de mediana (1,2 ms con una sola) | — |
+
+Además, contra PostgreSQL local (integración, motor real, copia en memoria):
+- primera sincronización de 5.000 notas: **0,99 s** (6 páginas de 1.000);
+- descarga incremental de 5 cambios: **21 ms**.
+
+Tamaños de M4b: 5,9 MB de JSON (1,55 MB en gzip) completo y 4,1 KB incremental.
+
+**Variación entre ejecuciones**: en tres ejecuciones, guardar una nota con ×1 osciló entre 1,6 y 2,3 ms, y guardar la copia completa entre 261 y 507 ms (la última, tras la suite completa, con el equipo más cargado). La tabla recoge la última.
+
+**Límites de la medición**: la CPU ×4 es una aproximación, no un móvil real; es Chromium de escritorio (Safari en iOS puede diferir); la red es local; la primera sincronización con IndexedDB se mide por partes (descarga en integración y guardado en Chromium).
+
+### 18.5 Riesgos y límites para las fases siguientes
+1. **Escrituras masivas por la cola**: cada edición guarda la cola entera, así que encolar miles de operaciones de golpe es cuadrático (5.600 altas seguidas tardaron 160 s en integración). El uso normal (una idea cada vez) no se ve afectado. Una importación (Goodreads, Kindle) necesitará su propio camino por lotes.
+2. **La interfaz aún no existe** (M4d). Deberá mostrar `librarySync` (estado, fase y progreso), el panel de conflictos con sus 5 salidas y las respuestas `pending` e `in_flight` al borrar.
+3. **El índice de búsqueda** (13,4 MB y 932 ms en frío con ×4) se construirá de forma perezosa en M4e.
+4. **Medición en un móvil real pendiente**: página de diagnóstico sintético en M4d.
+5. **Producción sin la migración**: la nube sigue en 10 migraciones. El código de M4c ya funciona contra una cuenta sin migración (las ediciones esperan en el dispositivo).
+6. **En el stack local se sustituyó `pull_library` durante el desarrollo**; la aplicación desde cero confirma que coincide con el fichero.
+
+### 18.6 Plan de M4d (interfaz de Biblioteca y captura rápida; requiere tu autorización)
+**Antes de empezar, necesito tu decisión** sobre:
+- **P14**: borrado con «Deshacer» y sin papelera;
+- **P16**: Cerebro como vista global.
+
+**Qué incluye**:
+- portada de Biblioteca;
+- Libros (estanterías, cuadrícula y lista, filtros, orden);
+- Podcasts (episodios y programas);
+- ficha común de libro y episodio;
+- alta y edición manual;
+- `CoverArt` tipográfico;
+- `QuickCapture` (una idea con un toque más el texto, también sin conexión);
+- editor de notas con autoguardado;
+- estado de sincronización y progreso de la primera descarga;
+- panel de conflictos con sus 5 salidas;
+- estados vacíos;
+- tarjeta en Resumen;
+- página de diagnóstico sintético para medir en tu móvil.
+- La demo usa `demo.ts` (etiquetada).
+
+**Pruebas**: E2E de demo y de cuenta (alta, captura, edición, conflicto y recuperación, sin conexión, dos pestañas), axe, capturas a 375 y 1440 px, y `screen-error.spec.ts` con Biblioteca.
+
+**Esfuerzo**: 2,5–3 días. Sin nube ni despliegue (eso es M4f).

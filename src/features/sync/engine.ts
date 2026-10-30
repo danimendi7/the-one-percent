@@ -391,19 +391,25 @@ export class SyncEngine {
   }
 
   /**
-   * Deletes the version this device shows. Something never sent is simply dropped from the queue;
-   * a content's unsent notes go with it (the user confirmed deleting it with its notes).
+   * Deletes the version this device shows. Something that never reached the server is simply
+   * dropped from the queue (a content with the notes written on it). A content that is on the server
+   * is not deleted while it or its notes have edits still to send: those edits would either be lost
+   * or make the server refuse the delete (D55 precedent: «espera a que se sincronicen»).
    */
-  libraryDelete(entity: LibraryEntity, id: string): { ok: true } | { ok: false; reason: "not_found" | "in_flight" } {
+  libraryDelete(entity: LibraryEntity, id: string): { ok: true } | { ok: false; reason: "not_found" | "in_flight" | "pending" } {
     const row = this.libraryRow(entity, id)
-    const queued = this.queue.filter((q) => isLibraryOp(q.op) && "id" in q.op && q.op.id === id && entityOfOp(q.op) === entity)
+    const targets = (q: QueuedOp) => isLibraryOp(q.op) && "id" in q.op && q.op.id === id && entityOfOp(q.op) === entity
+    const queued = this.queue.filter(targets)
+    const notes =
+      entity === "item" ? new Set(Object.values(this.getSnapshot().library.notes).filter((n) => n.itemId === id).map((n) => n.id)) : new Set<string>()
+    const ofNotes = (q: QueuedOp) => isLibraryOp(q.op) && "id" in q.op && entityOfOp(q.op) === "note" && notes.has(q.op.id)
     if (!row) {
       if (queued.length === 0) return { ok: false, reason: "not_found" }
-      if (queued.some((q) => this.inFlight.has(q.op.op_id))) return { ok: false, reason: "in_flight" }
-    }
-    if (entity === "item") {
-      const notes = new Set(Object.values(this.getSnapshot().library.notes).filter((n) => n.itemId === id).map((n) => n.id))
-      this.queue = this.queue.filter((q) => this.inFlight.has(q.op.op_id) || !(isLibraryOp(q.op) && "id" in q.op && entityOfOp(q.op) === "note" && notes.has(q.op.id)))
+      if (this.queue.some((q) => (targets(q) || ofNotes(q)) && this.inFlight.has(q.op.op_id))) return { ok: false, reason: "in_flight" }
+      // Never sent: its notes were never sent either (they queue after it). Nothing reaches the server.
+      if (entity === "item") this.queue = this.queue.filter((q) => !ofNotes(q))
+    } else if (entity === "item" && this.queue.some((q) => (targets(q) || ofNotes(q)) && !q.op.type.endsWith(".delete"))) {
+      return { ok: false, reason: "pending" }
     }
     const notesSeq =
       entity === "item" ? Math.max(0, ...[...this.libRows.note.values()].filter((n) => n.item_id === id).map((n) => Number(n.server_seq))) : undefined
@@ -751,19 +757,27 @@ export class SyncEngine {
   /** Run a sync cycle: push pending ops, then pull. Concurrent calls coalesce. */
   sync(opts: { full?: boolean } = {}): Promise<void> {
     if (this.stopped) return Promise.resolve()
-    if (this.running) {
+    // `starting` covers the synchronous start of cycle(), before `running` is assigned: a sync()
+    // reached from inside it (a listener, a transport callback) must not start a second, parallel
+    // cycle that would resend in-flight ops and send later edits with stale bases (M4c).
+    if (this.running || this.starting) {
       this.rerun = true
-      return this.running
+      return this.running ?? Promise.resolve()
     }
     this.cancelRetry?.()
     this.cancelRetry = null
-    this.running = this.cycle(!!opts.full).finally(() => {
-      this.running = null
-      if (this.rerun) {
-        this.rerun = false
-        void this.sync()
-      }
-    })
+    this.starting = true
+    try {
+      this.running = this.cycle(!!opts.full).finally(() => {
+        this.running = null
+        if (this.rerun) {
+          this.rerun = false
+          void this.sync()
+        }
+      })
+    } finally {
+      this.starting = false
+    }
     return this.running
   }
 
@@ -774,6 +788,7 @@ export class SyncEngine {
     this.listeners.clear()
   }
   private stopped = false
+  private starting = false
 
   // ── internals ──────────────────────────────────────────────────────────
   private async cycle(full: boolean): Promise<void> {

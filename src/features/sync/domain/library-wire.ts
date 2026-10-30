@@ -108,8 +108,15 @@ export interface WireChange {
 
 const s = (v: unknown) => (v === null || v === undefined ? null : String(v))
 const n = (v: unknown) => (v === null || v === undefined ? null : Number(v))
-/** Instants as ISO strings in UTC, like the domain (PostgreSQL sends «+00:00»). */
-const iso = (v: unknown) => new Date(String(v)).toISOString()
+/**
+ * Instants as ISO strings in UTC, like the domain (PostgreSQL sends «+00:00»). A missing or broken
+ * instant becomes the epoch instead of throwing: one damaged row must never make a whole device copy
+ * unreadable (M4c, found by the volume benchmark).
+ */
+const iso = (v: unknown) => {
+  const d = new Date(String(v))
+  return Number.isNaN(d.getTime()) ? new Date(0).toISOString() : d.toISOString()
+}
 const arr = (v: unknown) => (Array.isArray(v) ? v.map(String) : [])
 
 function coverOf(r: WireRow): CoverRef | null {
