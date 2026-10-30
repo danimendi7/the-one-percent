@@ -17,7 +17,7 @@ import { adminClient, anonClient, db, opId } from "./setup"
  */
 
 type Result = { op_id: string; status: string; outcome?: string; code?: string | null; fields?: string[]; seq?: number }
-type Page = { changes: WireChange[]; cursor: number; has_more: boolean; full: boolean; head: number }
+type Page = { changes: WireChange[]; cursor: number; has_more: boolean; skip_deleted_upto: number; head: number }
 
 interface User {
   id: string
@@ -57,26 +57,31 @@ async function apply(c: SupabaseClient, ops: unknown[]): Promise<Result[]> {
 }
 const applyOne = async (c: SupabaseClient, op: unknown) => (await apply(c, [op]))[0]
 
-async function pullPage(c: SupabaseClient, since = 0, limit = 500, full = false): Promise<Page> {
-  const { data, error } = await c.rpc("pull_library", { p_since: since, p_limit: limit, p_full: full })
+async function pullPage(c: SupabaseClient, since = 0, limit = 500, upto: number | null = null): Promise<Page> {
+  const { data, error } = await c.rpc("pull_library", { p_since: since, p_limit: limit, p_skip_deleted_upto: upto })
   if (error) throw error
   return data as Page
 }
 
-/** Pages until done; the cursor only moves after a page is «stored» (here: kept in memory). A pull from 0 is a rebuild on every page. */
-async function pullAll(c: SupabaseClient, since = 0, limit = 500) {
-  const full = since === 0
+/**
+ * Pages until done; the cursor only moves after a page is «stored» (here: kept in memory). A pull from 0
+ * is a rebuild: the first page's skip_deleted_upto goes back on every later page.
+ */
+async function pullAll(c: SupabaseClient, since = 0, limit = 500, between?: (page: number) => Promise<void>) {
+  let upto: number | null = null
   const changes: WireChange[] = []
   let cursor = since
   let pages = 0
   let bytes = 0
   for (;;) {
-    const p = await pullPage(c, cursor, limit, full)
+    const p = await pullPage(c, cursor, limit, upto)
+    if (since === 0 && upto === null) upto = p.skip_deleted_upto
     bytes += JSON.stringify(p).length
     pages++
     changes.push(...p.changes)
     cursor = p.cursor
     if (!p.has_more) return { changes, cursor, pages, bytes, head: p.head }
+    await between?.(pages)
   }
 }
 
@@ -534,6 +539,28 @@ describe("incremental pull (N2)", () => {
     expect(none).toMatchObject({ changes: [], has_more: false, cursor: all.cursor })
   })
 
+  it("a rebuild in pages still learns about a row deleted after an earlier page brought it (M4c fix)", async () => {
+    const first = await pullPage(u.d2, 0, 100)
+    const victim = first.changes.find((c) => c.t === "note")!
+    const seq = Number(victim.row.server_seq)
+    expect((await applyOne(u.d1, remove("note", victim.row.id, seq))).status).toBe("applied")
+    const copy = applyChanges(new Map(), first.changes)
+    const rest = await pullAll(u.d2, first.cursor, 300)
+    // pullAll from a cursor > 0 is incremental; a rebuild in progress sends the first page's limit back:
+    const resumed: WireChange[] = []
+    let cursor = first.cursor
+    for (;;) {
+      const p = await pullPage(u.d2, cursor, 300, first.skip_deleted_upto)
+      resumed.push(...p.changes)
+      cursor = p.cursor
+      if (!p.has_more) break
+    }
+    expect(resumed.some((c) => c.row.id === victim.row.id && c.row.deleted)).toBe(true)
+    applyChanges(copy, resumed)
+    expect(copy.has(`note:${victim.row.id}`)).toBe(false)
+    expect(rest.changes.some((c) => c.row.id === victim.row.id)).toBe(true)
+  })
+
   it("brings creates, edits and tombstones; a full pull from 0 leaves tombstones out", async () => {
     const before = (await pullAll(u.d1)).cursor
     const s = await seed(u)
@@ -628,7 +655,7 @@ describe("volume: 5.000 notes (measured, LOCAL PostgreSQL)", () => {
       const pages: Page[] = []
       let cursor = since
       for (;;) {
-        const p = await pullPage(v.d2, cursor, limit, since === 0)
+        const p: Page = await pullPage(v.d2, cursor, limit, since === 0 && pages.length > 0 ? pages[0].skip_deleted_upto : null)
         pages.push(p)
         cursor = p.cursor
         if (!p.has_more) break

@@ -12,6 +12,24 @@ import { normalizeDecision, validateContent } from "@/features/reviews/domain/co
 import { applySave, reviewFingerprint, sameSection, sectionBase, sectionOf, type ReviewFields } from "@/features/reviews/domain/sync"
 import { reviewKey, type Decision, type Review, type ReviewField, type ReviewKind } from "@/features/reviews/domain/types"
 import type { ReviewDeleteOutcome, ReviewSaveOutcome } from "@/features/habits/store/types"
+import { emptyKnowledge, type EntityRef, type KnowledgeState } from "@/features/knowledge/domain/types"
+import {
+  applyChanges,
+  applyLibraryOps,
+  emptyRows,
+  enqueueLibrary,
+  entityOfOp,
+  isLibraryText,
+  libraryBases,
+  refreshBases,
+  rowOf,
+  rowsToState,
+  type LibraryMeta,
+  type LibraryRows,
+} from "./domain/library-sync"
+import type { WireChange, WireRow } from "./domain/library-wire"
+import { isLibraryOp, type LibraryEntity, type LibraryOp, type LibraryUpdateOp, type LibraryWriteOp } from "./domain/types"
+import type { LibraryStore } from "./library-store"
 
 /** Network-level failure (offline, DNS, 5xx): the operation may or may not have reached the server. */
 export class NetworkError extends Error {
@@ -24,6 +42,33 @@ export class NetworkError extends Error {
 export interface SyncTransport {
   applyOps(deviceId: string, ops: Op[]): Promise<{ results: OpResult[]; server_today: LocalDate; server_time?: string }>
   pull(since: number): Promise<PullPayload>
+  /** M4b: one page of library changes after `since` (D71). */
+  pullLibrary?(since: number, limit: number, skipDeletedUpto: number | null): Promise<LibraryPage>
+}
+
+export interface LibraryPage {
+  changes: WireChange[]
+  cursor: number
+  has_more: boolean
+  skip_deleted_upto: number
+  head: number
+}
+
+/** What the UI says about the Library (M4c): «sincronizado» only when every page and every edit is on the server. */
+export interface LibrarySyncInfo {
+  /** The account stores the library (the server has the M4b migration) and this device keeps a copy. */
+  enabled: boolean
+  /** The device copy has been read (it may still be empty). */
+  ready: boolean
+  /** downloading: catching up; rebuilding: building a copy from scratch (first sync or lost copy). */
+  phase: "idle" | "downloading" | "rebuilding"
+  /** 0–1 while paging (by server_seq), null otherwise. */
+  progress: number | null
+  /** Library edits still in the queue. */
+  pending: number
+  /** Kept texts waiting for the user's decision. */
+  conflicts: number
+  state: "disabled" | "local" | "pending" | "synced" | "conflict" | "error"
 }
 
 export interface PersistedSync {
@@ -54,8 +99,8 @@ export const isNoteConflict = (n: SyncNotice) => n.kind === "conflict" && n.code
  * is kept durably, like a reflection, until they decide; it is never dropped on its own.
  */
 export const isReviewText = (n: SyncNotice) => n.op?.type === "review.save"
-/** Notices that hold text the user has not decided about: persisted and never closed on their own. */
-export const isDurableNotice = (n: SyncNotice) => isNoteConflict(n) || isReviewText(n)
+/** Notices that hold text the user has not decided about: persisted and never closed on their own (library: D68). */
+export const isDurableNotice = (n: SyncNotice) => isNoteConflict(n) || isReviewText(n) || isLibraryText(n)
 const RESOLVED_KEEP = 100
 /** Recently removed op ids kept for other tabs (far more than any tab persists between two reads). */
 const GONE_KEEP = 500
@@ -92,6 +137,9 @@ export interface EngineSnapshot {
   closeIntents: CloseIntent[]
   /** Reviews (`kind:periodStart`) with writes still in the queue. */
   pendingReviews: string[]
+  /** The Library as this device shows it: server-confirmed copy + queued edits (M4c). */
+  library: KnowledgeState
+  librarySync: LibrarySyncInfo
 }
 
 export interface EngineDeps {
@@ -110,9 +158,15 @@ export interface EngineDeps {
    * old browsers) the merge still runs; only simultaneous saves can race.
    */
   lock?: <T>(fn: () => Promise<T>) => Promise<T>
+  /** Device copy of the Library, one entry per row (N1, D72). Without it the library is not synced. */
+  library?: LibraryStore
+  /** Rows per pull_library page (1–1000). */
+  libraryPageSize?: number
 }
 
 const MAX_BACKOFF_MS = 60_000
+/** Seqs answered to this device's own library writes (bases of its consecutive edits). */
+const OWN_SEQS_KEEP = 1000
 
 export class SyncEngine {
   private cache: ServerCache
@@ -145,6 +199,19 @@ export class SyncEngine {
   /** Estimated server clock minus device clock (ms). */
   private clockOffset = 0
   private lastHybrid = 0
+  // ── Library (M4c) ──
+  /** Server-confirmed rows (the device copy as last stored). */
+  private libRows: LibraryRows = emptyRows()
+  /** The same rows as domain entities (rebuilt only when rows change). */
+  private libConfirmed: KnowledgeState = emptyKnowledge()
+  private libMeta: LibraryMeta | null = null
+  private libLoaded = false
+  /** Newest library change on the server, as pull_changes announced it. */
+  private libHead = 0
+  private libPaging: { from: number; to: number; rebuilding: boolean } | null = null
+  /** The device copy could not be read or written (the queue and texts are still safe in the main record). */
+  private libError = false
+  private ownSeqs: number[] = []
 
   constructor(private readonly deps: EngineDeps) {
     this.now = deps.now ?? Date.now
@@ -161,8 +228,11 @@ export class SyncEngine {
 
   // ── public API ─────────────────────────────────────────────────────────
   async start(): Promise<void> {
+    // The library copy is read in parallel with the main record: they are separate databases (D72).
+    const library = this.loadLibrary()
     // A copy saved by an older version may lack newer fields (e.g. goals): upgrade it in place, never discard it.
     const stored = upgradePersisted(await this.deps.storage.load().catch(() => null), this.localToday("Europe/Madrid"))
+    await library
     if (stored) {
       this.cache = stored.cache
       this.queue = stored.queue
@@ -203,9 +273,240 @@ export class SyncEngine {
         reviews: !!this.cache.features?.reviews,
         closeIntents: this.closeIntents,
         pendingReviews: [...new Set(this.queue.map((q) => reviewOf(q.op)).filter((k): k is string => k !== null))],
+        library: applyLibraryOps(this.libConfirmed, this.queue.map((q) => q.op)),
+        librarySync: this.librarySync(),
       }
     }
     return this.snapshot
+  }
+
+  // ── Library (M4c) ──────────────────────────────────────────────────────
+  private async loadLibrary(): Promise<void> {
+    if (!this.deps.library) return
+    try {
+      const { rows, meta } = await this.deps.library.load()
+      this.libRows = rows
+      this.libMeta = meta
+      this.libConfirmed = rowsToState(rows)
+      this.libError = false
+    } catch {
+      // Unreadable copy: start from scratch (a rebuild); pending edits are in the main record.
+      this.libRows = emptyRows()
+      this.libMeta = null
+      this.libConfirmed = emptyKnowledge()
+      this.libError = true
+    }
+    this.libLoaded = true
+  }
+
+  private librarySync(): LibrarySyncInfo {
+    const enabled = !!this.deps.library && !!this.cache.features?.library
+    const pending = this.queue.filter((q) => isLibraryOp(q.op)).length
+    const conflicts = this.notices.filter(isLibraryText).length
+    const paging = this.libPaging
+    const progress = paging ? (paging.to > paging.from ? Math.min(1, Math.max(0, ((this.libMeta?.cursor ?? 0) - paging.from) / (paging.to - paging.from))) : 0) : null
+    let state: LibrarySyncInfo["state"]
+    if (!enabled) state = pending > 0 ? "local" : "disabled"
+    else if (conflicts > 0) state = "conflict"
+    else if (this.libError || !this.persisted) state = "error"
+    else if (pending > 0) state = this.offline || this.status === "error" ? "local" : "pending"
+    else if (paging || !this.libMeta?.complete || this.libMeta.cursor < this.libHead) state = "pending"
+    else state = "synced"
+    return { enabled, ready: this.libLoaded, phase: paging ? (paging.rebuilding ? "rebuilding" : "downloading") : "idle", progress, pending, conflicts, state }
+  }
+
+  /**
+   * Pages the library down after the main pull (D71). Each page and the cursor after it are stored
+   * in one transaction BEFORE the in-memory copy changes; if storing fails, nothing moves and the
+   * next cycle starts again from the last stored page. A device without a copy rebuilds from 0 with
+   * the rebuild's skip_deleted_upto on every page, also after reopening mid-rebuild.
+   */
+  private async pullLibrary(head: number): Promise<void> {
+    const store = this.deps.library!
+    const pull = this.deps.transport.pullLibrary!
+    this.libHead = Math.max(this.libHead, head)
+    let meta = this.libMeta
+    if (meta?.complete && meta.cursor >= this.libHead) return
+    const size = Math.min(1000, Math.max(1, this.deps.libraryPageSize ?? 1000))
+    let since = meta?.complete ? meta.cursor : (meta?.rebuildUpto != null ? meta.cursor : 0)
+    let upto = meta?.complete ? null : (meta?.rebuildUpto ?? null)
+    const rebuilding = !meta?.complete
+    this.libPaging = { from: since, to: this.libHead, rebuilding }
+    this.invalidate()
+    try {
+      for (;;) {
+        const page = await pull(since, size, upto)
+        if (rebuilding && upto === null) upto = page.skip_deleted_upto
+        this.libHead = Math.max(this.libHead, page.head)
+        const next: LibraryMeta = { cursor: page.cursor, rebuildUpto: rebuilding && page.has_more ? upto : null, complete: rebuilding ? !page.has_more : true }
+        try {
+          await store.applyPage(page.changes, next)
+          this.libError = false
+        } catch (e) {
+          this.libError = true
+          throw e
+        }
+        // Stored: only now does this device's copy (and cursor) move.
+        if (applyChanges(this.libRows, page.changes) > 0) this.libConfirmed = rowsToState(this.libRows)
+        meta = this.libMeta = { ...next, cursor: Math.max(next.cursor, this.libMeta?.cursor ?? 0) }
+        since = page.cursor
+        if (this.libPaging) this.libPaging = { ...this.libPaging, to: this.libHead }
+        this.invalidate()
+        if (!page.has_more) break
+      }
+    } finally {
+      this.libPaging = null
+      this.invalidate()
+    }
+  }
+
+  /** server_seq-based bases of an edit's fields, from the confirmed copy (D68). */
+  private libraryRow(entity: LibraryEntity, id: string): WireRow | undefined {
+    return this.libRows[entity].get(id)
+  }
+
+  /** Creates a show, a book or episode, or a note; returns its id. The server applies it once (idempotent id). */
+  libraryCreate(entity: LibraryEntity, fields: Record<string, unknown>, opts: { id?: string; kind?: "book" | "episode"; capturedAt?: string } = {}): string {
+    const id = opts.id ?? uuidv4()
+    const at = this.clientTime()
+    const op: LibraryWriteOp = { type: `library.${entity}.create`, op_id: uuidv4(), id, fields, at }
+    if (entity === "item") op.kind = opts.kind
+    if (entity === "note") op.captured_at = opts.capturedAt ?? at
+    this.submit(op)
+    return id
+  }
+
+  /** Changes some fields; each carries the version of it this device last saw (D68). */
+  libraryUpdate(entity: LibraryEntity, id: string, fields: Record<string, unknown>): void {
+    if (Object.keys(fields).length === 0) return
+    const op: LibraryUpdateOp = {
+      type: `library.${entity}.update`,
+      op_id: uuidv4(),
+      id,
+      fields,
+      base_seqs: libraryBases(this.libraryRow(entity, id), Object.keys(fields)),
+      at: this.clientTime(),
+    }
+    this.submit(op)
+  }
+
+  /**
+   * Deletes the version this device shows. Something never sent is simply dropped from the queue;
+   * a content's unsent notes go with it (the user confirmed deleting it with its notes).
+   */
+  libraryDelete(entity: LibraryEntity, id: string): { ok: true } | { ok: false; reason: "not_found" | "in_flight" } {
+    const row = this.libraryRow(entity, id)
+    const queued = this.queue.filter((q) => isLibraryOp(q.op) && "id" in q.op && q.op.id === id && entityOfOp(q.op) === entity)
+    if (!row) {
+      if (queued.length === 0) return { ok: false, reason: "not_found" }
+      if (queued.some((q) => this.inFlight.has(q.op.op_id))) return { ok: false, reason: "in_flight" }
+    }
+    if (entity === "item") {
+      const notes = new Set(Object.values(this.getSnapshot().library.notes).filter((n) => n.itemId === id).map((n) => n.id))
+      this.queue = this.queue.filter((q) => this.inFlight.has(q.op.op_id) || !(isLibraryOp(q.op) && "id" in q.op && entityOfOp(q.op) === "note" && notes.has(q.op.id)))
+    }
+    const notesSeq =
+      entity === "item" ? Math.max(0, ...[...this.libRows.note.values()].filter((n) => n.item_id === id).map((n) => Number(n.server_seq))) : undefined
+    this.submit({
+      type: `library.${entity}.delete`,
+      op_id: uuidv4(),
+      id,
+      base_seq: row ? Number(row.server_seq) : 0,
+      ...(notesSeq !== undefined ? { notes_seq: notesSeq } : {}),
+    })
+    return { ok: true }
+  }
+
+  /** «Deshacer» or recovery: sends the whole entity again; only a tombstone takes it. */
+  libraryRestore(entity: LibraryEntity, id: string, fields: Record<string, unknown>, kind?: "book" | "episode"): void {
+    const op: LibraryWriteOp = { type: `library.${entity}.restore`, op_id: uuidv4(), id, fields, at: this.clientTime() }
+    if (entity === "item") op.kind = kind
+    this.submit(op)
+  }
+
+  librarySetLink(a: EntityRef, b: EntityRef, linked: boolean): void {
+    this.submit({ type: "library.link.set", op_id: uuidv4(), a_type: a.type, a_id: a.id, b_type: b.type, b_id: b.id, linked })
+  }
+
+  /**
+   * The user's decision on a kept library text (D68):
+   * - mine: write it again on top of the version now on the server (a field changed elsewhere);
+   * - theirs: forget it;
+   * - both: keep the other version and save mine as a new note next to it;
+   * - restore: bring back what was deleted elsewhere, with this device's text;
+   * - free: save the note as a free-standing idea (its content was deleted).
+   */
+  resolveLibraryText(noticeId: string, choice: "mine" | "theirs" | "both" | "restore" | "free"): boolean {
+    const n = this.notices.find((x) => x.id === noticeId)
+    if (!n || !isLibraryText(n) || !n.op || !isLibraryOp(n.op) || n.op.type === "library.link.set") return false
+    const op = n.op as LibraryWriteOp | LibraryUpdateOp
+    const entity = entityOfOp(op)!
+    const recover = { ...(n.library?.fields ?? {}), ...op.fields }
+    switch (choice) {
+      case "mine":
+        if (n.code !== "field_conflict") return false
+        this.dismissNotice(noticeId)
+        this.libraryUpdate(entity, op.id, op.fields)
+        return true
+      case "theirs":
+        this.dismissNotice(noticeId)
+        return true
+      case "both": {
+        if (entity !== "note" || n.code !== "field_conflict") return false
+        const theirs = this.libraryRow("note", op.id)
+        this.dismissNotice(noticeId)
+        const base = theirs ? pick(theirs, ["item_id", "note_type", "page", "position_seconds", "locator_label", "topics", "application_status"]) : {}
+        this.libraryCreate("note", { ...base, ...op.fields })
+        return true
+      }
+      case "restore":
+        if (n.code !== "deleted") return false
+        this.dismissNotice(noticeId)
+        this.libraryRestore(entity, op.id, recover, n.library?.kind)
+        return true
+      case "free": {
+        if (entity !== "note") return false
+        this.dismissNotice(noticeId)
+        // Without its content: no content and no page or minute, the text and everything else kept.
+        const rest = pick(recover, Object.keys(recover).filter((k) => !["item_id", "page", "position_seconds", "locator_label"].includes(k)))
+        this.libraryCreate("note", { ...rest, item_id: null })
+        return true
+      }
+    }
+  }
+
+  /**
+   * A library write the server did not take (D68). Texts are never dropped: a field conflict keeps
+   * only the conflicting texts for the user's decision and re-sends the other fields with their
+   * original bases; a write on something deleted elsewhere keeps the whole text, with what this
+   * device last saw of it, so it can be restored or saved as a free idea. A refused delete only
+   * informs (nothing was lost).
+   */
+  private libraryAnswered(op: LibraryOp, status: string | undefined, code: string | null, fields: string[] | undefined, seq: number | undefined) {
+    if (status === "applied" && seq !== undefined) this.ownSeqs = [...this.ownSeqs, seq].slice(-OWN_SEQS_KEEP)
+    if (status !== "conflict" && status !== "rejected") return
+    if (op.type === "library.link.set" || op.type.endsWith(".delete")) {
+      this.addNotice(status, op, code)
+      return
+    }
+    const w = op as LibraryWriteOp | LibraryUpdateOp
+    if (this.notices.some((n) => n.id === w.op_id) || this.resolvedNotes.includes(w.op_id)) return
+    if (code === "field_conflict" && "base_seqs" in w && fields?.length) {
+      const lost = Object.keys(w.fields).filter((f) => fields.includes(f))
+      const rest = Object.keys(w.fields).filter((f) => !lost.includes(f))
+      const later = this.queue.filter((q) => q.op.op_id !== w.op_id && !this.inFlight.has(q.op.op_id) && isLibraryOp(q.op) && "id" in q.op && q.op.id === w.id)
+      const resend = rest.filter((f) => !later.some((q) => "fields" in q.op && f in (q.op.fields as object)))
+      if (resend.length > 0) {
+        this.queue = [...this.queue, { op: { ...w, op_id: uuidv4(), fields: pick(w.fields, resend), base_seqs: pick(w.base_seqs, resend) }, enqueuedAt: this.now(), attempts: 0 }]
+      }
+      this.addNotice("conflict", { ...w, fields: pick(w.fields, lost), base_seqs: pick(w.base_seqs, lost) }, code)
+      return
+    }
+    // What this device last saw of it, so «Restaurar» can send the whole entity back.
+    const seen = rowOf(this.libRows, w)
+    const seenFields = seen ? pick(seen, Object.keys(seen).filter((k) => !["id", "server_seq", "deleted", "field_seqs", "version", "created_at", "updated_at", "deleted_at", "kind", "format", "captured_at"].includes(k))) : {}
+    this.addNotice(status, w, code)
+    this.notices = this.notices.map((n) => (n.id === w.op_id ? { ...n, library: { fields: seenFields, kind: (seen?.kind as "book" | "episode" | undefined) ?? (w as LibraryWriteOp).kind } } : n))
   }
 
   /**
@@ -429,7 +730,7 @@ export class SyncEngine {
 
   /** Optimistically apply and queue an operation, then sync in the background. */
   submit(op: Op): void {
-    this.queue = enqueue(this.queue, op, this.now(), this.inFlight)
+    this.queue = enqueueLibrary(this.queue, op, this.now(), this.inFlight) ?? enqueue(this.queue, op, this.now(), this.inFlight)
     if (this.status === "synced") this.status = "pending"
     this.invalidate()
     void this.persist()
@@ -485,6 +786,9 @@ export class SyncEngine {
       const payload = await this.deps.transport.pull(since)
       this.observeServerTime(payload.server_time, sent, this.now())
       this.cache = mergePull(this.cache, payload)
+      // The library comes in pages from its own cursor (D71), before acknowledged ops leave the
+      // queue, so a library edit never flickers back either.
+      if (payload.library && this.deps.library && this.deps.transport.pullLibrary) await this.pullLibrary(payload.library.head)
       this.rebaseReviewBases(applied, acked)
       // Remove acknowledged ops only after the pull, so the UI never flickers back.
       this.queue = this.queue.filter((q) => !acked.has(q.op.op_id))
@@ -530,6 +834,11 @@ export class SyncEngine {
       for (const q of batch) {
         this.inFlight.add(q.op.op_id)
         q.attempts++
+        // A library edit based on this device's own previous write (now confirmed) is sequential.
+        if (isLibraryOp(q.op) && q.op.type.endsWith(".update")) {
+          const fresh = refreshBases(q.op as LibraryUpdateOp, rowOf(this.libRows, q.op), new Set(this.ownSeqs))
+          if (fresh !== q.op) q.op = fresh
+        }
       }
       const sent = this.now()
       const res = await this.deps.transport.applyOps(
@@ -543,7 +852,10 @@ export class SyncEngine {
         const q = batch.find((b) => b.op.op_id === r.op_id)
         if (!q) continue
         if (status === "applied") applied.push(q.op)
-        if (q.op.type === "review.save") {
+        if (isLibraryOp(q.op)) {
+          this.libraryAnswered(q.op, status, r.code ?? null, r.fields, r.seq)
+          if ((status === "conflict" || status === "rejected") && isLibraryText({ id: q.op.op_id, kind: "conflict", opType: q.op.type, op: q.op })) raisedNote = true
+        } else if (q.op.type === "review.save") {
           if (status === "conflict" || status === "rejected") {
             this.reviewText(q.op, status, r.code ?? null, r.fields)
             raisedNote = true
@@ -562,6 +874,7 @@ export class SyncEngine {
 
   /** Review writes wait on the device while the server lacks the reviews migration (never rejected there). */
   private sendable(op: Op): boolean {
+    if (op.type.startsWith("library.")) return !!this.cache.features?.library
     return !op.type.startsWith("review.") || !!this.cache.features?.reviews
   }
 
@@ -730,8 +1043,9 @@ export class SyncEngine {
     // A re-sent op (e.g. the app closed before its answer was saved) answers again: one notice only.
     if (this.notices.some((n) => n.id === op.op_id)) return
     // Focus ops first: focus.edit also carries a habit_id, but its subject is the session.
-    const subject =
-      op.type === "review.save" || op.type === "review.close" || op.type === "review.delete"
+    const subject = isLibraryOp(op)
+      ? this.librarySubject(op)
+      : op.type === "review.save" || op.type === "review.close" || op.type === "review.delete"
         ? reviewSubject(op.kind, op.period_start)
         : op.type === "checkin.set"
         ? `Check-in de ${op.phase === "am" ? "mañana" : "noche"} del ${op.local_date.split("-").reverse().join("/")}`
@@ -749,6 +1063,15 @@ export class SyncEngine {
                   ? this.cache.state.goals.find((g) => g.id === op.goal_id)?.title
                   : undefined
     this.notices = [...this.notices, { id: op.op_id, kind, opType: op.type, subject, code, op }]
+  }
+
+  /** A title for library notices; never the text of a note (it may be personal). */
+  private librarySubject(op: LibraryOp): string {
+    if (op.type === "library.link.set") return "Un enlace entre contenidos"
+    const entity = entityOfOp(op)
+    if (entity === "note") return "Una nota"
+    const title = ("fields" in op && typeof op.fields.title === "string" ? op.fields.title : undefined) ?? (rowOf(this.libRows, op)?.title as string | undefined)
+    return title || (entity === "show" ? "Un programa" : "Un contenido")
   }
 
   /** NTP-style estimate: server time vs. the midpoint of the request, lightly smoothed. */

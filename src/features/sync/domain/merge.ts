@@ -206,6 +206,6 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
     rowSeq,
     cursor: Math.max(p.full ? 0 : cache.cursor, p.cursor),
     serverToday: p.server_today,
-    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined, reviews: p.reviews !== undefined },
+    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined, reviews: p.reviews !== undefined, library: p.library !== undefined },
   }
 }

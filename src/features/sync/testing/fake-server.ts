@@ -314,6 +314,9 @@ export class FakeServer {
       case "review.delete":
         if (!this.reviewsSupported) return reject("unknown_op_type")
         return this.applyReview(op)
+      default:
+        // Like a server without the library migration (M4b): the library is tested against real PostgreSQL.
+        return reject("unknown_op_type")
     }
   }
 

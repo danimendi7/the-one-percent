@@ -20,7 +20,7 @@ export function upgradePersisted(raw: unknown, today: LocalDate): PersistedSync 
   // Texts waiting for the user's decision (M3.3 reflections, M3.4 review sections): kept whatever else the copy lacks.
   const pendingNotes = Array.isArray(raw.pendingNotes)
     ? (raw.pendingNotes.filter(
-        (n) => isObject(n) && typeof n.id === "string" && isObject(n.op) && (n.op.type === "checkin.set" || (n.op.type === "review.save" && isObject(n.op.fields)))
+        (n) => isObject(n) && typeof n.id === "string" && isObject(n.op) && (n.op.type === "checkin.set" || (n.op.type === "review.save" && isObject(n.op.fields)) || (typeof n.op.type === "string" && n.op.type.startsWith("library.") && isObject(n.op.fields)))
       ) as SyncNotice[])
     : []
   const closeIntents = Array.isArray(raw.closeIntents)

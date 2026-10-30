@@ -153,8 +153,53 @@ export type Op =
       base_seq: number | null
     }
   | { type: "review.delete"; op_id: string; kind: ReviewKind; period_start: LocalDate; confirm: "delete"; base_seq: number }
+  // ── Library (M4b wire, M4c client): field names are column names (library-wire.ts) ──
+  | LibraryOp
 
 export type OpType = Op["type"]
+
+export type LibraryEntity = "show" | "item" | "note"
+/** Whole entity: a create, or the explicit restore of a tombstone («Deshacer»). */
+export interface LibraryWriteOp {
+  type: `library.${LibraryEntity}.${"create" | "restore"}`
+  op_id: string
+  id: string
+  fields: Record<string, unknown>
+  /** Hybrid, server-corrected time of the intent (D26/D42): stamps every field it writes. */
+  at: string
+  /** Books and episodes. */
+  kind?: "book" | "episode"
+  /** Notes: when the user wrote it. */
+  captured_at?: string
+}
+/** Only the changed fields, each with the version this device saw (D68). */
+export interface LibraryUpdateOp {
+  type: `library.${LibraryEntity}.update`
+  op_id: string
+  id: string
+  fields: Record<string, unknown>
+  base_seqs: Record<string, number | null>
+  at: string
+}
+/** Only the version this device saw; a content also names the newest of its notes it saw. */
+export interface LibraryDeleteOp {
+  type: `library.${LibraryEntity}.delete`
+  op_id: string
+  id: string
+  base_seq: number
+  notes_seq?: number
+}
+export interface LibraryLinkOp {
+  type: "library.link.set"
+  op_id: string
+  a_type: "item" | "show" | "note"
+  a_id: string
+  b_type: "item" | "show" | "note"
+  b_id: string
+  linked: boolean
+}
+export type LibraryOp = LibraryWriteOp | LibraryUpdateOp | LibraryDeleteOp | LibraryLinkOp
+export const isLibraryOp = (op: Op): op is LibraryOp => op.type.startsWith("library.")
 
 export interface WireCheckinFields {
   sleep_hours?: number | null
@@ -293,8 +338,10 @@ export interface OpResult {
   /** For duplicates: the stored outcome. */
   outcome?: Exclude<OpStatus, "duplicate">
   code?: string | null
-  /** review.save conflicts (M3.4): the sections that changed meanwhile on another device. */
+  /** review.save (M3.4) and library update (M4b) conflicts: the sections or fields that changed meanwhile elsewhere. */
   fields?: string[]
+  /** Library writes (M4b): the row's server_seq after the write, the base of this device's next edit. */
+  seq?: number
 }
 
 // ── pull_changes payload ────────────────────────────────────────────────
@@ -363,6 +410,8 @@ export interface PullPayload {
   daily_checkins?: WireCheckin[]
   /** M3.4. Absent from servers without the reviews migration: reviews stay on the device. */
   reviews?: WireReview[]
+  /** M4b. The library travels through pull_library; this only says the server stores it and its newest change. */
+  library?: { head: number }
   cursor: number
 }
 
@@ -374,7 +423,7 @@ export interface ServerCache {
   cursor: number
   serverToday: LocalDate
   /** Server capabilities seen in the last pull (a deploy may precede its migration). */
-  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean }
+  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; library?: boolean }
 }
 
 export type SyncStatus = "synced" | "syncing" | "pending" | "offline" | "error"
@@ -388,6 +437,11 @@ export interface SyncNotice {
   code?: string | null
   /** For conflicts: the edit that lost, so the user can re-apply it. */
   op?: Op
+  /**
+   * Library writes on something deleted elsewhere (M4c): what this device last saw of it, so
+   * «Restaurar» can send the whole entity back with the user's text on top.
+   */
+  library?: { fields: Record<string, unknown>; kind?: "book" | "episode" }
 }
 
 /**

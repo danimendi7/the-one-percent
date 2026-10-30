@@ -893,10 +893,16 @@ $$;
 
 -- ── pull_library (N2): paged, ordered by server_seq, tombstones included ──
 -- Returns the changes after `p_since`, at most `p_limit` (1..1000), in server_seq order across the
--- four tables. A rebuild (no local copy: p_since = 0, or p_full on every page of it) leaves
--- tombstones out. The client applies a page, persists it, and only then uses `cursor` for the
--- next call; `has_more` says whether to continue. `head` is the newest library change of the user.
-create or replace function public.pull_library(p_since bigint default 0, p_limit integer default 500, p_full boolean default false)
+-- four tables. The client applies a page, persists it, and only then uses `cursor` for the next
+-- call; `has_more` says whether to continue. `head` is the newest library change of the user.
+--
+-- Rebuild (a device without a copy): from p_since = 0 the answer carries `skip_deleted_upto` (the
+-- head when the rebuild started) and the client sends it back on every later page. Tombstones up to
+-- that point are left out: those rows were already deleted when the rebuild began, so the device
+-- never received them. Later tombstones always come, because the row may have arrived on an earlier
+-- page and been deleted while the device was paging (M4c: a single «leave tombstones out» flag lost
+-- exactly those deletions).
+create or replace function public.pull_library(p_since bigint default 0, p_limit integer default 500, p_skip_deleted_upto bigint default null)
 returns jsonb
 language plpgsql
 volatile
@@ -906,7 +912,8 @@ as $$
 declare
   v_uid uuid := auth.uid();
   v_since bigint := greatest(coalesce(p_since, 0), 0);
-  v_full boolean := coalesce(p_since, 0) <= 0 or coalesce(p_full, false);
+  v_head bigint;
+  v_upto bigint;
   v_limit integer := least(greatest(coalesce(p_limit, 500), 1), 1000);
   v_rows jsonb;
   v_count integer;
@@ -917,22 +924,24 @@ begin
   -- Waits for this user's library writes in flight (see the header): no change can commit later
   -- with a server_seq below what this page returns.
   perform pg_advisory_xact_lock_shared(private.lib_lock_key(v_uid));
+  v_head := private.lib_head(v_uid);
+  v_upto := coalesce(p_skip_deleted_upto, case when v_since = 0 then v_head else 0 end);
 
   select coalesce(jsonb_agg(jsonb_build_object('t', c.t, 'seq', c.seq, 'row', c.row) order by c.seq), '[]'::jsonb), count(*)
     into v_rows, v_count
   from (
     select u.t, u.seq, u.row from (
       select 'show' as t, s.server_seq as seq, private.lib_row_json(to_jsonb(s)) as row
-        from public.podcast_shows s where s.user_id = v_uid and s.server_seq > v_since and (not v_full or s.deleted_at is null)
+        from public.podcast_shows s where s.user_id = v_uid and s.server_seq > v_since and (s.deleted_at is null or s.server_seq > v_upto)
       union all
       select 'item', i.server_seq, private.lib_row_json(to_jsonb(i))
-        from public.library_items i where i.user_id = v_uid and i.server_seq > v_since and (not v_full or i.deleted_at is null)
+        from public.library_items i where i.user_id = v_uid and i.server_seq > v_since and (i.deleted_at is null or i.server_seq > v_upto)
       union all
       select 'note', n.server_seq, private.lib_row_json(to_jsonb(n))
-        from public.knowledge_notes n where n.user_id = v_uid and n.server_seq > v_since and (not v_full or n.deleted_at is null)
+        from public.knowledge_notes n where n.user_id = v_uid and n.server_seq > v_since and (n.deleted_at is null or n.server_seq > v_upto)
       union all
       select 'link', l.server_seq, private.lib_row_json(to_jsonb(l))
-        from public.knowledge_links l where l.user_id = v_uid and l.server_seq > v_since and (not v_full or l.deleted_at is null)
+        from public.knowledge_links l where l.user_id = v_uid and l.server_seq > v_since and (l.deleted_at is null or l.server_seq > v_upto)
     ) u
     order by u.seq
     limit v_limit + 1
@@ -945,8 +954,8 @@ begin
     'changes', v_rows,
     'cursor', coalesce((v_rows -> -1 ->> 'seq')::bigint, v_since),
     'has_more', v_count > v_limit,
-    'full', v_full,
-    'head', private.lib_head(v_uid),
+    'skip_deleted_upto', v_upto,
+    'head', v_head,
     'server_time', clock_timestamp());
 end;
 $$;
@@ -985,7 +994,7 @@ revoke all on function private.lib_row_json(jsonb) from public, anon;
 revoke all on function private.library_op(uuid, text, jsonb) from public, anon;
 revoke all on function private.apply_library_op(uuid, text, jsonb) from public, anon;
 revoke all on function private.lib_head(uuid) from public, anon;
-revoke all on function public.pull_library(bigint, integer, boolean) from public, anon;
+revoke all on function public.pull_library(bigint, integer, bigint) from public, anon;
 grant execute on function private.lib_norm(text) to authenticated;
 grant execute on function private.lib_no_ctrl(text) to authenticated;
 grant execute on function private.lib_line_ok(text, integer) to authenticated;
@@ -1006,7 +1015,7 @@ grant execute on function private.lib_row_json(jsonb) to authenticated;
 grant execute on function private.library_op(uuid, text, jsonb) to authenticated;
 grant execute on function private.apply_library_op(uuid, text, jsonb) to authenticated;
 grant execute on function private.lib_head(uuid) to authenticated;
-grant execute on function public.pull_library(bigint, integer, boolean) to authenticated;
+grant execute on function public.pull_library(bigint, integer, bigint) to authenticated;
 
 -- ── apply_ops: same ledger; library ops routed to apply_library_op; `seq` passed back ──
 create or replace function public.apply_ops(p_device_id text, p_ops jsonb)
