@@ -62,6 +62,7 @@ describe("upgradePersisted (copies saved by older versions)", () => {
       pendingNotes: [],
       resolvedNotes: [],
       closeIntents: [],
+      goneOps: ["op-sent-by-another-tab"],
     }
     expect(upgradePersisted(structuredClone(current), TODAY)).toEqual(current)
   })
@@ -145,9 +146,10 @@ describe("upgradePersisted keeps reflections waiting for a decision (D47)", () =
   }
 
   it("carries them over as they are, dropping only malformed entries", () => {
-    const up = upgradePersisted({ ...m30Copy(), pendingNotes: [pending, null, { id: "x" }], resolvedNotes: ["op-0", 7] }, TODAY)!
+    const up = upgradePersisted({ ...m30Copy(), pendingNotes: [pending, null, { id: "x" }], resolvedNotes: ["op-0", 7], goneOps: ["op-9", null] }, TODAY)!
     expect(up.pendingNotes).toEqual([pending])
     expect(up.resolvedNotes).toEqual(["op-0"])
+    expect(up.goneOps).toEqual(["op-9"])
   })
 
   it("never discards a copy whose only content is a pending reflection", () => {

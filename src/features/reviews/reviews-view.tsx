@@ -168,7 +168,7 @@ function NowCard({ m, kind, hasHistory }: { m: ReviewsModel; kind: ReviewKind; h
           <ArrowRight aria-hidden />
         </Link>
       </Button>
-      <p className="mt-3 text-xs text-text-tertiary">Unos 10 minutos · todo es opcional.</p>
+      <p className="mt-3 text-xs text-text-tertiary">Unos 5 minutos · todo es opcional.</p>
     </section>
   )
 }

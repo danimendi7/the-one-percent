@@ -55,7 +55,12 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm run test
+      - name: Unit tests
+        id: unit
+        run: npm run test -- --reporter=default --reporter=json --outputFile=e2e-results/unit.json
+      - name: Unit acceptance (every test ran and passed)
+        if: always() && steps.unit.outcome != 'skipped'
+        run: node scripts/ci-gate.mjs vitest e2e-results/unit.json
 
       # Ephemeral local Supabase inside the runner (no cloud project, no secrets). Its output prints
       # the stack's default keys: it goes to a file that is never published, only a redacted tail is
@@ -79,7 +84,12 @@ jobs:
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(npx supabase status -o json | jq -r .PUBLISHABLE_KEY)" >> .env.local
       - name: Isolation gate
         run: node scripts/ci-gate.mjs isolation
-      - run: npm run test:integration
+      - name: Integration tests
+        id: integration
+        run: npm run test:integration -- --reporter=default --reporter=json --outputFile=e2e-results/integration.json
+      - name: Integration acceptance (every test and every file ran and passed)
+        if: always() && steps.integration.outcome != 'skipped'
+        run: node scripts/ci-gate.mjs vitest e2e-results/integration.json --dir tests/integration .int.test.ts
 
       - name: Playwright browsers cache
         id: pw-cache

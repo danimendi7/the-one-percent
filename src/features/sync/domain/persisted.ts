@@ -27,7 +27,9 @@ export function upgradePersisted(raw: unknown, today: LocalDate): PersistedSync 
     ? (raw.closeIntents.filter((c) => isObject(c) && typeof c.id === "string" && typeof c.kind === "string" && typeof c.periodStart === "string") as CloseIntent[])
     : []
   const resolvedNotes = Array.isArray(raw.resolvedNotes) ? raw.resolvedNotes.filter((r): r is string => typeof r === "string") : []
-  const notes = { pendingNotes, resolvedNotes, closeIntents }
+  // Ops other tabs already removed from the shared queue (M3.4d): dropping this list let a tab send them again.
+  const goneOps = Array.isArray(raw.goneOps) ? raw.goneOps.filter((r): r is string => typeof r === "string") : []
+  const notes = { pendingNotes, resolvedNotes, closeIntents, goneOps }
   if (!isObject(raw.cache) || !isObject(raw.cache.state)) {
     return queue.length || pendingNotes.length || closeIntents.length ? { cache: emptyCache(today), queue, ...notes } : null
   }

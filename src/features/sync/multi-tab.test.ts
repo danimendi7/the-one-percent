@@ -159,3 +159,92 @@ describe("several tabs over one device copy", () => {
     expect(c.engine.getSnapshot().state.reviews[reviewKey("week", WEEK)]?.content).toEqual({ wins: "Leí cada día", lessons: "Menos móvil" })
   })
 })
+
+describe("the list of removed ops is shared through the device copy", () => {
+  it("a tab closed right after sending: the other tab neither sends it again nor writes it back", async () => {
+    const w = world()
+    await withHabit(w)
+    const a = await tab(w)
+    const b = await tab(w)
+    a.transport.online = false
+    b.transport.online = false
+    const op = mark(a.engine, "2026-10-27")
+    a.engine.submit(op)
+    await settle(a.engine)
+    b.engine.saveReview("week", WEEK, { "content.wins": "Leí" })
+    await settle(b.engine) // B adopts A's write
+    a.transport.online = true
+    await settle(a.engine) // A sends it, records it as removed and is closed
+    a.engine.stop()
+    expect(w.storage.data?.goneOps).toContain(op.op_id)
+
+    // B writes again (offline): it must read A's list from the device copy and drop the op.
+    b.engine.saveReview("week", WEEK, { "content.lessons": "Menos móvil" })
+    await settle(b.engine)
+    expect(w.storage.data?.queue.map((q) => q.op.op_id)).not.toContain(op.op_id)
+    const sent: Op[][] = []
+    b.transport.beforeApply = (ops) => sent.push(ops)
+    b.transport.online = true
+    await settle(b.engine)
+    expect(sent.flat().map((o) => o.op_id)).not.toContain(op.op_id)
+    expect(w.server.applied.get(op.op_id)).toBe(1)
+  })
+})
+
+describe("two tabs saving at the same instant", () => {
+  /** Device copy with real latency between read and write, like IndexedDB. */
+  function slowStorage() {
+    const s = memoryStorage()
+    const delay = () => new Promise((r) => setTimeout(r, 5))
+    return {
+      data: () => s.data,
+      load: async () => {
+        await delay()
+        return s.load()
+      },
+      save: async (d: Parameters<typeof s.save>[0]) => {
+        await delay()
+        return s.save(d)
+      },
+    }
+  }
+  /** The browser's Web Lock, as a promise chain. */
+  function mutex() {
+    let tail: Promise<unknown> = Promise.resolve()
+    return <T,>(fn: () => Promise<T>): Promise<T> => {
+      const run = tail.then(fn, fn)
+      tail = run.catch(() => {})
+      return run
+    }
+  }
+
+  async function race(lock: (<T>(fn: () => Promise<T>) => Promise<T>) | undefined) {
+    const clock = { now: T0 }
+    const server = new FakeServer(TODAY, () => clock.now)
+    const storage = slowStorage()
+    const open = async () => {
+      const transport = fakeTransport(server)
+      transport.online = false
+      const engine = new SyncEngine({ transport, storage, deviceId: "dev-shared", now: () => clock.now, schedule: () => () => {}, lock })
+      await engine.start()
+      return engine
+    }
+    const a = await open()
+    const b = await open()
+    // Both tabs write offline in the same tick: their read-merge-write of the device copy overlap.
+    a.saveReview("week", WEEK, { "content.wins": "Pestaña 1" })
+    b.saveReview("week", "2026-10-12", { "content.wins": "Pestaña 2" })
+    await new Promise((r) => setTimeout(r, 100))
+    a.stop()
+    b.stop()
+    return (storage.data()?.queue ?? []).map((q) => (q.op.type === "review.save" ? q.op.fields["content.wins"] : null)).sort()
+  }
+
+  it("without the lock the overlapping saves can drop one tab's write from the device copy (why the lock exists)", async () => {
+    expect(await race(undefined)).toHaveLength(1)
+  })
+
+  it("with the lock both writes are on the device copy", async () => {
+    expect(await race(mutex())).toEqual(["Pestaña 1", "Pestaña 2"])
+  })
+})

@@ -12,6 +12,11 @@
  *     passed. With --all-specs, every e2e/*.spec.ts (except smoke and screenshots) must have passed
  *     at least one test, so a spec that silently stops running also fails the gate.
  *
+ *   node scripts/ci-gate.mjs vitest <vitest.json> [--dir <dir> <suffix>]
+ *     Unit / integration criterion (M3.4e): every test passed, none failed, skipped, todo or left
+ *     unfinished, and every test file passed. With --dir, every <dir>/*<suffix> file must be in the
+ *     report: a file that silently stops running (the local 81/84 of M3.4c) fails the gate.
+ *
  *   node scripts/ci-gate.mjs scan <dir>...
  *     Removes any file that contains a key of the local stack before the artifacts are uploaded.
  *
@@ -124,6 +129,41 @@ function report() {
   finish()
 }
 
+function vitest() {
+  const [file, ...flags] = args
+  const label = file ? basename(file) : "?"
+  if (!file || !existsSync(file)) {
+    summary.push(`### Vitest`, `No hay informe en \`${file}\`: la suite no llegó a ejecutarse.`)
+    problems.push("sin informe de Vitest")
+    return finish()
+  }
+  const j = JSON.parse(readFileSync(file, "utf8"))
+  const total = j.numTotalTests ?? 0
+  const passed = j.numPassedTests ?? 0
+  const unfinished = total - passed - (j.numFailedTests ?? 0) - (j.numPendingTests ?? 0) - (j.numTodoTests ?? 0)
+  summary.push(
+    `### Vitest · \`${label}\``,
+    "| Superadas | Total | Fallidas | Omitidas | Pendientes | Sin terminar | Ficheros |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    `| ${passed} | ${total} | ${j.numFailedTests ?? 0} | ${j.numPendingTests ?? 0} | ${j.numTodoTests ?? 0} | ${unfinished} | ${(j.testResults ?? []).length} |`,
+  )
+  if (!j.success) problems.push("Vitest no terminó con éxito")
+  if (total === 0) problems.push("ninguna prueba ejecutada")
+  if (passed !== total) problems.push(`${total - passed} de ${total} pruebas no se superaron (fallidas, omitidas o sin terminar)`)
+  const badFiles = (j.testResults ?? []).filter((r) => r.status !== "passed").map((r) => basename(r.name))
+  if (badFiles.length) problems.push(`ficheros sin superar: ${badFiles.join(", ")}`)
+  const i = flags.indexOf("--dir")
+  if (i >= 0) {
+    const [dir, suffix] = [flags[i + 1], flags[i + 2]]
+    const ran = new Set((j.testResults ?? []).filter((r) => r.status === "passed").map((r) => basename(r.name)))
+    const expected = readdirSync(dir).filter((f) => f.endsWith(suffix))
+    const missing = expected.filter((f) => !ran.has(f))
+    summary.push("", `Ficheros superados: ${expected.length - missing.length}/${expected.length}`)
+    if (missing.length) problems.push(`ficheros sin superar o sin informe: ${missing.join(", ")}`)
+  }
+  finish()
+}
+
 function scan() {
   let secrets = []
   try {
@@ -152,7 +192,8 @@ function scan() {
 if (mode === "isolation") isolation()
 else if (mode === "report") report()
 else if (mode === "scan") scan()
+else if (mode === "vitest") vitest()
 else {
-  console.error("Uso: ci-gate.mjs isolation | report <json> [--all-specs] | scan <dir>...")
+  console.error("Uso: ci-gate.mjs isolation | report <json> [--all-specs] | vitest <json> [--dir <dir> <suffix>] | scan <dir>...")
   process.exit(2)
 }
