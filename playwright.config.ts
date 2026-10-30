@@ -10,6 +10,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // Reports never carry git metadata (author and committer emails): CI artifacts hold no personal data (M3.4e).
+  captureGitInfo: { commit: false, diff: false },
   // CI keeps a JSON report too: scripts/ci-gate.mjs applies the acceptance criterion to it (D48).
   reporter: process.env.CI
     ? [["github"], ["list"], ["html", { open: "never" }], ["json", { outputFile: "e2e-results/e2e.json" }]]

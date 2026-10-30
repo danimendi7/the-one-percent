@@ -181,4 +181,28 @@ test.describe("deployment smoke", () => {
     await expect(page.getByRole("region", { name: /^Mente y energía/ }).getByText("Descriptivo, no causal")).toBeVisible()
     expect(errors.filter((e) => /Content Security Policy|Refused to|Hydration/i.test(e))).toEqual([])
   })
+
+  test("Life Review (demo): the week due, live figures, a reflection saved without a button, and the decision log", async ({ page }) => {
+    const errors: string[] = []
+    page.on("console", (m) => {
+      if (m.type() === "error") errors.push(m.text())
+    })
+    await page.clock.setFixedTime(new Date("2026-10-21T18:30:00+02:00"))
+    await page.goto("/login")
+    await page.getByRole("button", { name: "Explorar la demo sin cuenta" }).click()
+    await page.goto("/reviews")
+    await expect(page.getByTestId("review-now")).toContainText("Semana del 12 oct al 18 oct")
+    await page.getByTestId("review-now-open").click()
+    await expect(page.getByTestId("figures-habits")).toContainText(/\d+ de \d+ cumplidas/)
+    const steps = page.getByRole("navigation", { name: "Pasos de la revisión" })
+    if (await steps.isVisible()) await steps.getByRole("button", { name: /Reflexión/ }).click()
+    await page.getByTestId("review-wins").fill("Smoke: semana revisada")
+    await expect(page.getByTestId("review-save")).toContainText("Guardado en este navegador")
+    await page.reload()
+    if (await steps.isVisible()) await steps.getByRole("button", { name: /Reflexión/ }).click()
+    await expect(page.getByTestId("review-wins")).toHaveValue("Smoke: semana revisada")
+    await page.goto("/reviews/decisions")
+    await expect(page.getByTestId("decision-summary")).toContainText("evaluadas")
+    expect(errors.filter((e) => /Content Security Policy|Refused to|Hydration/i.test(e))).toEqual([])
+  })
 })
