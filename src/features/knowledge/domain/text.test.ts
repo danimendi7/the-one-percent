@@ -137,3 +137,11 @@ describe("highlight", () => {
     expect(highlight("hola", [])).toEqual([{ text: "hola", match: false }])
   })
 })
+
+describe("highlight · fast folding (M4e)", () => {
+  it("folds every character like the Unicode reference", async () => {
+    const { foldChar, foldCharSlow } = await import("./text")
+    const sample = "AZaz09 ÁÉÍÓÚÜÑáéíóúüñçÇàèìòùâêîôûäëïöÿãõåÅØøßŁłŠšŽžİıĞğ¿¡«»“”‘’—–…·€ºª😀́\t\n"
+    for (const ch of sample) expect(foldChar(ch, ch.codePointAt(0)!), JSON.stringify(ch)).toBe(foldCharSlow(ch))
+  })
+})

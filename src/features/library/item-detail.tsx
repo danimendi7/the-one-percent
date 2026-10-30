@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
-import { BookOpen, ExternalLink, Heart, Pencil, Plus, Trash2 } from "lucide-react"
+import { BookOpen, ExternalLink, Heart, Link2, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -20,6 +20,7 @@ import type { LibrarySnapshot } from "./store/types"
 import { NoteCard, QuickCapture, refusalText } from "./components/knowledge-notes"
 import { BackLink, BOOKS_HREF, CoverArt, itemHref, LIBRARY_HREF, PODCASTS_HREF, ProgressLine, RatingInput, showHref, StatusPill, SyncLine } from "./components/library-ui"
 import { LibraryConflicts, LibrarySyncBanner } from "./components/library-sync"
+import { Connections, KnowledgePicker } from "./components/knowledge-links"
 import { LibrarySkeleton, useContentForm } from "./library-views"
 
 function NotHere({ back }: { back: string }) {
@@ -133,6 +134,25 @@ function Chrome({ snap, back, children }: { snap: LibrarySnapshot; back: { href:
 export function ItemDetailFromUrl() {
   const id = useSearchParams().get("id") ?? ""
   return <ItemDetail key={id} id={id} />
+}
+
+/** A content's manual connections (M4e), with «Conectar con…». */
+function ItemConnections({ id, snap }: { id: string; snap: LibrarySnapshot }) {
+  const [linking, setLinking] = useState(false)
+  return (
+    <section aria-labelledby="item-conns" className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="item-conns" className="text-base font-semibold">
+          Conexiones
+        </h2>
+        <Button variant="outline" onClick={() => setLinking(true)} data-testid="item-connect">
+          <Link2 aria-hidden /> Conectar con…
+        </Button>
+      </div>
+      <Connections from={{ type: "item", id }} snap={snap} empty="Conecta este contenido con ideas, libros o episodios relacionados." />
+      {linking && <KnowledgePicker from={{ type: "item", id }} mode="link" snap={snap} open onOpenChange={setLinking} />}
+    </section>
+  )
 }
 
 /** One book or episode, its knowledge first, editing at hand. */
@@ -252,10 +272,11 @@ export function ItemDetail({ id }: { id: string }) {
               </section>
             ))
           )}
+          <ItemConnections id={id} snap={snap} />
           {related.length > 0 && (
             <section aria-labelledby="related" className="space-y-2">
               <h2 id="related" className="text-base font-semibold">
-                Relacionados
+                Relacionados por temas
               </h2>
               <ul className="panel divide-y divide-border/70 rounded-2xl">
                 {related.map((r) => (

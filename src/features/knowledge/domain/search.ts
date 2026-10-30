@@ -1,5 +1,5 @@
 import { cmp, normalize, tokenize, topicKeys as topicKeysOf } from "./text"
-import type { ApplicationStatus, ContentItem, EntityRef, KnowledgeNote, KnowledgeState, NoteType, PodcastShow } from "./types"
+import type { ApplicationStatus, ContentItem, ContentStatus, EntityRef, KnowledgeNote, KnowledgeState, NoteType, PodcastShow } from "./types"
 
 /**
  * Local knowledge search (D67): runs on the device copy, works offline and sends no query
@@ -9,6 +9,10 @@ import type { ApplicationStatus, ContentItem, EntityRef, KnowledgeNote, Knowledg
  * Reducers keep unchanged entities as the same object, so `buildIndex(state, previous)` updates
  * the previous index in place and only re-indexes what changed (measured in M4a: a full rebuild
  * after each edit was too slow on a throttled CPU with 5.000 notes).
+ *
+ * M4e: a note is also found by where it comes from (its content's title and authors, its show), at
+ * a low weight, so «attia zona» finds the Outlive note about zone 2. Its document therefore depends
+ * on its content and show: when those change, only their own notes are re-indexed.
  */
 
 type DocKind = EntityRef["type"]
@@ -17,9 +21,12 @@ interface Doc {
   ref: EntityRef
   /** Best weight of each token in the document. */
   weights: Map<string, number>
-  /** The entity (and, for an episode, its show) the document was built from. */
+  /** The entity the document was built from, and those it borrows text from (content, show). */
   source: object
-  dep: PodcastShow | undefined
+  dep1: object | undefined
+  dep2: object | undefined
+  /** Build in which the entity was last seen (stale documents are those of older builds). */
+  gen: number
 }
 
 export interface KnowledgeIndex {
@@ -27,10 +34,11 @@ export interface KnowledgeIndex {
   postings: Map<string, Map<string, number>>
   /** Unique tokens, sorted, for prefix lookup by binary search. */
   tokens: string[]
+  gen?: number
 }
 
 /** Field weights: a match in a title counts more than one in a long text. */
-const W = { title: 8, isbn: 8, creator: 5, topic: 5, subtitle: 4, publisher: 4, show: 3, label: 2, body: 1 } as const
+const W = { title: 8, isbn: 8, creator: 5, topic: 5, subtitle: 4, publisher: 4, show: 3, label: 2, body: 1, context: 0.5 } as const
 
 type Fields = [text: string | null | undefined, weight: number][]
 
@@ -64,9 +72,18 @@ function showFields(show: PodcastShow): Fields {
   return [[show.title, W.title], [show.publisher, W.publisher], ...show.topics.map((t): [string, number] => [t, W.topic]), [show.description, W.body]]
 }
 
-function noteFields(note: KnowledgeNote): Fields {
-  return [[note.body, W.body], ...note.topics.map((t): [string, number] => [t, W.topic]), [note.locator?.label, W.label]]
+function noteFields(note: KnowledgeNote, item: ContentItem | undefined, show: PodcastShow | undefined): Fields {
+  return [
+    [note.body, W.body],
+    ...note.topics.map((t): [string, number] => [t, W.topic]),
+    [note.locator?.label, W.label],
+    // Where it comes from, weighted below its own words.
+    [item?.title, W.context],
+    ...(item?.creators ?? []).map((c): [string, number] => [c, W.context]),
+    [show?.title, W.context],
+  ]
 }
+
 
 const key = (type: DocKind, id: string) => `${type}:${id}`
 
@@ -76,11 +93,31 @@ const key = (type: DocKind, id: string) => `${type}:${id}`
  * re-tokenised and removed ones dropped. Pass `previous` only for an index of this same dataset.
  */
 export function buildIndex(state: KnowledgeState, previous?: KnowledgeIndex): KnowledgeIndex {
+  const b = indexBuilder(state, previous)
+  b.step(() => false)
+  return b.index
+}
+
+export interface IndexBuilder {
+  /** The index being built; complete (and searchable) once `step` has returned true. */
+  readonly index: KnowledgeIndex
+  /** Share of the entities done, from 0 to 1. */
+  readonly progress: number
+  /** Indexes entities until `yieldNow()` says to stop; returns true when the index is complete. */
+  step(yieldNow: () => boolean): boolean
+}
+
+/**
+ * The same work as `buildIndex`, in slices (M4e): the first build of a large library took 1,2 s
+ * on a 4× slower CPU with 5.000 notes, so the screen builds it a few milliseconds at a time and
+ * stays responsive. The result is identical to `buildIndex(state, previous)`.
+ */
+export function indexBuilder(state: KnowledgeState, previous?: KnowledgeIndex): IndexBuilder {
   const index: KnowledgeIndex = previous ?? { docs: new Map(), postings: new Map(), tokens: [] }
   const { docs, postings } = index
   const added = new Set<string>()
-  let removedTokens = false
-  const seen = new Set<string>()
+  const removed = new Set<string>()
+  const gen = (index.gen = (index.gen ?? 0) + 1)
 
   const drop = (k: string, doc: Doc) => {
     for (const t of doc.weights.keys()) {
@@ -89,41 +126,92 @@ export function buildIndex(state: KnowledgeState, previous?: KnowledgeIndex): Kn
       p.delete(k)
       if (p.size === 0) {
         postings.delete(t)
-        removedTokens = true
+        if (added.has(t)) added.delete(t)
+        else removed.add(t)
       }
     }
     docs.delete(k)
   }
-  const put = (ref: EntityRef, source: object, dep: PodcastShow | undefined, fields: () => Fields) => {
-    const k = key(ref.type, ref.id)
-    seen.add(k)
+  const put = (type: DocKind, id: string, source: object, dep1: object | undefined, dep2: object | undefined, fields: () => Fields) => {
+    const k = type + ":" + id
     const old = docs.get(k)
-    if (old && old.source === source && old.dep === dep) return
+    if (old && old.source === source && old.dep1 === dep1 && old.dep2 === dep2) {
+      old.gen = gen
+      return
+    }
     if (old) drop(k, old)
     const weights = weigh(fields())
-    docs.set(k, { ref, weights, source, dep })
+    docs.set(k, { ref: { type, id }, weights, source, dep1, dep2, gen })
     for (const [t, w] of weights) {
       let p = postings.get(t)
       if (!p) {
         postings.set(t, (p = new Map()))
-        added.add(t)
+        if (removed.has(t)) removed.delete(t)
+        else added.add(t)
       }
       p.set(k, w)
     }
   }
 
-  for (const s of Object.values(state.shows)) put({ type: "show", id: s.id }, s, undefined, () => showFields(s))
-  for (const i of Object.values(state.items)) {
-    const show = i.kind === "episode" && i.episode.showId ? state.shows[i.episode.showId] : undefined
-    put({ type: "item", id: i.id }, i, show, () => itemFields(i, show))
+  const showOf = (i: ContentItem | undefined) => (i?.kind === "episode" && i.episode.showId ? state.shows[i.episode.showId] : undefined)
+  // A cursor over the three lists (no per-entity allocation: an incremental update walks them all).
+  const shows = Object.values(state.shows)
+  const items = Object.values(state.items)
+  const notes = Object.values(state.notes)
+  const total = shows.length + items.length + notes.length
+  const one = (at: number) => {
+    if (at < shows.length) {
+      const sh = shows[at]
+      return put("show", sh.id, sh, undefined, undefined, () => showFields(sh))
+    }
+    at -= shows.length
+    if (at < items.length) {
+      const i = items[at]
+      const show = showOf(i)
+      return put("item", i.id, i, show, undefined, () => itemFields(i, show))
+    }
+    const n = notes[at - items.length]
+    const item = n.itemId ? state.items[n.itemId] : undefined
+    const show = showOf(item)
+    put("note", n.id, n, item, show, () => noteFields(n, item, show))
   }
-  for (const n of Object.values(state.notes)) put({ type: "note", id: n.id }, n, undefined, () => noteFields(n))
-  if (previous) for (const [k, doc] of [...docs]) if (!seen.has(k)) drop(k, doc)
+  let next = 0
+  let done = false
 
-  if (!previous) index.tokens = [...postings.keys()].sort()
-  else if (removedTokens || added.size > 64) index.tokens = [...postings.keys()].sort()
-  else for (const t of added) index.tokens.splice(lowerBound(index.tokens, t), 0, t)
-  return index
+  const finish = () => {
+    if (previous) {
+      const stale: [string, Doc][] = []
+      for (const e of docs) if (e[1].gen !== gen) stale.push(e)
+      for (const [k, doc] of stale) drop(k, doc)
+    }
+    // Few changes (an edit) splice the sorted token list; many (a first build) sort it once.
+    if (!previous || added.size + removed.size > 64) index.tokens = [...postings.keys()].sort()
+    else {
+      for (const t of removed) {
+        const at = lowerBound(index.tokens, t)
+        if (index.tokens[at] === t) index.tokens.splice(at, 1)
+      }
+      for (const t of added) index.tokens.splice(lowerBound(index.tokens, t), 0, t)
+    }
+    done = true
+  }
+
+  return {
+    index,
+    get progress() {
+      return total ? next / total : 1
+    },
+    step(yieldNow) {
+      if (done) return true
+      while (next < total) {
+        one(next++)
+        // Check the clock every 16 entities, not on each one.
+        if ((next & 15) === 0 && yieldNow()) return false
+      }
+      finish()
+      return true
+    },
+  }
 }
 
 /** Query terms: normalised words; single letters are dropped («y», «a»), single digits are kept. */
@@ -167,6 +255,10 @@ export interface KnowledgeFilters {
   showId?: string
   /** Notes whose content is rated at least this (free notes never match). */
   minRating?: number
+  /** Notes of a content in one of these states (free notes never match). */
+  contentStatus?: ContentStatus[]
+  /** Notes of a favourite content. */
+  favorite?: boolean
   starred?: boolean
   applicationStatus?: ApplicationStatus[]
   /** Creation instants (ISO), inclusive bounds. */
@@ -212,6 +304,8 @@ function noteMatches(state: KnowledgeState, n: KnowledgeNote, f: KnowledgeFilter
   const item = n.itemId ? state.items[n.itemId] : undefined
   if (f.showId && !(item?.kind === "episode" && item.episode.showId === f.showId)) return false
   if (f.minRating != null && (item?.rating ?? 0) < f.minRating) return false
+  if (f.contentStatus?.length && !(item && f.contentStatus.includes(item.status))) return false
+  if (f.favorite && !item?.favorite) return false
   if (topicKeys) {
     // A note carries its own topics and inherits its content's (and its show's).
     const show = item?.kind === "episode" && item.episode.showId ? state.shows[item.episode.showId] : undefined
@@ -223,7 +317,7 @@ function noteMatches(state: KnowledgeState, n: KnowledgeNote, f: KnowledgeFilter
 
 /** True when a filter only makes sense for notes, so content and shows are left out of the results. */
 function noteOnly(f: KnowledgeFilters): boolean {
-  return !!(f.noteTypes?.length || f.formats?.length || f.itemId !== undefined || f.starred || f.applicationStatus?.length || f.since || f.until || f.showId || f.minRating != null || f.topics?.length)
+  return !!(f.noteTypes?.length || f.formats?.length || f.itemId !== undefined || f.starred || f.applicationStatus?.length || f.since || f.until || f.showId || f.minRating != null || f.contentStatus?.length || f.favorite || f.topics?.length)
 }
 
 export function search(state: KnowledgeState, index: KnowledgeIndex, q: SearchQuery): SearchResult {
@@ -281,4 +375,29 @@ export function search(state: KnowledgeState, index: KnowledgeIndex, q: SearchQu
     shows: shows.slice(0, limit),
     total: { notes: notes.length, items: items.length, shows: shows.length },
   }
+}
+
+export type MatchField = "text" | "topics" | "locator" | "source"
+
+/**
+ * Why a note matched (shown under the result): its own text, its topics, its locator label, or
+ * only where it comes from (content title, authors, show). Each term counts as a word or a prefix,
+ * like the index.
+ */
+export function explainMatch(state: KnowledgeState, note: KnowledgeNote, terms: readonly string[]): MatchField[] {
+  if (!terms.length) return []
+  const item = note.itemId ? state.items[note.itemId] : undefined
+  const show = item?.kind === "episode" && item.episode.showId ? state.shows[item.episode.showId] : undefined
+  const fields: [MatchField, (string | null | undefined)[]][] = [
+    ["text", [note.body]],
+    ["topics", note.topics],
+    ["locator", [note.locator?.label]],
+    ["source", [item?.title, ...(item?.creators ?? []), show?.title]],
+  ]
+  const out: MatchField[] = []
+  for (const [field, texts] of fields) {
+    const tokens = texts.flatMap((t) => (t ? tokenize(t) : []))
+    if (terms.some((term) => tokens.some((tok) => tok.startsWith(term)))) out.push(field)
+  }
+  return out
 }

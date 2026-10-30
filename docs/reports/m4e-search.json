@@ -1,0 +1,480 @@
+{
+  "date": "2026-10-30T16:02:35.303Z",
+  "env": {
+    "chromium": "156.0.8078.4",
+    "cpu": "AMD Ryzen 5 7535HS with Radeon Graphics        ",
+    "cores": 12,
+    "ramGB": 15,
+    "node": "v24.15.0"
+  },
+  "runs": [
+    {
+      "size": "5k",
+      "cpuThrottle": 1,
+      "notes": 5000,
+      "items": 560,
+      "generateMs": 56.700000047683716,
+      "index": {
+        "coldMs": 183.79999995231628,
+        "docs": 5600,
+        "tokens": 12791
+      },
+      "sliced": {
+        "totalMs": 188.90000009536743,
+        "slices": 23,
+        "longestSliceMs": 8.800000190734863,
+        "sliceBudgetMs": 8
+      },
+      "incremental": {
+        "editNoteMs": 5,
+        "moveNoteMs": 4,
+        "renameContentMs": 6.200000047683716,
+        "renamedNotes": 18
+      },
+      "queries": {
+        "palabra frecuente (atención)": {
+          "median": 0.6000001430511475,
+          "p95": 2.1999998092651367,
+          "max": 5.1000001430511475,
+          "runs": 30,
+          "hits": 1012
+        },
+        "dos palabras (hábito sueño)": {
+          "median": 0.5,
+          "p95": 0.7000000476837158,
+          "max": 30.40000009536743,
+          "runs": 30,
+          "hits": 348
+        },
+        "tres palabras (método práctica memoria)": {
+          "median": 0.3000001907348633,
+          "p95": 0.5999999046325684,
+          "max": 0.5999999046325684,
+          "runs": 30,
+          "hits": 140
+        },
+        "palabra rara (tensiocuna)": {
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "runs": 30,
+          "hits": 1
+        },
+        "prefijo corto (en)": {
+          "median": 1.7999999523162842,
+          "p95": 2.5999999046325684,
+          "max": 5.099999904632568,
+          "runs": 30,
+          "hits": 2608
+        },
+        "sin resultados (xqzw)": {
+          "median": 0,
+          "p95": 0,
+          "max": 0.09999990463256836,
+          "runs": 30,
+          "hits": 0
+        }
+      },
+      "typing": {
+        "median": 3.8999998569488525,
+        "p95": 5.6000001430511475,
+        "max": 8.299999952316284,
+        "runs": 42
+      },
+      "combined": {
+        "libros + idea + valoración ≥ 7": {
+          "median": 1.2000000476837158,
+          "p95": 1.7000000476837158,
+          "max": 2.4000000953674316,
+          "runs": 30,
+          "hits": 119
+        },
+        "tema + estado del contenido + favoritos": {
+          "median": 1.6000001430511475,
+          "p95": 2.3999998569488525,
+          "max": 2.4000000953674316,
+          "runs": 30,
+          "hits": 34
+        },
+        "aplicaciones pendientes o en marcha, último año": {
+          "median": 1,
+          "p95": 1.2000000476837158,
+          "max": 1.4000000953674316,
+          "runs": 30,
+          "hits": 12
+        },
+        "texto + podcasts + tema": {
+          "median": 3.5,
+          "p95": 4.300000190734863,
+          "max": 4.5,
+          "runs": 30,
+          "hits": 70
+        }
+      },
+      "memoryMB": {
+        "state": 0,
+        "index": 0,
+        "note": "Aproximada: diferencia de performance.memory sin forzar la recogida de basura (solo Chromium)."
+      },
+      "storage": {
+        "writeMs": 121.20000004768372,
+        "readMs": 37,
+        "rows": 5000,
+        "deleted": true
+      },
+      "heapAfterGcMB": 19.82296371459961,
+      "syntheticDbLeftOver": false
+    },
+    {
+      "size": "5k",
+      "cpuThrottle": 4,
+      "notes": 5000,
+      "items": 560,
+      "generateMs": 385,
+      "index": {
+        "coldMs": 1141.5,
+        "docs": 5600,
+        "tokens": 12791
+      },
+      "sliced": {
+        "totalMs": 1337.7000000476837,
+        "slices": 130,
+        "longestSliceMs": 18.299999952316284,
+        "sliceBudgetMs": 8
+      },
+      "incremental": {
+        "editNoteMs": 24,
+        "moveNoteMs": 36.5,
+        "renameContentMs": 65.29999995231628,
+        "renamedNotes": 18
+      },
+      "queries": {
+        "palabra frecuente (atención)": {
+          "median": 10.299999952316284,
+          "p95": 21.100000143051147,
+          "max": 53.10000014305115,
+          "runs": 30,
+          "hits": 1012
+        },
+        "dos palabras (hábito sueño)": {
+          "median": 5.799999952316284,
+          "p95": 10.899999856948853,
+          "max": 11,
+          "runs": 30,
+          "hits": 348
+        },
+        "tres palabras (método práctica memoria)": {
+          "median": 4.5,
+          "p95": 5.400000095367432,
+          "max": 5.700000047683716,
+          "runs": 30,
+          "hits": 140
+        },
+        "palabra rara (tensiocuna)": {
+          "median": 0,
+          "p95": 0.10000014305114746,
+          "max": 0.19999980926513672,
+          "runs": 30,
+          "hits": 1
+        },
+        "prefijo corto (en)": {
+          "median": 29.5,
+          "p95": 36.60000014305115,
+          "max": 38.60000014305115,
+          "runs": 30,
+          "hits": 2608
+        },
+        "sin resultados (xqzw)": {
+          "median": 0,
+          "p95": 0.2999999523162842,
+          "max": 0.7999999523162842,
+          "runs": 30,
+          "hits": 0
+        }
+      },
+      "typing": {
+        "median": 42.09999990463257,
+        "p95": 67.10000014305115,
+        "max": 79.89999985694885,
+        "runs": 42
+      },
+      "combined": {
+        "libros + idea + valoración ≥ 7": {
+          "median": 15.400000095367432,
+          "p95": 21.09999990463257,
+          "max": 22,
+          "runs": 30,
+          "hits": 119
+        },
+        "tema + estado del contenido + favoritos": {
+          "median": 18,
+          "p95": 25.5,
+          "max": 26.700000047683716,
+          "runs": 30,
+          "hits": 34
+        },
+        "aplicaciones pendientes o en marcha, último año": {
+          "median": 11.899999856948853,
+          "p95": 15.200000047683716,
+          "max": 15.700000047683716,
+          "runs": 30,
+          "hits": 12
+        },
+        "texto + podcasts + tema": {
+          "median": 43.799999952316284,
+          "p95": 47.700000047683716,
+          "max": 48.5,
+          "runs": 30,
+          "hits": 70
+        }
+      },
+      "memoryMB": {
+        "state": 0,
+        "index": 0,
+        "note": "Aproximada: diferencia de performance.memory sin forzar la recogida de basura (solo Chromium)."
+      },
+      "storage": {
+        "writeMs": 967.7999999523163,
+        "readMs": 83,
+        "rows": 5000,
+        "deleted": true
+      },
+      "heapAfterGcMB": 19.844051361083984,
+      "syntheticDbLeftOver": false
+    },
+    {
+      "size": "10k",
+      "cpuThrottle": 1,
+      "notes": 10000,
+      "items": 560,
+      "generateMs": 89.20000004768372,
+      "index": {
+        "coldMs": 330.7999999523163,
+        "docs": 10600,
+        "tokens": 13020
+      },
+      "sliced": {
+        "totalMs": 291.7999999523163,
+        "slices": 35,
+        "longestSliceMs": 10.900000095367432,
+        "sliceBudgetMs": 8
+      },
+      "incremental": {
+        "editNoteMs": 8,
+        "moveNoteMs": 6.799999952316284,
+        "renameContentMs": 10,
+        "renamedNotes": 30
+      },
+      "queries": {
+        "palabra frecuente (atención)": {
+          "median": 1.5999999046325684,
+          "p95": 4.300000190734863,
+          "max": 4.5,
+          "runs": 30,
+          "hits": 2053
+        },
+        "dos palabras (hábito sueño)": {
+          "median": 1,
+          "p95": 1.3999998569488525,
+          "max": 2.700000047683716,
+          "runs": 30,
+          "hits": 686
+        },
+        "tres palabras (método práctica memoria)": {
+          "median": 0.8000001907348633,
+          "p95": 1.2999999523162842,
+          "max": 1.3999998569488525,
+          "runs": 30,
+          "hits": 289
+        },
+        "palabra rara (briquebrique)": {
+          "median": 0,
+          "p95": 0.09999990463256836,
+          "max": 0.10000014305114746,
+          "runs": 30,
+          "hits": 1
+        },
+        "prefijo corto (en)": {
+          "median": 3.5,
+          "p95": 4.5,
+          "max": 6.400000095367432,
+          "runs": 30,
+          "hits": 5176
+        },
+        "sin resultados (xqzw)": {
+          "median": 0,
+          "p95": 0,
+          "max": 0.10000014305114746,
+          "runs": 30,
+          "hits": 0
+        }
+      },
+      "typing": {
+        "median": 4.299999952316284,
+        "p95": 8.099999904632568,
+        "max": 10,
+        "runs": 42
+      },
+      "combined": {
+        "libros + idea + valoración ≥ 7": {
+          "median": 2.4000000953674316,
+          "p95": 3.6000001430511475,
+          "max": 3.700000047683716,
+          "runs": 30,
+          "hits": 229
+        },
+        "tema + estado del contenido + favoritos": {
+          "median": 3,
+          "p95": 4,
+          "max": 4.299999952316284,
+          "runs": 30,
+          "hits": 50
+        },
+        "aplicaciones pendientes o en marcha, último año": {
+          "median": 2,
+          "p95": 2.9000000953674316,
+          "max": 2.9000000953674316,
+          "runs": 30,
+          "hits": 23
+        },
+        "texto + podcasts + tema": {
+          "median": 4,
+          "p95": 5.299999952316284,
+          "max": 5.400000095367432,
+          "runs": 30,
+          "hits": 125
+        }
+      },
+      "memoryMB": {
+        "state": 0,
+        "index": 0,
+        "note": "Aproximada: diferencia de performance.memory sin forzar la recogida de basura (solo Chromium)."
+      },
+      "storage": {
+        "writeMs": 531.9000000953674,
+        "readMs": 98,
+        "rows": 10000,
+        "deleted": true
+      },
+      "heapAfterGcMB": 36.05915832519531,
+      "syntheticDbLeftOver": false
+    },
+    {
+      "size": "10k",
+      "cpuThrottle": 4,
+      "notes": 10000,
+      "items": 560,
+      "generateMs": 599.4000000953674,
+      "index": {
+        "coldMs": 2500,
+        "docs": 10600,
+        "tokens": 13020
+      },
+      "sliced": {
+        "totalMs": 3617.0999999046326,
+        "slices": 324,
+        "longestSliceMs": 39.799999952316284,
+        "sliceBudgetMs": 8
+      },
+      "incremental": {
+        "editNoteMs": 65.59999990463257,
+        "moveNoteMs": 62.59999990463257,
+        "renameContentMs": 81.20000004768372,
+        "renamedNotes": 30
+      },
+      "queries": {
+        "palabra frecuente (atención)": {
+          "median": 17.200000047683716,
+          "p95": 25,
+          "max": 37.799999952316284,
+          "runs": 30,
+          "hits": 2053
+        },
+        "dos palabras (hábito sueño)": {
+          "median": 8.799999952316284,
+          "p95": 16.200000047683716,
+          "max": 18.59999990463257,
+          "runs": 30,
+          "hits": 686
+        },
+        "tres palabras (método práctica memoria)": {
+          "median": 7,
+          "p95": 9.200000047683716,
+          "max": 10.599999904632568,
+          "runs": 30,
+          "hits": 289
+        },
+        "palabra rara (briquebrique)": {
+          "median": 0,
+          "p95": 0.10000014305114746,
+          "max": 0.20000004768371582,
+          "runs": 30,
+          "hits": 1
+        },
+        "prefijo corto (en)": {
+          "median": 46.09999990463257,
+          "p95": 57.40000009536743,
+          "max": 64.19999980926514,
+          "runs": 30,
+          "hits": 5176
+        },
+        "sin resultados (xqzw)": {
+          "median": 0,
+          "p95": 0.20000004768371582,
+          "max": 0.5999999046325684,
+          "runs": 30,
+          "hits": 0
+        }
+      },
+      "typing": {
+        "median": 46.700000047683716,
+        "p95": 87,
+        "max": 100.59999990463257,
+        "runs": 42
+      },
+      "combined": {
+        "libros + idea + valoración ≥ 7": {
+          "median": 29.299999952316284,
+          "p95": 40.39999985694885,
+          "max": 41.5,
+          "runs": 30,
+          "hits": 229
+        },
+        "tema + estado del contenido + favoritos": {
+          "median": 36,
+          "p95": 48.19999980926514,
+          "max": 48.200000047683716,
+          "runs": 30,
+          "hits": 50
+        },
+        "aplicaciones pendientes o en marcha, último año": {
+          "median": 24.5,
+          "p95": 32,
+          "max": 34.5,
+          "runs": 30,
+          "hits": 23
+        },
+        "texto + podcasts + tema": {
+          "median": 49.5,
+          "p95": 52.90000009536743,
+          "max": 61.5,
+          "runs": 30,
+          "hits": 125
+        }
+      },
+      "memoryMB": {
+        "state": 0,
+        "index": 0,
+        "note": "Aproximada: diferencia de performance.memory sin forzar la recogida de basura (solo Chromium)."
+      },
+      "storage": {
+        "writeMs": 1988.8999998569489,
+        "readMs": 145.39999985694885,
+        "rows": 10000,
+        "deleted": true
+      },
+      "heapAfterGcMB": 36.11677169799805,
+      "syntheticDbLeftOver": false
+    }
+  ]
+}

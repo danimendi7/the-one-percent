@@ -117,3 +117,36 @@ export function relatedByTopics(state: KnowledgeState, itemId: string, limit = 6
   }
   return out.sort((a, b) => b.shared.length - a.shared.length || cmp(b.item.updatedAt, a.item.updatedAt)).slice(0, limit)
 }
+
+/** A note's topics: its own, then its content's and (for an episode) its show's. */
+export function noteTopics(state: KnowledgeState, note: KnowledgeNote): string[] {
+  const item = note.itemId ? state.items[note.itemId] : undefined
+  return [...note.topics, ...(item ? topicsOf(state, item) : [])]
+}
+
+export interface RelatedNote {
+  note: KnowledgeNote
+  /** The topics both share, in this note's spelling (the explanation shown to the user). */
+  shared: string[]
+}
+
+/**
+ * Notes related to a note by shared topics (own or inherited), without AI. Notes of the same
+ * content are left out (they are already together on its page), and so are linked ones (they
+ * show as manual links). Most shared topics first, then newest.
+ */
+export function relatedNotes(state: KnowledgeState, noteId: string, limit = 5): RelatedNote[] {
+  const note = state.notes[noteId]
+  if (!note) return []
+  const mine = new Map(noteTopics(state, note).map((t) => [normalize(t), t]))
+  if (!mine.size) return []
+  const linked = new Set(linkedTo(state, { type: "note", id: noteId }).map(refKey))
+  const out: RelatedNote[] = []
+  for (const other of Object.values(state.notes)) {
+    if (other.id === noteId || linked.has(`note:${other.id}`)) continue
+    if (note.itemId !== null && other.itemId === note.itemId) continue
+    const shared = [...new Set(noteTopics(state, other).map(normalize))].filter((k) => mine.has(k)).map((k) => mine.get(k)!)
+    if (shared.length) out.push({ note: other, shared })
+  }
+  return out.sort((a, b) => b.shared.length - a.shared.length || cmp(b.note.createdAt, a.note.createdAt)).slice(0, limit)
+}

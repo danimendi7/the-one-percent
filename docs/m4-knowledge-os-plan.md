@@ -2,9 +2,9 @@
 
 **Estado (30/10/2026)**:
 - **Arquitectura aprobada**, con 18 decisiones registradas como **D59–D69** en `docs/decisions.md`. La valoración pasa a ser **de 1 a 10**, no de 1 a 5 como se propuso.
-- **M4a, M4b, M4c y M4d hechas en local** (§16–§19; decisiones D73–D80). P14 y P16 aprobadas (D77 y D78).
+- **M4a, M4b, M4c, M4d y M4e hechas en local** (§16–§20; decisiones D73–D85). P14 y P16 aprobadas (D77 y D78).
 - N2 (D71) y N1 (D72) aprobadas.
-- **M4e no empieza sin tu autorización** (propuesta en §19.9). Nada de M4 está en la nube ni en producción.
+- **M4f no empieza sin tu autorización** (plan en §20.9). Nada de M4 está en la nube ni en producción.
 - Las propuestas aún abiertas siguen marcadas como **P** (§15 y §16.6).
 
 ---
@@ -1416,3 +1416,236 @@ Revisadas una a una: sin desbordamiento horizontal ni errores de consola.
 - coste de las relaciones con muchas notas.
 
 **Esfuerzo**: 2–2,5 días. Sin nube ni despliegue (eso es M4f).
+
+
+## 20. M4e · Búsqueda, filtros, conexiones y aplicaciones (30/10/2026, hecho en local)
+
+Decisiones nuevas: **D81** (arquitectura de búsqueda), **D82** (Cerebro en la URL), **D83** (conexiones y movimiento), **D84** (diagnóstico sintético) y **D85** (privacidad de la documentación). No cambian el protocolo de sincronización ni la base de datos, y no hay dependencias nuevas.
+
+### 20.1 Funcionalidades
+**Búsqueda en Cerebro**
+- Busca en:
+  - títulos y subtítulos;
+  - autores e invitados;
+  - programas y episodios;
+  - todos los tipos de nota (ideas, aprendizajes, citas y momentos destacados, preguntas, aplicaciones y notas personales);
+  - temas y etiquetas de referencia.
+- Cómo busca:
+  - sin conexión, sobre la copia del dispositivo;
+  - sin distinguir mayúsculas ni acentos;
+  - con varias palabras a la vez, cada una como palabra completa o como inicio de palabra;
+  - una nota también se encuentra por su origen, de modo que «attia zona» encuentra la nota de Outlive.
+- Cómo muestra los resultados:
+  - libros, episodios y programas aparte;
+  - coincidencias resaltadas;
+  - «Coincide en el texto y su origen» cuando hace falta explicarlo.
+- Cada resultado abre su ficha o la nota.
+- Textos vacíos o especiales no dan error.
+- La caja responde al instante (`useDeferredValue`) y la URL se actualiza a los 300 ms.
+
+**Filtros combinables** (hoja «Filtros» y chips con un toque para quitar cada uno):
+- origen (libros, podcasts o ideas sueltas);
+- tipo de nota;
+- tema;
+- valoración mínima;
+- favoritos y destacadas;
+- estado del libro o episodio;
+- fecha (7 días, 30 días o 12 meses);
+- estado de la aplicación.
+
+**Organización**
+- Agrupar por origen o por tema.
+- Todo vive en la URL: se conserva al recargar, al volver atrás y con un enlace directo.
+
+**Conexiones**
+- Desde el menú de cada nota, desde la nota abierta (`?nota=`) y desde la ficha:
+  - nota con nota;
+  - nota con libro, episodio o programa;
+  - contenido con contenido.
+- El selector busca con el mismo índice. Una fila conectada se marca, y pulsarla otra vez la desconecta.
+- Nunca aparecen la propia nota ni duplicados.
+- «Quitar conexión» tiene «Deshacer».
+- «Relacionadas por temas» explica qué temas comparten.
+
+**Mover una nota** a otro contenido, o convertirla en idea suelta, sin perder el texto ni las conexiones.
+
+**Aplicaciones** (`?vista=aplicaciones`)
+- Agrupadas por estado: Pendiente, En marcha, Hecha y Descartada.
+- Muestran su origen y se pueden filtrar.
+- El estado se cambia en la propia tarjeta.
+- No tocan hábitos ni objetivos.
+
+**Diagnóstico sintético**: `/dev/knowledge` (D84).
+
+### 20.2 Arquitectura de la búsqueda
+| Pieza | Dónde | Qué hace |
+|---|---|---|
+| Índice invertido | `knowledge/domain/search.ts` | Palabras normalizadas con peso por campo (título 8, autor y tema 5, texto 1, origen 0,5). Lista ordenada de palabras para buscar prefijos con búsqueda binaria |
+| Construcción por tramos | `indexBuilder` | Mismo resultado que `buildIndex`, en tramos que miran el reloj cada 16 entidades |
+| Actualización incremental | `buildIndex(state, previo)` | Las entidades sin cambios (mismo objeto, mismo origen) se saltan. Las obsoletas se detectan por generación, y las palabras se insertan o quitan sin reordenar |
+| Ciclo de vida | `library/search/use-knowledge-index.ts` | Un índice por fuente de datos, solo en memoria. Se construye cuando una pantalla lo pide, y una edición en una ficha no lo recalcula hasta que se vuelve a buscar |
+| Consulta | `search` + `brainFilters` | Todas las palabras deben coincidir (AND). Sin palabras, la lista se filtra sin índice |
+| Explicación y resaltado | `explainMatch` y `highlight` | Calculados solo para la página visible (60 notas) |
+
+### 20.3 Rendimiento
+Ejecutado con `npm run bench:search` en Chromium 156 sobre un Ryzen 5 7535HS. Resultados en `docs/reports/m4e-search.json`. La CPU ×4 es una aproximación de un móvil medio, no un móvil real.
+
+| Medida | 5.000 notas ×1 | 5.000 notas ×4 | 10.000 notas ×1 | 10.000 notas ×4 |
+|---|---|---|---|---|
+| **Tecleo completo** (búsqueda + explicación + resaltado de 60), p95 | 5,6 ms | **67 ms** ✓ | 8,1 ms | 87 ms ✓ |
+| Tecleo, peor caso | 8,3 ms | 80 ms | 10 ms | 101 ms |
+| Búsqueda sola, palabra frecuente, p95 | 2,2 ms | 21 ms | 4,3 ms | 25 ms |
+| Prefijo corto («en», 2.608 notas), p95 | 2,6 ms | 37 ms | 4,5 ms | 57 ms |
+| Filtros combinados con texto, p95 | 4,3 ms | 48 ms | 5,3 ms | 53 ms |
+| Índice en frío (de una vez) | 184 ms | 1.142 ms | 331 ms | 2.500 ms |
+| **Índice por tramos** (el que usa la app): total · tramo más largo | 189 ms · 8,8 ms | **1.338 ms · 18 ms** | 292 ms · 11 ms | 3.617 ms · 40 ms |
+| Incremental: editar · mover · renombrar un contenido | 5 · 4 · 6 ms | **24 · 37 · 65 ms** | 8 · 7 · 10 ms | 66 · 63 · 81 ms |
+| Memoria tras GC (estado e índice vivos) | 19,8 MB | 19,8 MB | 36,1 MB | 36,1 MB |
+
+**Cuellos de botella encontrados y resueltos antes de añadir complejidad**:
+1. **El resaltado** (normalización Unicode carácter a carácter) era la mayor parte de cada tecla. Ahora usa una vía rápida equivalente, con prueba de equivalencia. Antes: p95 de 94 ms con ×4.
+2. **La primera construcción** bloqueaba la página 1,2 s. Ahora va por tramos, con «Preparando la búsqueda… N %».
+3. **La actualización incremental** reservaba memoria por entidad y reordenaba 12.791 palabras. Ahora usa una generación y operaciones `splice`: con ×4 pasa de 76–147 ms a 24–65 ms.
+
+**Conclusión**: el objetivo (menos de 100 ms con 5.000 notas y ×4) se cumple sin Web Worker. Con 10.000 notas también, aunque justo. Si la biblioteca real se acerca a esa cifra, el siguiente paso sería un Worker solo para la primera construcción.
+
+**Variación**: entre ejecuciones del mismo equipo, las cifras con ×4 variaron hasta un ±30 % según la carga.
+
+### 20.4 Sincronización entre navegadores (cerrada)
+En `e2e/knowledge-live.spec.ts`: dos contextos autenticados en la misma cuenta, contra el stack local con realtime. Cada prueba exige **cero recargas** después de la carga inicial:
+1. Lo creado en A aparece en B; lo editado en B se actualiza en A; lo borrado en A desaparece de B. Los estados se muestran correctos. **Latencia medida**: alta 1,9 s, edición 1,9 s y borrado 1,9 s (realtime más la descarga agrupada de 1,5 s).
+2. B sin conexión mientras ambos escriben:
+   - B muestra «se enviará al recuperar la conexión»;
+   - al volver la conexión, cada cambio llega una vez (2 operaciones `create`);
+   - los dos navegadores convergen.
+3. La misma nota editada en los dos:
+   - B conserva ambas versiones hasta que decide;
+   - la nota dice «Hay otra versión: decide cuál se queda»;
+   - «Guardar las dos» llega a A sin recargar.
+4. Una conexión y un movimiento hechos en A aparecen en B. El servidor guarda un solo enlace y el nuevo `item_id`, y la conexión sobrevive al movimiento.
+
+**No apareció ningún fallo del motor realtime**: no hubo que tocar el motor ni el protocolo.
+
+### 20.5 Resultados de las pruebas (30/10/2026)
+| Prueba | Resultado |
+|---|---|
+| `npm run check` (tipos, lint y unitarias) | 45 archivos, **511/511**. Nuevas: búsqueda por origen, filtros, `explainMatch`, relacionadas, construcción por tramos, equivalencia incremental tras 40 ediciones, resaltado y URL de Cerebro |
+| Integración con PostgreSQL local | 8 archivos, **145/145** |
+| `npm run e2e` (todo: M2, M3 y M4; demo y cuenta; móvil y escritorio) | **301 superadas, 0 fallos, 27 omitidas**. Omisiones deliberadas: los casos de dos navegadores solo se ejecutan en escritorio, incluidos los 4 nuevos de sincronización en vivo |
+| Nuevas en M4e | `knowledge.spec.ts`: 9 casos × 2 tamaños (búsqueda, entradas especiales, filtros y grupos, sin conexión, conexiones, conexiones en la ficha, mover, aplicaciones, accesibilidad). `knowledge-live.spec.ts`: 4 casos en escritorio |
+| `npm run smoke` (local) | **22/22** |
+| `npm run test:browser` | **6/6** |
+| `/dev/knowledge` en un build de producción | 404 (comprobado) |
+
+### 20.6 Capturas revisadas
+En `docs/screenshots/m4e/`, a 375 y 1440 px y solo con la demo:
+- búsqueda con resaltado y explicación;
+- contenidos encontrados;
+- hoja de filtros;
+- agrupado por origen y por tema;
+- aplicaciones;
+- nota con sus conexiones y relacionadas;
+- selector de conexiones;
+- ficha con conexiones;
+- sin resultados.
+
+Sin desbordamiento ni errores de consola.
+
+**Corregido al revisar**: el contraste del subtítulo de una fila ya conectada en el selector (fallaba axe).
+
+### 20.7 Seguridad y privacidad
+- La búsqueda no envía nada: el índice se calcula en el dispositivo y solo vive en memoria.
+- El diagnóstico usa datos sintéticos y una base propia que se borra por nombre, y no existe en producción.
+- **Correo del propietario**:
+  - sustituido en 4 documentos vigentes (9 líneas);
+  - no figuraba en el código, la configuración ni las migraciones;
+  - **sigue en el historial**: commits `3b88fea`, `a518f90`, `2bc63c6` y `83a0116`, ya publicados en `main`, y en el campo de autor de cada commit;
+  - el repositorio es **privado** (comprobado en modo lectura con la API de GitHub);
+  - las opciones están en §20.9, paso 9.
+
+### 20.8 Límites y riesgos residuales
+1. **10.000 notas con ×4**:
+   - el tecleo llega a 101 ms en el peor caso;
+   - la primera construcción tarda 3,6 s por tramos;
+   - si se alcanza ese volumen, un Worker solo para esa primera construcción.
+2. **Con miles de notas, cada edición** actualiza el índice (24 ms con 5.000 y ×4) solo si una pantalla lo usa.
+3. **La CPU ×4 no es un móvil real**: falta ejecutar `/dev/knowledge` en tu teléfono (§20.9).
+4. **Arranque en frío sin red**: sigue sin service worker (P17).
+5. **«Relacionadas por temas»** depende de que los contenidos tengan temas; sin temas, no sugiere nada (y lo dice).
+6. **Historial con el correo**: ver §20.9, paso 9.
+
+### 20.9 Plan de M4f · Validación y despliegue de la Biblioteca (requiere tu autorización)
+**Objetivo**: publicar M4 (M4a–M4e) en producción con la misma disciplina que M3.4: validación aislada, copia de seguridad cifrada y verificada, migración controlada y pruebas reales en tus dispositivos. **Nada de este plan se ejecuta sin tu autorización explícita para cada paso exterior.**
+
+0. **Estado de partida** (verificar en solo lectura):
+   - `origin/main = 85fd1a0`;
+   - nube con 10 migraciones (la última, `20261031090000`);
+   - local con 11 commits sin publicar (de `3082b4f` al commit de M4e).
+1. **Revisión de los commits acumulados**:
+   - `git log origin/main..HEAD` y una revisión del diff completo;
+   - búsqueda de secretos y de datos personales en el diff;
+   - comprobación de que los `.env*` no están en Git;
+   - `npm audit` sin altas nuevas.
+2. **Revisión de la migración** `20261101090000_library.sql` (la única nueva):
+   - aplicar desde cero en el stack de simulacro y comparar con el local (241 objetos);
+   - releer RLS, `security invoker`, `search_path` vacío y `revoke` a `anon`;
+   - comprobar que `pull_changes` sigue siendo compatible con clientes M3.4, que conviven durante el despliegue (prueba con la forma M3.4 de `upgrade.spec`);
+   - ensayar la migración sobre una copia restaurada de producción (paso 5).
+3. **Arranque sin conexión (P17, requiere tu decisión)**:
+   - **A (recomendada): service worker mínimo propio**, sin dependencias:
+     - precarga del shell y de las rutas estáticas;
+     - «red primero» para HTML y RSC, con la copia guardada si no hay red;
+     - nunca guarda respuestas de Supabase ni datos personales: la biblioteca ya vive en IndexedDB;
+     - versión por build y limpieza solo de sus propias cachés;
+     - antes de escribirlo, leer la guía de Next 16 sobre PWA en `node_modules/next/dist/docs/`;
+     - pruebas: E2E de arranque en frío sin red, actualización de versión y desinstalación.
+   - **B: documentarlo como límite** y aplazarlo. Cada arranque necesita red; la navegación posterior sí funciona sin ella.
+4. **CI**:
+   - añadir `npm run test:browser` a `ci.yml` (Chromium con IndexedDB real);
+   - añadir `knowledge-live.spec.ts` (ya entra en `npm run e2e`);
+   - mantener las puertas de `ci-gate.mjs`: 0 fallos, 0 inestables y búsqueda de secretos.
+5. **Copia de seguridad cifrada y restauración aislada**, con `npm run cloud` y nunca con la sesión global:
+   - copia `top-cloud-<fecha>` cifrada;
+   - restauración en el stack de simulacro con `--schema-at 20261031090000`;
+   - comprobación de tablas idénticas;
+   - aplicar allí la migración de la Biblioteca y repetir `upgrade.spec` contra esa base.
+6. **Validación en `ci/m4`** (con tu autorización):
+   - subir solo esa rama, con `vercel.json` ya excluyendo `ci/**` de los despliegues;
+   - dos pasadas completas: unitarias, integración, E2E, smoke, `test:browser` y la puerta;
+   - comprobar que no hay Preview en Vercel ni datos personales en los artefactos.
+7. **Despliegue controlado** (autorización aparte, en este orden):
+   1. copia fresca;
+   2. migración de la Biblioteca en la nube;
+   3. comprobaciones en solo lectura (11 migraciones, tablas, RLS y publicación realtime);
+   4. `push` del commit exacto validado a `main`;
+   5. Vercel en verde;
+   6. smoke de producción;
+   7. CI de `main` en verde;
+   8. borrar la rama `ci/m4`.
+
+   **Vuelta atrás** documentada antes de empezar: el código anterior funciona con la base nueva (las tablas nuevas solo añaden), así que se vuelve con un `revert` y sin tocar datos.
+8. **Pruebas reales entre móvil y ordenador** (tú, con una lista guiada de 10 casos):
+   - libro con solo el título;
+   - idea capturada sin red en el móvil, que aparece sola en el ordenador;
+   - edición en vivo;
+   - conflicto «Guardar las dos»;
+   - borrado con «Deshacer»;
+   - búsqueda sin red;
+   - filtros que sobreviven a recargar;
+   - conectar y mover;
+   - aplicaciones;
+   - cerrar sesión con un cambio pendiente.
+
+   Además, ejecutar `/dev/knowledge` en el móvil con el servidor de desarrollo en la red local (`npx next dev -H 0.0.0.0`) y anotar los p95.
+9. **Privacidad del historial (decisión tuya)**:
+   - **A (recomendada): no reescribir.** El repositorio es privado y el correo ya está en GitHub. Para los commits futuros, usar la dirección `noreply` de GitHub en la configuración local de Git. Es un cambio de identidad, así que solo con tu permiso.
+   - **B: reescribir** con `git filter-repo` (texto y autor) y hacer `push --force` a `main`. Vuelve a desplegar, invalida los hashes registrados en la documentación y en CI, y obliga a reclonar. Solo con tu autorización y después de M4f.
+10. **Criterios de aceptación**:
+    - CI en verde dos veces;
+    - copia y restauración verificadas;
+    - smoke de producción en verde;
+    - tus 10 pruebas manuales superadas;
+    - los p95 de tu móvil anotados;
+    - nada de Uría tocado.
+
+**Esfuerzo**: 1,5–2 días más tu tiempo de prueba, o +1 día con el service worker (opción A del paso 3).

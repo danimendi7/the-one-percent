@@ -19,6 +19,14 @@ async function blocking(page: Page) {
   return results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(" | ")}`)
 }
 
+/** Toggles one chip in Cerebro's «Filtros» sheet. */
+async function brainFilter(page: Page, chip: string) {
+  await page.getByTestId("filters-open").click()
+  await page.getByTestId("filters").getByRole("button", { name: chip, exact: true }).click()
+  await page.getByTestId("filters-done").click()
+  await expect(page.getByTestId("filters")).toHaveCount(0)
+}
+
 async function noOverflow(page: Page, width: number) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
 }
@@ -145,12 +153,12 @@ test.describe("library (demo)", () => {
     await page.goto("/knowledge/brain")
     await expect(page.getByRole("heading", { level: 1, name: "Cerebro" })).toBeVisible()
     await expect(page.getByText("15 notas")).toBeVisible()
-    const filters = page.getByRole("radiogroup", { name: "Mostrar" })
-    await filters.getByRole("radio", { name: "Sueltas" }).click()
-    await expect(page.getByText("1 nota", { exact: true })).toBeVisible()
-    await filters.getByRole("radio", { name: "Destacadas" }).click()
+    await brainFilter(page, "Ideas sueltas")
+    await expect(page.getByTestId("brain-count")).toHaveText("1 nota")
+    await brainFilter(page, "Ideas sueltas")
+    await brainFilter(page, "Destacadas")
     await expect(page.getByTestId("note")).toHaveCount(2)
-    await filters.getByRole("radio", { name: "Todas" }).click()
+    await page.getByRole("button", { name: "Quitar filtro Destacadas" }).click()
     // a note links to where it came from
     await expect(page.getByTestId("note").filter({ hasText: "La base aeróbica" }).getByRole("link", { name: "Outlive" })).toBeVisible()
 
@@ -158,7 +166,7 @@ test.describe("library (demo)", () => {
     await page.getByTestId("capture-text").fill("Idea suelta desde Cerebro")
     await expect(page.getByTestId("capture-save")).toHaveText("Guardado en este navegador · demo")
     await expect(page.getByText("16 notas")).toBeVisible()
-    await filters.getByRole("radio", { name: "Sueltas" }).click()
+    await brainFilter(page, "Ideas sueltas")
     await expect(page.getByTestId("note").filter({ hasText: "Idea suelta desde Cerebro" })).toBeVisible()
     await savedInDemo(page)
     await noOverflow(page, info.project.use.viewport!.width)

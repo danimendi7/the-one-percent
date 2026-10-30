@@ -27,7 +27,8 @@
     "cloud:auth": "node scripts/cloud-auth.mjs",
     "e2e:linux": "node scripts/e2e-linux.mjs",
     "bench:knowledge": "node scripts/bench-knowledge.mjs",
-    "test:browser": "playwright test --config playwright.browser.config.ts"
+    "test:browser": "playwright test --config playwright.browser.config.ts",
+    "bench:search": "node scripts/bench-search.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

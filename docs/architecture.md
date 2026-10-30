@@ -44,7 +44,8 @@ domain (dates, schedule, metrics): funciones puras, sin React ni E/S
 | `/knowledge/library/books`, `/knowledge/library/podcasts` | Libros, Podcasts | Desde Biblioteca | Estanterías, episodios y programas (M4d) |
 | `/knowledge/library/item?id=`, `/knowledge/library/show?id=` | Ficha, Programa | Desde Biblioteca | Páginas estáticas que abren sin conexión (D79) |
 | `/knowledge/discover` | Descubrir | Más | Tema curado, valoración 1–10 en memoria |
-| `/knowledge/brain` | Cerebro | Más | Todas las notas con filtros sencillos e ideas sueltas (D78) |
+| `/knowledge/brain` | Cerebro | Más | Búsqueda sin conexión, filtros y grupos en la URL, aplicaciones y nota con sus conexiones (D78, D81–D83) |
+| `/dev/knowledge` | Diagnóstico de búsqueda | Solo en desarrollo | Biblioteca sintética, base propia que se borra al terminar; 404 en producción (D84) |
 | `/mind` | Mente y energía | Más | Formulario demo, no guarda |
 | `/reviews` | Revisiones | Más | Agregados reales de la semana anterior |
 | `/intelligence` | Inteligencia | Más | Informativa |

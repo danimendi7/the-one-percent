@@ -16,6 +16,9 @@ export const BRAIN_HREF = "/knowledge/brain"
 // Static pages with the id in the query (not dynamic segments): prefetched once, they open offline.
 export const itemHref = (id: string) => `/knowledge/library/item?id=${encodeURIComponent(id)}`
 export const showHref = (id: string) => `/knowledge/library/show?id=${encodeURIComponent(id)}`
+/** One note on its own in Cerebro, with its connections (M4e). */
+export const brainNoteHref = (id: string) => `/knowledge/brain?nota=${encodeURIComponent(id)}`
+export const APPLICATIONS_HREF = "/knowledge/brain?vista=aplicaciones"
 
 export const KIND_ICON: Record<ContentKind | "show", typeof BookOpen> = { book: BookOpen, episode: Headphones, show: Mic }
 

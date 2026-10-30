@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useId, useRef, useState } from "react"
-import { Lightbulb, MoreHorizontal, Pencil, Plus, Star, Trash2 } from "lucide-react"
+import { ArrowRightLeft, Lightbulb, Link2, MoreHorizontal, Pencil, Plus, Star, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -10,9 +10,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { cn } from "@/lib/utils"
 import { formatTimestamp, parseTimestamp } from "@/features/knowledge/domain/text"
 import { APPLICATION_LABEL, APPLICATION_STATUSES, NOTE_TYPES, noteLabel, type ApplicationStatus, type ContentKind, type KnowledgeNote, type Locator, type NoteType } from "@/features/knowledge/domain/types"
+import { linkedTo } from "@/features/knowledge/domain/relations"
+import type { MatchField } from "@/features/knowledge/domain/search"
 import { libraryActions } from "../store/use-library"
 import type { LibraryRefusal, LibrarySnapshot } from "../store/types"
-import { itemHref, SyncLine } from "./library-ui"
+import { brainNoteHref, itemHref, SyncLine } from "./library-ui"
+import { KnowledgePicker, Marked } from "./knowledge-links"
+
+const MATCH_LABEL: Record<MatchField, string> = { text: "el texto", topics: "los temas", locator: "la referencia", source: "su origen" }
 
 export const DEBOUNCE_MS = 800
 
@@ -267,15 +272,23 @@ export function NoteCard({
   snap,
   kind,
   origin,
+  terms,
+  matched,
   className,
 }: {
   note: KnowledgeNote
   snap: LibrarySnapshot
   kind: ContentKind | null
   origin?: { id: string; title: string } | null
+  /** Search terms to highlight (Cerebro, M4e). */
+  terms?: string[]
+  /** Where the search matched, said under the note. */
+  matched?: MatchField[]
   className?: string
 }) {
   const [editing, setEditing] = useState(false)
+  const [picker, setPicker] = useState<"link" | "move" | null>(null)
+  const connections = linkedTo(snap.state, { type: "note", id: note.id }).length
   const text = useAutosaveText(note.body, (v) => {
     if (!v.trim()) return "Una nota no puede quedar vacía: escribe algo o elimínala."
     const r = libraryActions.updateNote(note.id, { body: v })
@@ -290,7 +303,7 @@ export function NoteCard({
     toast("Nota eliminada", { action: { label: "Deshacer", onClick: () => libraryActions.undo(r.undo) } })
   }
   return (
-    <article className={cn("group rounded-xl border border-border/80 bg-background/30 p-4", className)} data-testid="note" data-note-type={note.type}>
+    <article id={`note-${note.id}`} className={cn("group scroll-mt-20 rounded-xl border border-border/80 bg-background/30 p-4", className)} data-testid="note" data-note-type={note.type}>
       <header className="mb-2 flex items-center gap-2 text-xs text-text-tertiary">
         <span className="font-medium text-text-secondary">{noteLabel(note.type, kind)}</span>
         {loc && <span className="num">· {note.locator?.page !== null && note.locator?.page !== undefined ? `p. ${loc}` : `min. ${loc}`}</span>}
@@ -321,6 +334,13 @@ export function NoteCard({
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setPicker("link")}>
+              <Link2 aria-hidden /> Conectar con…
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setPicker("move")}>
+              <ArrowRightLeft aria-hidden /> Mover a…
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={remove} className="text-warning">
               <Trash2 aria-hidden /> Eliminar
             </DropdownMenuItem>
@@ -347,8 +367,13 @@ export function NoteCard({
       ) : (
         <button type="button" onClick={() => setEditing(true)} className="block w-full text-left text-[0.9375rem] leading-relaxed whitespace-pre-wrap">
           <span className="sr-only">Editar nota: </span>
-          {note.body}
+          {terms?.length ? <Marked text={note.body} terms={terms} /> : note.body}
         </button>
+      )}
+      {matched && matched.length > 0 && !(matched.length === 1 && matched[0] === "text") && (
+        <p className="mt-2 text-xs text-text-tertiary" data-testid="note-match">
+          Coincide en {matched.map((m) => MATCH_LABEL[m]).join(" y ")}
+        </p>
       )}
       {note.type === "application" && (
         <div role="radiogroup" aria-label="Estado de la aplicación" className="mt-3 flex flex-wrap gap-1.5">
@@ -375,8 +400,15 @@ export function NoteCard({
             {origin.title}
           </Link>
         )}
+        {connections > 0 && (
+          <Link href={brainNoteHref(note.id)} className="inline-flex min-h-11 items-center gap-1 text-xs text-text-secondary underline-offset-2 hover:text-foreground hover:underline md:min-h-10" data-testid="note-connections">
+            <Link2 className="size-3.5" aria-hidden />
+            {connections} {connections === 1 ? "conexión" : "conexiones"}
+          </Link>
+        )}
         <SyncLine state={sync} snap={snap} className="ml-auto" />
       </footer>
+      {picker && <KnowledgePicker from={{ type: "note", id: note.id }} mode={picker} snap={snap} open onOpenChange={(v) => !v && setPicker(null)} />}
     </article>
   )
 }

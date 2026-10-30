@@ -167,6 +167,21 @@ export function formatTimestamp(seconds: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`
 }
 
+/** Reference folding of one character (lower case, no accents), kept for the equivalence test. */
+export function foldCharSlow(ch: string): string {
+  return ch.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase()
+}
+
+/**
+ * Same as `foldCharSlow`, with a fast path for ASCII and the Spanish accents (M4e: highlighting
+ * the visible results was most of a keystroke at CPU ×4). Anything else takes the slow path.
+ */
+export function foldChar(ch: string, cp: number): string {
+  if (cp < 128) return cp >= 65 && cp <= 90 ? String.fromCharCode(cp + 32) : ch
+  const folded = FOLD[ch] ?? FOLD[ch.toLowerCase()]
+  return folded ?? foldCharSlow(ch)
+}
+
 /** Text segments with the matched terms marked, mapped back to the original (accented) text. */
 export function highlight(text: string, terms: readonly string[]): { text: string; match: boolean }[] {
   const wanted = terms.map(normalize).filter(Boolean)
@@ -177,7 +192,7 @@ export function highlight(text: string, terms: readonly string[]): { text: strin
   for (let i = 0; i < text.length; ) {
     const cp = text.codePointAt(i)!
     const ch = String.fromCodePoint(cp)
-    const n = ch.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase()
+    const n = foldChar(ch, cp)
     for (let k = 0; k < n.length; k++) {
       norm += n[k]
       origin.push(i)
