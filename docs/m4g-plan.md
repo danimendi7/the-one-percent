@@ -14,6 +14,7 @@
 9. Riesgos, costes y decisiones pendientes
 10. Mantenimiento pendiente (fuera de M4g)
 11. Primer prompt de implementación (preparado, no ejecutado)
+12. M4g.1: servicio seguro de metadatos (hecho en local)
 
 ---
 
@@ -629,3 +630,198 @@ Registrado para no mezclarlo con M4g. Cada punto necesita tu autorización expre
 > **Restricciones**: las de siempre (separación de Neumáticos Uría, nada en la nube, sin push ni GitHub Actions, sin secretos en registros, no borrar nada, no reescribir historia). Ningún test llama a Internet. Si una regla de seguridad no se puede cumplir, detente y pregunta.
 >
 > **Entrega**: `npm run check` y `npm run e2e` en verde (E2E en Linux solo si la memoria lo permite; si no, dilo), commit local, sección «M4g.1» en `docs/m4g-plan.md` con resultados, decisiones tomadas (D-CACHE) y riesgos, y el plan concreto de M4g.2. Detente ahí.
+
+---
+
+## 12. M4g.1 · Servicio seguro de metadatos (31/10/2026, hecho en local)
+
+Autorizado solo M4g.1: sin interfaz, sin despliegue y sin migraciones. Las decisiones aplicadas son D90–D93 de `docs/decisions.md`.
+
+### 12.1 Endpoints y contratos
+- Todos son `GET` y solo para usuarios verificados.
+- Responden JSON con `Cache-Control: private, no-store` y `Vary: Cookie`.
+- La respuesta es `{ ok: true, data }` o `{ ok: false, error: { code, retryAfter? } }`.
+
+| Ruta | Parámetros (validados) | `data` | Proveedor |
+|---|---|---|---|
+| `/api/metadata/books/search` | `q`: 2–100 caracteres; un ISBN válido, con o sin guiones, se busca como ISBN exacto.<br>`by`: `any` (por defecto), `title`, `author` o `isbn`.<br>`lang`: `es` (por defecto) o `en`; es el idioma de la edición preferida | `BookResult[]`, hasta 10 | Open Library `search.json`. Si el ISBN no está en el índice: `/isbn/` → edición → obra → autores |
+| `/api/metadata/books/detail` | `work` (`OL…W`) y, opcionalmente, `edition` (`OL…M`, que debe ser de esa obra) | Un `BookResult` con descripción y temas sugeridos. `creators` es `null`: los nombres vienen de la búsqueda | `/works/…json` y `/books/…json` |
+| `/api/metadata/books/editions` | `work`, `lang` | `BookResult[]`: hasta 20 ediciones, primero las del idioma | `/works/…/editions.json` |
+| `/api/metadata/podcasts/search` | `q` | `ShowResult[]`: hasta 10, sin los duplicados de Apple | iTunes Search (`entity=podcast`, tienda ES) |
+| `/api/metadata/podcasts/episodes` | `show` (`collectionId`) y, opcionalmente, `q` | `EpisodeList`.<br>Sin `q`: los 200 más recientes (`scope: "recent"`, con `total` y `complete`).<br>Con `q` (`scope: "search"`): las coincidencias entre los recientes, más la búsqueda de episodios de Apple filtrada por programa | iTunes Lookup y Search (`entity=podcastEpisode`) |
+
+**Errores:**
+| Código | HTTP | Cuándo |
+|---|---|---|
+| `unauthorized` | 401 | Sin sesión verificada |
+| `unavailable` | 503 | Auth no configurado o caído |
+| `bad_request` | 400 | Parámetros no válidos |
+| `rate_limited` | 429 | Cuota del usuario agotada |
+| `provider_busy` | 503 | Cuota propia del proveedor, o un 429/403 del proveedor |
+| `provider_unavailable` | 502 | 5xx, tiempo agotado, respuesta malformada o cortacircuitos abierto |
+| `not_found` | 404 | Obra o programa inexistente |
+
+`Retry-After` acompaña los errores en los que esperar ayuda. Los textos en español para la interfaz están en `METADATA_ERROR_TEXT`.
+
+### 12.2 Datos normalizados (`src/features/library/metadata/types.ts`)
+- **`BookResult`**:
+  - obra (`workId`) y edición (`editionId`) por separado;
+  - título de la edición, con `workTitle` si el de la obra es distinto, y subtítulo;
+  - creadores e idioma (ISO 639-1);
+  - año de la edición y de la obra, editorial y páginas;
+  - ISBN-13/10 y portada canónica;
+  - descripción (≤ 2.000 caracteres) y temas sugeridos (≤ 10);
+  - número de ediciones, enlace y atribución.
+- **`ShowResult`**: id de Apple, nombre, autor, portada de 600 px, enlace, número de episodios, último lanzamiento y géneros sugeridos.
+- **`EpisodeResult`**: id, programa (id y nombre), título, descripción (≤ 2.000), duración en segundos, instante de publicación, portada, enlace y atribución.
+
+**Reglas:**
+- **Nada se infiere.** Lo que no viene es `null` (o `[]`).
+  - Las páginas del índice de búsqueda son la mediana de todas las ediciones, así que no se usan.
+  - La única derivación es el ISBN-13 a partir de un ISBN-10 válido, que es una conversión exacta.
+- **Dos ediciones o dos obras nunca se fusionan.** Solo se agrupan las entradas duplicadas de Apple: mismo feed, o mismo nombre y autor.
+- **Texto plano siempre:**
+  - se quitan las etiquetas, y las de `script` y `style` con su contenido;
+  - las entidades se decodifican después, así que una etiqueta codificada queda como texto visible;
+  - todo cumple ya las reglas de `validation.ts`;
+  - el cliente vuelve a validar cada respuesta con Zod.
+- **Paso a M4** (`to-input.ts`): `toBookInput`, `toShowInput` y `toEpisodeInput` producen la entrada de `createItem` o `createShow`, el mismo camino que el alta manual.
+  - Estado, valoración, temas y si se guarda la descripción los elige el usuario.
+  - `separateEdition` guarda otra edición sin referencia externa (D90).
+  - La fecha del episodio se calcula en la zona horaria del perfil.
+
+### 12.3 Duplicados (`duplicates.ts`)
+Se buscan en la copia local, así que también funciona sin conexión.
+
+| Nivel | Libros | Episodios | Programas | Efecto |
+|---|---|---|---|---|
+| `exact` | Misma obra de Open Library | Mismo `trackId` | Mismo `collectionId` | Impide reutilizar **la misma referencia** (`canUseExternalRef`). Otra edición se puede guardar igualmente |
+| `strong` | Mismo ISBN, también ISBN-10 frente a ISBN-13 | — | — | Solo aviso |
+| `possible` | Mismo título sin subtítulo y algún autor en común (o sin autores) | Mismo título en el mismo programa | Mismo nombre y autor compatible | Solo aviso |
+
+`existingShow` reutiliza el programa local que ya es ese programa de Apple. Ninguna función modifica datos.
+
+### 12.4 Seguridad
+- **Autenticación** (`server/auth.ts`):
+  - cada llamada se verifica con `getUser()` contra el servidor de Auth; la cookie nunca se da por buena sin más;
+  - la cookie de demo no cuenta;
+  - las cookies solo se leen: el refresco de la sesión sigue en `src/proxy.ts`.
+- **Proxy:**
+  - una llamada a `/api/*` sin sesión recibe 401 en JSON;
+  - con la cookie de demo llega a la ruta, que responde 401;
+  - las páginas siguen redirigiendo a `/login`.
+- **Orden de comprobación:** usuario → cuota del usuario → parámetros → servicio. Nada sale del servidor antes de las tres primeras.
+- **Sin proxy genérico:** las URL externas se construyen a partir de identificadores validados con expresiones regulares (`OL…W`, `OL…M`, `OL…A`, ISBN-13 y `collectionId`). La consulta solo entra como valor de un parámetro.
+- **`safeFetch`**, en cada salto:
+  - lista cerrada de hosts exactos: `openlibrary.org` e `itunes.apple.com`;
+  - solo https, puerto 443, sin credenciales ni IP literales;
+  - **todas** las direcciones DNS deben ser públicas. Se rechazan las de bucle, privadas, *link-local*, CGNAT, multidifusión, documentación, IPv4 mapeada, NAT64 y 6to4;
+  - como máximo 3 redirecciones manuales;
+  - un tiempo máximo para la petición entera: 6 s para Open Library y 4 s para Apple;
+  - tamaño máximo leído por streaming: 1 MB para Open Library y 2 MB para Apple;
+  - tipo de contenido esperado y JSON válido;
+  - `credentials: "omit"`, sin cookies ni cabeceras del usuario;
+  - `User-Agent` técnico, sin correo.
+- **Riesgo residual documentado:** *DNS rebinding* entre nuestra resolución y la de `fetch`. Es teórico con dos hosts públicos de proveedores. Evitarlo fijando la IP exigiría un agente de red propio, que hoy no se justifica.
+- **Build:** las cinco rutas salen como dinámicas (`ƒ`), así que no se ejecuta nada al compilar.
+- **Registros:** no se registran consultas, sesiones ni identificadores.
+
+### 12.5 Cuotas, caché y resiliencia (lo aplicado)
+- **Cuotas y cortacircuitos:** D92. **Caché:** D93. Todo vive en memoria y por instancia: no persiste en Vercel y se da por perdido en cualquier momento.
+- **El servidor no guarda ninguna búsqueda de texto.** El cliente (`search-controller.ts`) recuerda hasta 30 respuestas de la sesión, solo en memoria.
+- **Respaldos autorizados:**
+  - un ISBN que no está en el índice se busca por el registro de la edición;
+  - si falla la búsqueda de episodios antiguos, se devuelven las coincidencias entre los recientes;
+  - Apple y Open Library tienen cortacircuitos separados: los fallos de uno no afectan al otro.
+- **Capa de cliente reutilizable para M4g.3 y M4g.4:**
+  - `createSearchController`:
+    - debounce de 350 ms; un ISBN se busca al momento;
+    - cancela la petición anterior e ignora las respuestas tardías;
+    - caché de la sesión;
+    - estados `idle`, `waiting`, `loading`, `done`, `error` y `offline`; sin conexión no hace peticiones;
+    - `retry`.
+  - `metadataClient`: peticiones al mismo origen con validación Zod. Una página HTML o una respuesta deforme nunca llegan como datos.
+
+### 12.6 Medidas reales (`npm run explore:metadata`, 31/10/2026)
+- **Búsqueda de libros** normalizada: **≈2 KB**.
+- **200 episodios de *La Ruina*** normalizados: **≈214 KB**, frente a ~460 KB del proveedor. Vercel la sirve comprimida.
+  - Es **más que los 40 KB estimados** en §5.2, por las descripciones (≤ 2.000 caracteres cada una).
+  - Si en M4g.4 resulta lenta en el móvil, la alternativa es una lista sin descripciones y el detalle al elegir el episodio. No se cambiará sin medirlo antes en el iPhone.
+- **Proveedores reales**, por el mismo camino que en producción: **3/3**.
+  - Libros en español e inglés por título, autor e ISBN; ficha y ediciones.
+  - Programas en español e inglés, 200 episodios recientes y un episodio antiguo (el n.º 89) encontrado por búsqueda.
+
+### 12.7 Pruebas
+- **121 unitarias nuevas** en 8 ficheros, con respuestas reales grabadas y recortadas (`__fixtures__`). **Ninguna llama a Internet.**
+  - Limpieza de texto.
+  - Adaptadores de Open Library y Apple: español, inglés, ISBN, datos incompletos y respuestas malformadas.
+  - Consultas y ordenación.
+  - Duplicados y ediciones.
+  - Compatibilidad con M4: `createItem` y `createShow`, `validation.ts` y la ida y vuelta por el formato de sincronización.
+  - `safeFetch`:
+    - 24 direcciones bloqueadas y 5 públicas;
+    - redirecciones peligrosas y bucles;
+    - tamaño por cabecera y por streaming;
+    - tiempo, tipo y JSON.
+  - Límites.
+  - Servicio:
+    - 429 y 404;
+    - 5xx con un solo reintento;
+    - cortacircuitos y tiempo agotado;
+    - respuestas malformadas;
+    - cuota de Apple, respaldos y caché.
+  - Rutas:
+    - anónimo, demo y token no verificado;
+    - 400 sin llamadas externas;
+    - cuota por usuario y aislamiento entre usuarios;
+    - traducción de errores.
+  - Controlador de búsqueda y cliente.
+- **Mutaciones:** desactivar la comprobación de direcciones hace fallar 1 prueba y desactivar la del destino, 7. Después se restauró el código.
+- **3 de integración nuevas**, con sesiones reales de dos usuarios sintéticos en el stack local:
+  - una sesión verdadera identifica a su usuario;
+  - sin cookie, con la cookie de demo o con un token con la firma alterada: anónimo y 401, sin llamadas externas;
+  - la cuota de un usuario no afecta al otro;
+  - fuera solo salen parámetros.
+- **HTTP sobre el build de producción** (`next start`):
+  - anónimo: 401 en JSON;
+  - demo: 401;
+  - demo con sesión falsa: 401;
+  - POST: 405;
+  - una página sin sesión sigue respondiendo 307 a `/login`.
+- **3 exploratorias reales**, fuera de `npm test` y de la CI (`vitest.explore.config.mts`): 3/3.
+
+### 12.8 Resultados (31/10/2026)
+| Suite | Resultado |
+|---|---|
+| `npm run check` (tipos, lint y unitarias) | **636/636** (515 anteriores y 121 nuevas), sin errores de tipos ni de lint |
+| `npm run test:integration` (stack local) | **148/148** (145 anteriores y 3 nuevas) |
+| `npm run build` | Correcto; las 5 rutas nuevas son dinámicas (`ƒ`) |
+| HTTP sobre el build de producción | 5/5 comprobaciones (§12.7) |
+| `npm run explore:metadata` (proveedores reales, fuera de la CI) | 3/3 |
+| `npm run e2e` (Windows, 2 workers) | **NO VÁLIDA, sin conclusión.** Se listaron y lanzaron las 342: 163 superadas, 25 omitidas y 154 fallidas. Las 154 fallidas son exactamente las 154 caídas de proceso (`Target crashed`, o un worker terminado con código `0xC0000142`, fallo de Windows al iniciar un proceso por falta de recursos); **ninguna es un fallo de aserción** ni toca `/api/`. Claude Code paró la ejecución por falta de memoria del sistema (≈2,2 GB libres) y no se ha relanzado. **La regresión E2E de M4g.1 está pendiente**: en la CI remota (`ci/m4g`, con autorización) o en local cuando haya memoria suficiente |
+
+### 12.9 Impacto en la arquitectura
+- **Nuevo:**
+  - `src/features/library/metadata/`: dominio puro y cliente;
+  - `src/features/library/metadata/server/`: servicio;
+  - `src/app/api/metadata/**`: 5 rutas finas.
+- **Cambiado:**
+  - `src/proxy.ts`: 401 en JSON para `/api/*` sin sesión;
+  - el script `explore:metadata` y `vitest.explore.config.mts`.
+- **Sin cambios:** sincronización, IndexedDB, motor, service worker (sigue sin tocar `/api/`), CSP, migraciones, dependencias e interfaz.
+
+### 12.10 Requisitos para M4g.2 y M4g.3
+- **M4g.2 (portadas):**
+  - `/api/covers` solo acepta URLs que pasen `isCanonicalCoverUrl`: `covers.openlibrary.org/b/id/{n}-{S|M|L}.jpg` y la imagen de Apple en `isN-ssl.mzstatic.com`.
+  - La lista de `safeFetch` se amplía **solo para esa ruta**: `covers.openlibrary.org`, `archive.org`, `/^ia\d+\.us\.archive\.org$/` (las dos redirecciones medidas) e `is1`–`is5-ssl.mzstatic.com`.
+  - Como los hosts de `archive.org` cambian, `checkDestination` tendrá que aceptar expresiones regulares ancladas, con sus pruebas. Hoy solo admite nombres exactos.
+  - Validar los bytes mágicos (JPEG, PNG o WebP) y rechazar el GIF de 43 bytes y cualquier imagen de menos de 1 KB. Límites: 2 MB y 5 s.
+  - La misma autenticación (`callerOf`) y una cuota propia por usuario.
+  - `CoverArt` con la imagen y la portada tipográfica de respaldo, sin saltos en la maquetación.
+- **M4g.3 (añadir libro):**
+  - `createSearchController` y `metadataClient` para buscar; `findBookMatches` antes de guardar; `toBookInput` con lo que elija el usuario.
+  - **Duplicados:** los avisos `strong` y `possible` no impiden guardar. El `exact` ofrece «Abrir» o «Añadir como otra edición».
+  - Un mensaje propio para `duplicate_external` en `LibraryConflicts` (§5.4).
+  - **E2E:** el navegador no puede interceptar las llamadas del servidor, así que hace falta un origen de prueba para los proveedores.
+    - Propuesta: una variable que solo se respete fuera de Vercel y en `http://127.0.0.1:<puerto>`, con un servidor local de fixtures en Playwright.
+    - Obliga a admitir ese host en `safeFetch` solo en pruebas, así que se revisará como cambio de seguridad.
