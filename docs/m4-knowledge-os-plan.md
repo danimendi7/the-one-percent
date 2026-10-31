@@ -1921,3 +1921,68 @@ En los dos casos el problema es el proceso Node de Windows, no la aplicación. L
 - Las correcciones van en un commit local nuevo, encima de `027f219`.
 - Para validarlo hace falta tu autorización para un nuevo `push` de avance directo a `ci/m4` (sin forzar: `git push origin <nuevo>:refs/heads/ci/m4`).
 - El plan de despliegue de §21.8 (B) no cambia, salvo que el commit validado será ese nuevo.
+
+### 22.6 Segunda investigación: causa raíz y regresiones deterministas
+Encargo del 31/10: reproducir y resolver los dos escenarios sin rebajar las exigencias de la CI. Se trabajó encima de `22ca94d`, el commit local de §22.5, y no sobre `027f219`. No hubo `push` ni ejecuciones remotas.
+
+**Evidencias de la ejecución 41183910815**
+| Prueba | Pasada | Móvil | Escritorio |
+|---|---|---|---|
+| `library.spec.ts:214`, navegación sin red | 1.ª | Fallo; pasa en el reintento | Fallo y fallo |
+| | 2.ª | Fallo y fallo | Fallo y fallo |
+| `screen-error.spec.ts:21`, Objetivos | 1.ª | Fallo y fallo | Fallo; pasa en el reintento |
+| | 2.ª | Fallo; pasa en el reintento | Pasa |
+
+Total: 4 fallidas y 3 inestables.
+
+En todos los fallos de Objetivos se repite lo mismo:
+- el fallo está en la línea 75, y la aserción es `habit_entries` = 0 en lugar de 1;
+- el aviso de pantalla y la carcasa aparecen bien.
+
+En los 7 intentos fallidos de la Biblioteca, el error es `toBeVisible` del título «Libros» tras el clic sin red: la precarga de Libros no había terminado. El *runner* tiene 4 CPU y es más lento que el PC.
+
+**1. Navegación sin red (Biblioteca).**
+- El cliente de Next solo navega sin red a una ruta cuya precarga RSC terminó con conexión.
+- Si la petición de datos falla, Next hace una navegación de navegador completa (`fetch-server-response.js`: «Falling back to browser navigation»). En producción, esa navegación la atiende el service worker con la carcasa preparada (§21, D86).
+- `library.spec` funciona con el service worker bloqueado (`playwright.config.ts`). Lo que comprueba es el camino del cliente, que depende de la precarga.
+- **La espera de §22.3 era insuficiente.** La encontró la comprobación en Linux: 4 fallos de 10 en móvil, ahora en la página del libro y no en Libros.
+  - Esa espera aceptaba la *primera* precarga de `/item` que terminase, que es el árbol de `item?id=<otro libro>`.
+  - Un libro que nunca se precargó por su propia URL se construye con el árbol de `/knowledge/library/item` **sin parámetros** (`segment-cache/cache.js`), que Next pide con **prioridad de fondo**, la última (`scheduler.js`, `pingRoute`).
+  - Con la CPU ×6, la espera de §22.3 falla 6 de 6. **El «3 de 3» de §22.3 no era representativo.**
+  - Corrección (`a9f75d9`): esperar al árbol y al segmento de página de Libros, y al árbol sin parámetros y al segmento de página de `item`. Con la CPU ×6 pasa 6 de 6 en móvil y 16 de 16 en móvil y escritorio.
+- **Regresión nueva** en `offline.spec.ts`: «links work offline even when Next could not prefetch them».
+  - Con el service worker activo, **se rechazan todas las peticiones RSC**, así que no hay ninguna precarga.
+  - Después se corta la red y se navega desde la app: Biblioteca → Libros → un libro (`item?id=`) → captura de una idea → Libros → Biblioteca → Cerebro.
+  - Una recarga sin red sigue mostrando la idea.
+  - La prueba confirma que la app pidió los datos de `books` y de `item` y no los recibió.
+  - Resultado: 12/12 en el primer intento y 30/30 en repetición, en móvil y escritorio.
+- **Privacidad**: el service worker sigue sin guardar RSC, `/auth`, `/api`, Supabase ni cookies. Lo comprueba la prueba de privacidad, que no se ha tocado.
+- **Límite que sigue existiendo**: un dispositivo que todavía no tiene el service worker activado (la primera visita) y que pierde la red antes de terminar la precarga no puede abrir una ruta que nunca recibió. No hay nada que servir, y la app lo dice.
+
+**2. Objetivos con error de pantalla (D89).**
+- La traza demostró la carrera, pero en el PC la E2E no la reproducía: con el motor anterior pasó 30 de 30, porque IndexedDB abre muy deprisa.
+- **Regresión determinista**: una segunda variante de la puerta permanente abre la copia del dispositivo («the-one-percent») 2,5 s más tarde, como en un móvil lento. Los datos no se tocan y la variante original sigue igual.
+  - Con el motor de `027f219`: **6 de 6 fallan con el error exacto de la CI**, en la misma aserción, con 0 en lugar de 1.
+  - Con D89: 60 de 60 en repetición (las dos variantes, ×10, en móvil y escritorio).
+- Comprobaciones pedidas:
+  - **Cola encolada y guardada**: `queued` = 1 antes de cerrar la página.
+  - **El motor no se detiene al fallar la pantalla**: la frontera está bajo la carcasa (`error.tsx`) y el motor vive en el proveedor de la carcasa.
+  - **Sin ciclos concurrentes ni duplicados**: `engine-startup.test.ts` comprueba un solo envío y una sola descarga para las dos peticiones de arranque.
+  - **Exactamente una vez en el servidor**: `sync_operations` `entry.set` = 1 y la cola local vacía al final.
+  - **Usuario correcto**: cuenta nueva por prueba (`newAccount`) y consultas por `user_id`; se borra en `afterEach`.
+- Nueva prueba unitaria: la cola guardada sobrevive a un primer ciclo sin servidor y después se envía una sola vez.
+- **Con el motor anterior no se perdían datos**: `persist()` fusiona con la cola guardada antes de escribir (M3.4d). El problema era el retraso del envío, no la pérdida.
+
+**3. Linux.** `npm run e2e:linux` admite ahora una comprobación dirigida: `--only <specs> --repeat-each N --cpus N`, sin reintentos. Usa el mismo contenedor desechable y el mismo aislamiento que D46. La suite completa no cambia.
+
+**Resultados de Linux** (contenedor desechable, 4 CPU, 2 workers, ×10, sin reintentos; especificaciones `library.spec.ts:214`, `screen-error.spec.ts` y `offline.spec.ts`)
+- **`c9a17eb`: 195 de 200 superadas y 5 fallos.**
+  - **4 en `library.spec`**, en móvil, en la página del libro. Es la espera insuficiente explicada arriba; la corrige `a9f75d9`.
+  - **1 en `offline.spec`**: «signed out», que se agotó a los 30 s en el `beforeEach` (`newAccount`), antes de abrir la app.
+    - En los registros de Auth, todas las `createUser` de la ventana respondieron 200 y la más lenta tardó 144 ms: el tiempo se perdió antes de llegar a Auth, en el `insert` de Postgres o en el reenvío TCP del contenedor a `host.docker.internal`.
+    - El helper no ha cambiado desde M3 y no falló en ninguna de las 684 ejecuciones de la CI.
+    - **No reproducido.** Falta el desglose de tiempos dentro de `newAccount`. Prueba propuesta: la próxima CI, que no usa reenviador.
+  - `screen-error.spec` completo: **60 de 60** (Objetivos en sus dos variantes, 40 de 40; la página dañada de la Biblioteca, 20 de 20). Service worker, incluida la prueba nueva sin precarga: 119 de 120; el único fallo es el anterior. Servidor vivo durante toda la ejecución.
+- **`a9f75d9`: sin resultado.** Claude Code detuvo la comprobación por falta de memoria en el PC mientras compilaba.
+  - El contenedor quedó vivo y lo **detuve** (`docker stop`) sin borrarlo; la red también sigue ahí. La próxima ejecución del script retira ambos por su etiqueta.
+  - No se relanzó.
