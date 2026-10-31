@@ -212,12 +212,26 @@ test.describe("library (demo)", () => {
   })
 
   test("with no connection, links still open Libros, a book and Cerebro, and an idea is captured there", async ({ page, context, consoleErrors }) => {
-    // Offline navigation relies on Next having prefetched those pages while online. Wait for those
-    // prefetches themselves: «networkidle» can come before they start on a slower machine (ci/m4).
+    // Offline client navigation (the service worker is blocked here) relies on Next having prefetched,
+    // while online, exactly what it will need. Wait for those prefetches themselves: «networkidle» can
+    // come before they start on a slower machine (ci/m4), and «any /item request» is not enough:
+    // - Libros: its route tree and its page segment.
+    // - a book never prefetched by its own URL (`item?id=X`, reached from Libros): Next builds it from
+    //   the tree of `/knowledge/library/item` WITHOUT search params (segment-cache/cache.js), which it
+    //   asks for at background priority, last (scheduler.js); plus the page segment, shared by all ids.
     // «requestfinished»: the whole body arrived (a response event only means the headers did).
-    const prefetched = (path: string) =>
-      page.waitForEvent("requestfinished", (r) => new URL(r.url()).pathname === path && new URL(r.url()).searchParams.has("_rsc"))
-    const ready = Promise.all([prefetched("/knowledge/library/books"), prefetched("/knowledge/library/item")])
+    const prefetched = (path: string, segment: string, anySearch = false) =>
+      page.waitForEvent("requestfinished", (r) => {
+        const url = new URL(r.url())
+        if (url.pathname !== path || !url.searchParams.has("_rsc") || (!anySearch && [...url.searchParams.keys()].length !== 1)) return false
+        return (r.headers()["next-router-segment-prefetch"] ?? "").endsWith(segment)
+      })
+    const ready = Promise.all([
+      prefetched("/knowledge/library/books", "/_tree"),
+      prefetched("/knowledge/library/books", "/knowledge/library/books/__PAGE__"),
+      prefetched("/knowledge/library/item", "/_tree"),
+      prefetched("/knowledge/library/item", "/knowledge/library/item/__PAGE__", true),
+    ])
     await page.goto("/knowledge/library")
     await ready
     await page.waitForLoadState("networkidle")
