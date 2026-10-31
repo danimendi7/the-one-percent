@@ -212,7 +212,14 @@ test.describe("library (demo)", () => {
   })
 
   test("with no connection, links still open Libros, a book and Cerebro, and an idea is captured there", async ({ page, context, consoleErrors }) => {
+    // Offline navigation relies on Next having prefetched those pages while online. Wait for those
+    // prefetches themselves: «networkidle» can come before they start on a slower machine (ci/m4).
+    // «requestfinished»: the whole body arrived (a response event only means the headers did).
+    const prefetched = (path: string) =>
+      page.waitForEvent("requestfinished", (r) => new URL(r.url()).pathname === path && new URL(r.url()).searchParams.has("_rsc"))
+    const ready = Promise.all([prefetched("/knowledge/library/books"), prefetched("/knowledge/library/item")])
     await page.goto("/knowledge/library")
+    await ready
     await page.waitForLoadState("networkidle")
     await context.setOffline(true)
     await page.getByTestId("door-Libros").click()

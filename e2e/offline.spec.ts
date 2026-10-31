@@ -13,10 +13,15 @@ test.use({ serviceWorkers: "allow" })
 const SHELL_PAGES = 19
 const offlineNoise = (e: string) => /ERR_INTERNET_DISCONNECTED|net::ERR_FAILED|Failed to fetch|NetworkError|ERR_NAME_NOT_RESOLVED/.test(e)
 
-/** Waits for the worker to control the page, asks it to prepare the shell and waits until it has. */
+/**
+ * Waits for the worker to be active, asks it to prepare the shell and waits until it has. Not for it
+ * to control THIS page: a navigation that began while it was still activating stays uncontrolled
+ * until the next one (normal browser behaviour, timing-dependent). The next load is controlled,
+ * and that is what an offline start is.
+ */
 async function prepared(page: Page) {
   await page.evaluate(() => navigator.serviceWorker.ready)
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 15_000 }).toBe(true)
+  await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.ready).active?.state), { timeout: 15_000 }).toBe("activated")
   await page.evaluate(async () => (await navigator.serviceWorker.ready).active?.postMessage({ type: "top:warm" }))
   await expect
     .poll(

@@ -1853,3 +1853,71 @@ En los dos casos el problema es el proceso Node de Windows, no la aplicación. L
 
    Además, el diagnóstico del iPhone (§21.3).
 9. **Vuelta atrás** preparada antes de empezar: `revert` del código en `main`, sin tocar la base, porque la migración es aditiva.
+
+
+## 22. M4f · Etapa 2: validación remota en `ci/m4` (31/10/2026)
+
+### 22.1 Antes de subir la rama
+- Árbol limpio y HEAD en `027f219`.
+- `origin/main` en `85fd1a0`, comprobado con `git ls-remote`, sin cambiar referencias locales. `ci/m4` no existía.
+- `85fd1a0` es antecesor de HEAD, es decir, avance directo. Los 11 commits solo tocan ficheros de este proyecto.
+- En el diff final no hay secretos, correos, rutas personales ni referencias a Uría en código, scripts o workflow.
+- `ci.yml`:
+  - se ejecuta en `ci/**`;
+  - incluye `test:browser`;
+  - no lee `secrets.*` ni `vars.*`.
+- `vercel.json`: `ci/**` desactivado.
+- Presupuesto: unos 160 minutos de Linux en octubre (14 ejecuciones), dentro de los ~2.000 incluidos para un repositorio privado. La facturación no se consultó, porque necesita otro permiso.
+
+### 22.2 Ejecución
+**Rama y commit**: solo `git push origin 027f219:refs/heads/ci/m4`. `main` quedó en `85fd1a0`.
+
+**Run** [41183910815](https://github.com/danimendi7/the-one-percent/actions/runs/41183910815), sobre `027f219`: **suspendido** en la E2E, de 32 minutos. Duración total de unos 37 minutos.
+
+| Paso | Resultado |
+|---|---|
+| Typecheck y lint | ✓ |
+| Unitarias | ✓, 46 ficheros con la puerta superada |
+| Supabase efímero y aislamiento | ✓ |
+| Integración | ✓, 8 ficheros con la puerta superada |
+| `test:browser` | ✓ 6/6, con la puerta `--expect 6` |
+| Listado E2E | ✓ |
+| E2E (2 pasadas, 684 ejecuciones) | **✗**: 615 superadas, 54 omitidas (exactamente las esperadas), **4 fallidas y 3 inestables** |
+| Smoke | Sin ejecutar (el paso anterior falló) |
+| Revisión de secretos y subida del artefacto | ✓; artefacto `e2e-41183910815-1`, de 18 MB, que caduca el 30/11 |
+
+**Sin despliegues**: GitHub no muestra ningún *deployment* ni estado de Vercel para `ci/m4` ni para `027f219`.
+
+### 22.3 Diagnóstico (con los registros y las trazas del artefacto)
+1. **`library.spec.ts` · «with no connection…» (4 fallos y 1 inestable). Fallo de la prueba.**
+   - En el *runner*, Next empezó a precargar `/knowledge/library/books` e `/item` 1,4 s después de cargar la página. Para entonces la prueba ya había esperado a `networkidle` y había cortado la red: esas peticiones salieron con `-1`.
+   - Reproducido en local con la CPU ×6: la espera antigua falla 3 de 3.
+   - Corrección: esperar a que esas precargas **terminen** (`requestfinished`, con el cuerpo completo) antes de cortar la red. Con la CPU ×6 pasa 3 de 3, y en condiciones normales, 10 de 10.
+   - Producción no se ve afectada: el service worker cubre además el arranque sin red.
+2. **`screen-error.spec.ts` · Objetivos (1 fallo y 2 inestables). Fallo real del motor (D89).**
+   - En la página nueva, la traza muestra que el WebSocket de realtime conectó y, 34 ms después, salió un `pull_changes`, **sin ningún `apply_ops`**: el ciclo lanzado por el canal empezó antes de que `start()` leyera la cola guardada.
+   - Ese ciclo no tenía nada que enviar y se quedó esperando la descarga, que la prueba retiene a propósito. El cambio pendiente quedaba para el ciclo siguiente.
+   - Reproducido con una prueba unitaria (`engine-startup.test.ts`), que falla sin la corrección y pasa con ella (mutación comprobada).
+   - No se perdieron datos: la cola seguía guardada. Pero el envío se retrasaba y ese ciclo prematuro trabajaba sobre un estado vacío.
+3. **Durante la revisión local apareció una tercera incidencia, también de la prueba** (no falló en CI).
+   - `offline.spec.ts` exigía que el service worker **controlara** la página en curso.
+   - Si la navegación empieza mientras el SW todavía se está activando, esa página queda sin controlar hasta la siguiente, como es normal en el navegador.
+   - Ahora la prueba espera a que el SW esté **activado**. El arranque sin red es una navegación nueva y siempre pasa por él.
+   - 30/30 sin reintentos.
+
+### 22.4 Validación local de las correcciones
+| Prueba | Resultado |
+|---|---|
+| `npm run check` | 47 ficheros, **514/514** (+1, `engine-startup.test.ts`) |
+| Integración | **145/145** |
+| `test:browser` en modo CI | **6/6**, con la puerta |
+| E2E completa en modo CI, por proyecto, con la puerta estricta | Móvil **144 + 25 omitidas**; escritorio **167 + 2 omitidas**; **0 fallos, 0 inestables, 338/338 listadas ejecutadas** |
+| Smoke | **22/22** |
+
+**Una ejecución intermedia** en escritorio murió de nuevo por el problema de Windows (0xC0000409): 322 conexiones rechazadas desde un punto de la ejecución. La repetición salió limpia.
+
+### 22.5 Estado
+- `027f219` **no queda validado**.
+- Las correcciones van en un commit local nuevo, encima de `027f219`.
+- Para validarlo hace falta tu autorización para un nuevo `push` de avance directo a `ci/m4` (sin forzar: `git push origin <nuevo>:refs/heads/ci/m4`).
+- El plan de despliegue de §21.8 (B) no cambia, salvo que el commit validado será ese nuevo.

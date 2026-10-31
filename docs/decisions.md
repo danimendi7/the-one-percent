@@ -146,6 +146,12 @@
 | D87 | CI de M4 | `npm run test:browser` entra en `ci.yml` con su propio criterio: exactamente 6 superadas. La puerta E2E exige además el **recuento exacto**: todas las pruebas de `playwright test --list` se ejecutan en cada pasada, y las omitidas son exactamente `E2E_SKIPS_PER_PASS` (27). Una prueba que desaparece o se omite de más suspende | Requisito de validación estricta del número de tests |
 | D88 | Identidad de Git (**opción A** aprobada) | Los commits futuros de **este** repositorio usan la dirección `noreply` oficial de GitHub de la cuenta (`<id>+<login>@users.noreply.github.com`). El id y el login se comprobaron en modo lectura con la API de GitHub. Solo cambia la configuración local del repositorio: la global, otros repositorios y los commits anteriores no se tocan. El historial no se reescribe | Decisión del propietario. El correo personal sigue en 50 commits publicados de un repositorio privado (riesgo aceptado) |
 
+## M4f · Etapa 2: validación remota (31/10/2026)
+
+| # | Tema | Decisión | Motivo |
+| --- | --- | --- | --- |
+| D89 | Orden de arranque del motor | Mientras `start()` lee la copia guardada, cualquier `sync()` (por ejemplo, el del canal realtime al conectarse) **espera a ese arranque**, que ya incluye su ciclo completo, en lugar de abrir un ciclo con la cola vacía. Si la carga falla, el motor queda marcado como cargado igualmente, para no bloquear las sincronizaciones posteriores. No cambia el protocolo | Fallo real encontrado por la CI de Linux en `ci/m4` (run 41183910815, puerta permanente `screen-error`): un cambio pendiente esperaba al ciclo siguiente porque el ciclo prematuro no lo enviaba. M4c alargó esa ventana al abrir también la base de la Biblioteca |
+
 ## M4 · Propuestas aún abiertas (30/10/2026)
 
 El detalle está en `docs/m4-knowledge-os-plan.md` (§15 y §16.10). Las aprobadas ya figuran arriba como D59–D69; la tabla siguiente es el registro original de la propuesta.

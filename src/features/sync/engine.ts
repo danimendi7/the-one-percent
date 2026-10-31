@@ -190,6 +190,13 @@ export class SyncEngine {
   private snapshot: EngineSnapshot | null = null
   private running: Promise<void> | null = null
   private rerun = false
+  /**
+   * The start-up (load of the saved copy, then the first full cycle) while it runs (M4f). A sync()
+   * asked for meanwhile, e.g. by the realtime channel connecting first, waits for it instead of
+   * running a cycle with an empty queue that would then sit on the pull (found by ci/m4).
+   */
+  private boot: Promise<void> | null = null
+  private loaded = false
   private failures = 0
   private cancelRetry: (() => void) | null = null
   private readonly now: () => number
@@ -227,7 +234,22 @@ export class SyncEngine {
   }
 
   // ── public API ─────────────────────────────────────────────────────────
-  async start(): Promise<void> {
+  start(): Promise<void> {
+    this.boot ??= this.loadThenSync()
+    return this.boot
+  }
+
+  private async loadThenSync(): Promise<void> {
+    try {
+      await this.load()
+    } finally {
+      // Even if loading failed, later syncs must run (they would otherwise wait on this start-up).
+      this.loaded = true
+    }
+    await this.sync({ full: true })
+  }
+
+  private async load(): Promise<void> {
     // The library copy is read in parallel with the main record: they are separate databases (D72).
     const library = this.loadLibrary()
     // A copy saved by an older version may lack newer fields (e.g. goals): upgrade it in place, never discard it.
@@ -246,7 +268,6 @@ export class SyncEngine {
       this.ready = true
       this.invalidate()
     }
-    await this.sync({ full: true })
   }
 
   subscribe(listener: () => void): () => void {
@@ -777,6 +798,8 @@ export class SyncEngine {
   /** Run a sync cycle: push pending ops, then pull. Concurrent calls coalesce. */
   sync(opts: { full?: boolean } = {}): Promise<void> {
     if (this.stopped) return Promise.resolve()
+    // Before the saved copy is loaded, the start-up's own full cycle is the sync.
+    if (this.boot && !this.loaded) return this.boot
     // `starting` covers the synchronous start of cycle(), before `running` is assigned: a sync()
     // reached from inside it (a listener, a transport callback) must not start a second, parallel
     // cycle that would resend in-flight ops and send later edits with stale bases (M4c).
