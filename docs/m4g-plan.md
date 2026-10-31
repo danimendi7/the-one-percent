@@ -17,6 +17,7 @@
 12. M4g.1: servicio seguro de metadatos (hecho en local)
 13. M4g.1: validación remota en `ci/m4g`
 14. M4g.2: revisión previa del proxy de portadas (sin implementar)
+15. M4g.2: portadas reales con respaldo tipográfico (hecho en local)
 
 ---
 
@@ -976,3 +977,173 @@ Esta sección solo documenta. No se amplía ninguna lista de destinos y no exist
 **Estimación:** 120–150 minutos, sin migraciones ni dependencias nuevas.
 - Incluye el cambio de transporte a `node:https`, también para los metadatos, con sus pruebas.
 - Requiere tu autorización.
+
+## 15. M4g.2 · Portadas reales con respaldo tipográfico (31/10/2026, hecho en local)
+
+Autorizado solo en local, después de cerrar la validación de M4g.1. Para empezar se volvieron a comprobar:
+- el run 41229248953 (éxito, intento 1, `b5ad26b`) y los recuentos de sus artefactos;
+- que no hay Preview en Vercel y que `main` = `f66b3b9`;
+- la nube en solo lectura (27/27).
+
+Decisiones: D94–D95 en `docs/decisions.md`.
+
+### 15.1 Endpoint
+`GET /api/covers?ol={id}&s={sm|md|lg}` o `GET /api/covers?apple={1–5}:{ruta}&s={sm|md|lg}`
+
+- **Solo identificadores** (`covers.ts`), nunca una URL:
+  - Open Library por su **id de portada** (nunca por ISBN);
+  - Apple por el número de host `isN-ssl` y la ruta de la imagen, con la forma exacta de Apple (`Podcasts…/v4/xx/xx/xx/<uuid>/<fichero>.jpg|jpeg|png`).
+  - Se rechazan los parámetros desconocidos, repetidos o de más, y cualquier `url` o `src`.
+- **Reconstrucción**: la URL externa se rehace en el servidor a partir del identificador (`coverUpstreamUrl`).
+
+  | Tamaño | Open Library | Apple |
+  |---|---|---|
+  | `sm` (fila de lista) | `-M` | 100 px |
+  | `md` (cuadrícula) | `-M` | 300 px |
+  | `lg` (ficha) | `-L` | 600 px |
+
+- **Lo que se guarda en la Biblioteca** sigue siendo la URL canónica (`cover.url`). Solo se convierte en imagen si pasa `coverKeyOf`; `isCanonicalCoverUrl` y `appleArtwork` usan ahora esa misma validación estricta.
+- **Respuesta correcta**: los bytes de la imagen, con el tipo **comprobado por sus primeros bytes** y `Cache-Control: private, max-age=2592000, immutable`, `Content-Disposition: inline` y `Cross-Origin-Resource-Policy: same-origin`.
+- **Respuestas de error** (`no-store`, sin cuerpo):
+
+  | Código | Cuándo |
+  |---|---|
+  | 401 | Sin sesión verificada (también con la cookie de demo) |
+  | 503 | Auth no disponible, o el proveedor está ocupado (con `Retry-After`) |
+  | 400 | Parámetros no válidos |
+  | 429 | Cuota por usuario agotada |
+  | 404 | Sin portada |
+  | 502 | Fallo del proveedor |
+
+### 15.2 Hosts y redirecciones (medidas reales del 31/10/2026)
+- **Primer salto**: seis nombres exactos, `covers.openlibrary.org` e `is1`–`is5-ssl.mzstatic.com`.
+- **Open Library**: algunas portadas (las recientes, o el id 1) las sirve el propio host. Las demás siguen **esta cadena exacta, y solo esta**:
+  ```
+  covers.openlibrary.org/b/id/{n}-{T}.jpg
+  → archive.org/download/{t}_covers_{dddd}/{t}_covers_{dddd}_{dd}.zip/{n con 10 dígitos}-{T}.jpg
+  → ia{dddddd}.us.archive.org/view_archive.php?archive=/{d}/items/{t}_covers_{dddd}/{t}_covers_{dddd}_{dd}.zip&file={n con 10 dígitos}-{T}.jpg
+  ```
+  - Cada salto tiene que venir del host anterior y nombrar **el mismo id y el mismo tamaño**.
+  - El nodo de almacenamiento (`ia` + 6 dígitos + `.us.archive.org`) **solo** se acepta como destino de `archive.org`, con esa ruta y exactamente los parámetros `archive` y `file`.
+  - **No hay ningún patrón de host abierto**: un `ia…` sin el salto previo de `archive.org`, o con otro fichero, se rechaza.
+- **Apple**: sin redirecciones. Cualquier redirección se rechaza.
+- **Límite**: como máximo 2 redirecciones.
+
+### 15.3 Direcciones privadas y cambios de DNS
+- **Antes de cada salto**: se resuelve el nombre y se rechaza si **alguna** dirección es privada, de bucle, *link-local*, CGNAT, de multidifusión, de documentación, IPv4 mapeada, NAT64 o 6to4 (`isBlockedAddress`).
+- **Conexión fijada**: el transporte por defecto es ahora `node:https` con un `lookup` validador (`validatingLookup`). El socket se conecta **exactamente a las direcciones comprobadas en ese momento**, así que un nombre que cambie a una dirección privada después de la primera comprobación no se alcanza: se rechaza con `blocked`. Hay una prueba con un resolvedor que primero da una dirección pública y después una privada.
+  - Sin reutilizar conexiones (`agent: false`).
+  - El certificado TLS se sigue verificando contra el nombre.
+  - Los cuerpos comprimidos se rechazan; no se piden.
+- **También lo usa M4g.1**: los metadatos pasan por el mismo transporte, lo que cierra el riesgo residual de §12.4. El comportamiento con Open Library y Apple se volvió a comprobar con los proveedores reales.
+
+### 15.4 Validación de la imagen
+- Respuesta 200 exacta; 206 y similares se rechazan.
+- Tipo declarado `image/jpeg`, `png` o `webp`. Un GIF declarado se lee para clasificarlo como «sin portada».
+- **Los primeros bytes deben demostrar el mismo tipo declarado**: un PNG declarado como JPEG, un HTML o un GIF se rechazan.
+- Al menos 1 KB (el GIF de relleno pesa 43 bytes) y como máximo 2 MB, leídos por streaming y cortados al pasar el límite.
+- 5 s para la petición entera, redirecciones incluidas.
+- En el navegador, además: menos de 16 × 16 píxeles cuenta como fallo y se queda la portada tipográfica.
+
+### 15.5 Autorización y caché, separadas
+- **Autorización**:
+  - la ruta verifica al usuario con `getUser()` en el servidor de Auth (`callerOf`, el mismo de M4g.1);
+  - la cookie de demo o una sesión falsa dan 401;
+  - cuota de 120 portadas a la vez y 120 por minuto por usuario; por proveedor y por instancia, 120/min para Open Library y 240/min para Apple.
+- **El proxy no toca `/api/covers`** (`src/proxy.ts`). Así una respuesta de imagen **nunca lleva un `Set-Cookie`** de refresco de sesión. Si la sesión ha caducado, la imagen da 401 y se ve la tipográfica; la sesión se refresca en la siguiente navegación.
+- **Caché**:
+  - solo una imagen comprobada es cacheable, y solo por el navegador (`private`): ninguna caché compartida puede guardarla, porque la ruta exige sesión;
+  - en el servidor no se guarda nada;
+  - las imágenes son públicas, y al proveedor no llega nada del usuario: sin cookies, sin `Authorization` y con `credentials: "omit"`;
+  - la URL de la petición solo lleva el identificador del proveedor.
+- **Condiciones de los proveedores**:
+  - Open Library pide cachear y desaconseja las descargas masivas; aquí se pide por id, solo lo que se ve y una vez por dispositivo;
+  - las imágenes de Apple se muestran junto al enlace y la atribución que la ficha ya tiene, sin modificarlas.
+- **Service worker**: sin cambios; sigue sin tocar `/api/`. **Las portadas no se guardan en el SW**; eso queda pendiente (M4g.6) de autorización y revisión.
+
+### 15.6 `CoverArt`
+- **La portada tipográfica se pinta siempre.** La imagen se superpone en la misma caja (`absolute inset-0`, `object-cover`) y aparece cuando ha cargado bien (`opacity`, sin animación con `prefers-reduced-motion`).
+  - Si falla, está cargando, no hay conexión, no hay sesión o es la demo, se queda la tipográfica, **sin icono de imagen rota y sin que se mueva nada**.
+  - Mantiene la proporción: 2:3 en libros y 1:1 en programas y episodios.
+- **Carga**: `loading="lazy"` y `decoding="async"`. El estado se guarda por dirección, así que cambiar de portada empieza de cero.
+- **Accesibilidad**:
+  - decorativa en listas y cuadrículas (`aria-hidden`; el título ya está como texto);
+  - en la ficha, `role="img"` con «Portada de …», sea cual sea la portada visible.
+- **Atributo de prueba**: `data-cover` = `image` o `typographic`.
+- **Uso**: cuadrícula y lista de libros y episodios, cuadrícula de programas, y fichas de contenido y de programa.
+  - **Solo se muestran portadas externas válidas**: las subidas por el usuario (`source: "upload"`, sin Storage todavía) o las URLs no reconocidas mantienen la tipográfica.
+  - **Nada se escribe**: M4g.2 no crea, cambia ni sustituye la portada de ningún elemento.
+
+### 15.7 Medidas reales (`npm run explore:metadata`)
+- **Tamaños**:
+  - Open Library: 19–20 KB (`-M`);
+  - Apple: 6 KB (100 px), 31 KB (300 px) y 101 KB (600 px).
+- **`archive.org` va lento**. El 31/10/2026, el salto de `archive.org` tardó **3,4–8,2 s con `curl`**, y la cadena completa **6–12 s con `fetch`**. El transporte no es la causa: los tiempos son iguales con cualquier cliente.
+  - Con el límite de 5 s, una portada antigua (las que pasan por `archive.org`) puede quedarse con la tipográfica mientras dure esa lentitud. El fallo no se guarda en caché, así que se reintenta en la siguiente visita.
+  - Un tiempo agotado **no** pausa a Open Library. Si lo hiciera, ocultaría también las portadas que `covers.openlibrary.org` sirve al instante.
+  - **Decisión pendiente (G2-1)**: ampliar el tiempo solo para la cadena de `archive.org` (p. ej., 10–12 s). Exige revisar antes la duración máxima de las funciones en Vercel.
+
+### 15.8 Pruebas
+- **Unitarias nuevas**:
+  - `covers.test.ts` (28): claves, peticiones válidas y no válidas, reconstrucción, y la cadena exacta con 13 desvíos rechazados.
+  - `server/covers.test.ts` (44):
+    - tipos comprobados por bytes, GIF de relleno, HTML, PNG declarado como JPEG, vacío, demasiado pequeño, SVG, comprimido, más de 2 MB, 206 y 404, tiempo;
+    - `lookup` validador con 6 respuestas DNS peligrosas;
+    - **DNS rebinding**: primero una dirección pública, después una privada;
+    - transporte (https, 443, sin reutilizar conexiones, solo `User-Agent` y `Accept`);
+    - servicio: Open Library directo y por cadena, Apple, redirecciones maliciosas (otro host, localhost, IP privada, `http`, otra portada, nodo directo), redirección de Apple, nodo con DNS privado, sin portada sin penalizar al proveedor, 429, 5xx, tiempo agotado y aislamiento entre proveedores;
+    - ruta: anónimo, demo y Auth caído sin llamadas externas; con sesión, tipo comprobado, caché privada y sin `Set-Cookie`; nada del usuario hacia fuera; 400, errores `no-store` y cuota por usuario.
+  - Ajuste en `clean.test.ts`: las URLs de Apple que no tienen la forma exacta ya no son portadas.
+- **Mutaciones**: quitar el filtro de direcciones del `lookup` validador hace fallar 6 pruebas; quitar la comprobación del id y del tamaño en la cadena, 3. Después se restauró el código.
+- **Integración nueva**: 1, con sesiones reales del stack local. Sin cookie, con la cookie de demo o con un token falso: 401 `no-store` sin llamadas externas. Con sesión verdadera: imagen, caché privada, sin `Set-Cookie`, y una sola petición a la URL reconstruida.
+- **E2E nueva**: `e2e/covers.spec.ts` (4 pruebas × móvil y escritorio). Responde a `/api/covers` desde la propia página con una imagen dibujada en el navegador, sin llamar a ningún proveedor.
+  - Portada real sobre la tipográfica: misma caja que un libro sin portada, 2:3, `object-cover`, petición solo con el id, tamaño `lg` en la ficha y «Portada de …».
+  - Apple en una fila de episodio (`sm`) y en una cuadrícula de programas (`md`, 1:1).
+  - Ante 404, 401, sin conexión y bytes que no son imagen: se queda la tipográfica, sin imagen rota.
+  - La demo contra la ruta real: 401 `no-store` sin `Set-Cookie`, y la tipográfica.
+- **Resultados**: §15.9.
+
+### 15.9 Resultados (31/10/2026)
+| Suite | Resultado |
+|---|---|
+| `npm run check` (tipos, lint y unitarias) | **708/708**: 636 anteriores y 72 nuevas |
+| `npm run test:integration` (stack local) | **149/149**: 148 anteriores y 1 nueva |
+| E2E dirigida (1 worker, Windows): `covers`, `library`, `library-account`, `offline` (con service worker), `a11y`, `knowledge` y `navigation` | **148 listadas: 144 superadas, 4 omitidas previstas** (3 de `library-account` en móvil y 1 de `navigation` en escritorio), **0 fallidas**. `covers.spec.ts`: 8/8 |
+| HTTP sobre el build de producción | `/api/covers` anónimo, con demo y con demo y sesión falsa: 401 `no-store` sin `Set-Cookie`. Una URL como parámetro: 401, porque la autenticación va antes que el análisis de parámetros. POST: 405. Metadatos sin sesión: 401 en JSON como antes. Página sin sesión: 307 a `/login`, como antes |
+| `npm run explore:metadata` (proveedores reales, fuera de la CI) | **5/5**: metadatos con el transporte fijado, portadas de Open Library por la cadena y directa, y Apple en 3 tamaños |
+| **E2E completa** (342 × 2) | **No ejecutada en local**: en Windows se quedó sin memoria en M4g.1 y no se ha insistido. Pendiente de la CI remota, con autorización |
+
+Avisos: 2 `[newAccount] slow` en la E2E dirigida, ambos en la etapa `status` (la primera llamada a `npx supabase status` de cada worker, 3,7–4,2 s). Es el mismo patrón observado en la CI; Auth y la base tardaron ≈0,1 s.
+
+### 15.10 Limitaciones pendientes
+1. **`archive.org` lento** y el límite de 5 s (§15.7, G2-1).
+2. **Portadas sin conexión**: solo lo que conserve la caché HTTP del navegador. En el iPhone no está garantizado. La caché en el service worker es M4g.6.
+3. **Coste de Auth**: `getUser()` en cada portada pedida por primera vez en un dispositivo, y después caché de 30 días. Si se nota en las cuadrículas, la opción es `getClaims()` con verificación local (la nube firma con ES256, §14.3). A cambio, una sesión cerrada en otro dispositivo seguiría valiendo ≈1 h para portadas.
+4. **Una portada que falla se vuelve a pedir** en cada visita: los errores son `no-store` para no fijar una indisponibilidad pasajera.
+5. **Ningún elemento de la Biblioteca tiene todavía una portada externa**: aparecerán con M4g.3 y M4g.4. Hasta entonces, en producción todo seguirá viéndose como hoy.
+
+### 15.11 Propuesta de M4g.3: alta asistida de libros (sin implementar)
+1. **Objetivo**: «Añadir libro» abre un buscador (título, autor o ISBN) con resultados con portada, una ficha de confirmación editable y el guardado con las operaciones de M4. La entrada manual queda siempre a un toque.
+2. **Componentes**:
+   - `components/add-book-sheet.tsx` (hoja inferior en el móvil y panel lateral en el escritorio);
+   - usa `createSearchController`, `metadataClient`, `findBookMatches`, `toBookInput` y `CoverArt`;
+   - selector de edición (`books/editions`);
+   - detalle (`books/detail`) al abrir un resultado;
+   - avisos de duplicado `strong` y `possible` que no bloquean; en el `exact`, «Abrir» o «Añadir como otra edición».
+3. **Cambios en lo existente**:
+   - los botones «Añadir libro» abren el buscador;
+   - `ContentForm` recibe el título prellenado para la entrada manual;
+   - mensaje propio para `duplicate_external` en `LibraryConflicts`.
+4. **Base de datos**: ninguna.
+5. **E2E**:
+   - el navegador no puede interceptar las llamadas del servidor, así que se propone un origen de pruebas para los proveedores, aceptado **solo** fuera de Vercel y en `http://127.0.0.1:<puerto>`, con un servidor local de fixtures;
+   - toca `safeFetch`, así que se revisaría como cambio de seguridad;
+   - alternativa: interceptar `/api/metadata/*` desde la página, como en `covers.spec.ts`, sin cambiar el servidor. **Recomendada**, porque no abre ningún camino nuevo en el servidor.
+6. **Pruebas**:
+   - buscar por título y por ISBN, editar en la ficha y guardar;
+   - duplicado → «Abrir»;
+   - proveedor caído → entrada manual con lo escrito;
+   - sin conexión → entrada manual, y sincroniza al volver;
+   - teclado y lector de pantalla (axe) en móvil y escritorio.
+7. **Riesgos**: el teclado del iPhone en la hoja inferior, una edición equivocada y la lentitud de Open Library (hasta 3,8 s).
+8. **Estimación**: 180–240 minutos, sin migraciones ni dependencias.
