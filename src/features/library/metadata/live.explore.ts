@@ -4,9 +4,14 @@
  * Public catalogue queries only, no user data. NOT run by `npm test` or CI (vitest.explore.config.mts):
  * `npm run explore:metadata`. A failure here means «look at the provider», not «the build is red».
  */
+import { lookup } from "node:dns/promises"
+import type { IncomingMessage } from "node:http"
+import { request as httpsRequest, type RequestOptions } from "node:https"
+import type { TLSSocket } from "node:tls"
 import { describe, expect, it } from "vitest"
 import { coverKeyOf } from "./covers"
 import { createCoverService } from "./server/cover-service"
+import { pinnedFetch, USER_AGENT, type Resolver } from "./server/safe-fetch"
 import { createMetadataService } from "./server/service"
 
 const service = createMetadataService()
@@ -67,5 +72,47 @@ describe("real cover images (exploratory, pinned transport)", () => {
 
   it("a cover id without image is not_found (the placeholder GIF is refused)", async () => {
     await expect(covers.get({ provider: "openlibrary", id: 999_999_999 }, "md")).rejects.toMatchObject({ code: "not_found" })
+  })
+})
+
+describe("pinned connection against real servers (exploratory)", () => {
+  /** node:https.request, recording the TLS socket each request really used. */
+  function recording() {
+    const sockets: TLSSocket[] = []
+    const request = ((options: RequestOptions, cb: (res: IncomingMessage) => void) => {
+      const req = httpsRequest(options, cb)
+      req.on("socket", (s) => sockets.push(s as TLSSocket))
+      return req
+    }) as typeof httpsRequest
+    return { request, sockets }
+  }
+
+  it("connects to an address that was validated, with SNI and the certificate of the original host", async () => {
+    const checked: string[] = []
+    const resolve: Resolver = async (host) => {
+      const list = await lookup(host, { all: true, verbatim: true })
+      checked.push(...list.map((a) => a.address))
+      return list
+    }
+    const rec = recording()
+    const res = await pinnedFetch(resolve, rec.request)("https://covers.openlibrary.org/b/id/15237820-M.jpg", { headers: { "User-Agent": USER_AGENT } })
+    expect(res.status).toBe(200)
+    await res.arrayBuffer()
+    const s = rec.sockets[0]
+    console.info(`remote ${s.remoteAddress} · servername ${(s as unknown as { servername: string }).servername} · authorized ${s.authorized} · checked ${checked.join(", ")}`)
+    expect(checked).toContain(s.remoteAddress)
+    expect((s as unknown as { servername: string }).servername).toBe("covers.openlibrary.org")
+    expect(s.authorized).toBe(true)
+  })
+
+  it("an address of another server is refused by TLS: the certificate is checked against the original host, not the IP", async () => {
+    const other = (await lookup("itunes.apple.com", { all: true })).filter((a) => a.family === 4).slice(0, 1)
+    const wrong: Resolver = async () => other
+    const err = await pinnedFetch(wrong)("https://covers.openlibrary.org/b/id/15237820-M.jpg", { headers: { "User-Agent": USER_AGENT } }).then(
+      () => null,
+      (e: NodeJS.ErrnoException) => e.code ?? e.message
+    )
+    console.info(`connecting covers.openlibrary.org to ${other[0]?.address}: ${err}`)
+    expect(err).toMatch(/CERT|ALTNAME|certificate/i)
   })
 })

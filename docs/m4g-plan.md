@@ -18,6 +18,8 @@
 13. M4g.1: validación remota en `ci/m4g`
 14. M4g.2: revisión previa del proxy de portadas (sin implementar)
 15. M4g.2: portadas reales con respaldo tipográfico (hecho en local)
+16. M4g.2: validación remota en `ci/m4g`
+17. M4g.3: plan de implementación del alta asistida de libros (sin implementar)
 
 ---
 
@@ -1081,7 +1083,7 @@ Decisiones: D94–D95 en `docs/decisions.md`.
 - **`archive.org` va lento**. El 31/10/2026, el salto de `archive.org` tardó **3,4–8,2 s con `curl`**, y la cadena completa **6–12 s con `fetch`**. El transporte no es la causa: los tiempos son iguales con cualquier cliente.
   - Con el límite de 5 s, una portada antigua (las que pasan por `archive.org`) puede quedarse con la tipográfica mientras dure esa lentitud. El fallo no se guarda en caché, así que se reintenta en la siguiente visita.
   - Un tiempo agotado **no** pausa a Open Library. Si lo hiciera, ocultaría también las portadas que `covers.openlibrary.org` sirve al instante.
-  - **Decisión pendiente (G2-1)**: ampliar el tiempo solo para la cadena de `archive.org` (p. ej., 10–12 s). Exige revisar antes la duración máxima de las funciones en Vercel.
+  - **Decidido (D96)**: se mantienen los 5 s, también para `archive.org`.
 
 ### 15.8 Pruebas
 - **Unitarias nuevas**:
@@ -1147,3 +1149,189 @@ Avisos: 2 `[newAccount] slow` en la E2E dirigida, ambos en la etapa `status` (la
    - teclado y lector de pantalla (axe) en móvil y escritorio.
 7. **Riesgos**: el teclado del iPhone en la hoja inferior, una edición equivocada y la lentitud de Open Library (hasta 3,8 s).
 8. **Estimación**: 180–240 minutos, sin migraciones ni dependencias.
+
+## 16. M4g.2 · Validación remota en `ci/m4g` (31/10/2026)
+
+### 16.1 Verificación previa
+- **Rama y commits:**
+  - HEAD `5c4309a`, árbol limpio;
+  - `ci/m4g` = `b5ad26b` y `main` = `f66b3b9`;
+  - avance directo con 3 commits: `5b1149f` (documentación), `345e503` y `5c4309a`.
+- **Diff contra `b5ad26b`:**
+  - sin cambios en `supabase/`, `package.json`, el lockfile, `.github`, `vercel.json`, `next.config.ts` ni `public/`;
+  - sin secretos ni correos.
+- **Contrato:**
+  - 350 pruebas listadas por pasada (342 + 8 de `covers.spec.ts`) y 21 specs;
+  - `covers.spec.ts` no añade omisiones, así que `E2E_SKIPS_PER_PASS` sigue en 27;
+  - esperado: 646 superadas y 54 omitidas.
+- **`/api/covers` y autenticación:** revisadas (§15.1 y §15.5). La comprobación de usuario va antes que la de parámetros.
+- **Caché del navegador entre usuarios:**
+  - la respuesta es `private`: no la guarda ninguna caché compartida;
+  - en un mismo navegador puede reutilizarse para otra sesión, pero el contenido es una **imagen pública** del proveedor, idéntica para cualquiera; no hay contenido privado que pueda pasar de un usuario a otro;
+  - no se usa `Vary: Cookie` porque el token cambia al refrescarse (≈1 h) e invalidaría la caché sin aportar privacidad.
+- **Conexión fijada, comprobada con servidores reales** (`npm run explore:metadata`, prueba nueva):
+  - el socket se conectó a `207.241.234.146`, que es la dirección que validó nuestro `lookup`;
+  - `servername` = `covers.openlibrary.org` (SNI) y el certificado se autorizó;
+  - forzando la IP de otro servidor (Apple) se obtiene `ERR_TLS_CERT_ALTNAME_INVALID`: el certificado se valida contra el host original, no contra la IP.
+- **Redirecciones:** solo se sigue la cadena exacta de Open Library. Cada salto revalida las direcciones y fija la conexión. Las pruebas rechazan otro host, localhost, IP privada, `http`, otra portada, el nodo directo y un nodo con DNS privado.
+- **Vercel:** `vercel.json` sigue con `ci/**` desactivado.
+
+### 16.2 Ejecución
+- **Push normal:** `b5ad26b..5c4309a → ci/m4g`. `main` y `ci/m4` no se tocaron.
+- **Run** [41241302825](https://github.com/danimendi7/the-one-percent/actions/runs/41241302825) sobre `5c4309a03a894f4a7fa3b43382ed1d046a6a624c` (push): **éxito**, de 20:57 a 21:29 UTC (32 min).
+
+| Suite | Resultado (artefactos y puertas) |
+|---|---|
+| Tipos y lint | Correctos |
+| Unitarias | **708/708** en 56 ficheros; las de portadas, 72/72 (2 ficheros) |
+| Aislamiento | Supabase efímero en `127.0.0.1:55321`, sin credenciales de la nube ni secretos |
+| Integración | **149/149** en 9 ficheros; `metadata-auth`, 4/4 (sesiones reales, portadas incluidas) |
+| `test:browser` | **6/6** |
+| E2E (2 pasadas) | **646 superadas, 54 omitidas**, 0 fallidas, 0 inestables, 0 interrumpidas, 0 errores globales, 0 reintentos. 350 × 2 = 700 ejecutadas, 21 specs |
+| Smoke | **22/22** |
+| Revisión de secretos de la CI | 9 ficheros, 0 eliminados |
+
+- **Pruebas nuevas en Linux:**
+  - `covers.spec.ts` **16/16**: portada real, Apple, respaldo ante 404, 401, sin red o bytes que no son imagen, y la demo contra la ruta real;
+  - `offline.spec.ts` **24/24**: service worker, arranque y navegación sin red, privacidad de la caché.
+- **Omitidas:** las 54 son **exactamente las mismas** que en el run 41229248953 (lista comparada prueba a prueba).
+- **Sin llamadas reales a los proveedores:**
+  - las pruebas unitarias y de integración inyectan el transporte;
+  - la E2E responde a `/api/covers` desde la página;
+  - la única llamada real a la ruta (demo) se rechaza con 401 antes de salir;
+  - los logs no mencionan `openlibrary.org`, `archive.org`, `mzstatic.com` ni `itunes.apple.com`.
+- **`newAccount`:** 3 avisos «slow» (la etapa `status` tardó ≈2,9 s, y `createUser` 0,2–0,5 s), el mismo patrón informativo de siempre. Ningún error de autenticación.
+
+### 16.3 Estado final
+- **Ramas:** `ci/m4g` = `5c4309a`; `main` = `ci/m4` = `f66b3b9`.
+- **Vercel:** ningún estado ni despliegue para `5c4309a`, así que no hubo Preview. Producción sirve `f66b3b931aac`.
+- **Supabase Cloud:** 27/27 en solo lectura, con 11 migraciones y las funciones idénticas al fichero.
+- **Sin repeticiones, sin borrados y sin reescribir historia.**
+
+## 17. M4g.3 · Plan de implementación del alta asistida de libros (31/10/2026, **sin implementar**)
+
+Construye sobre lo validado en M4g.1 y M4g.2, con D96–D98 vigentes. No necesita migraciones, dependencias nuevas ni cambios en el servidor.
+
+### 17.1 Flujo
+1. **«Añadir libro»** (portada de Biblioteca, Libros y estado vacío) abre `AddBookSheet`: hoja inferior en el móvil (92 dvh) o panel lateral de 28 rem en el escritorio, con el foco en el buscador.
+2. **Búsqueda**:
+   - un solo campo para título, autor o ISBN;
+   - un ISBN válido, con o sin guiones, se detecta solo y se busca al momento;
+   - el texto espera 350 ms y cancela la búsqueda anterior (`createSearchController`);
+   - un selector discreto «Todo · Título · Autor» se traduce en `by`;
+   - idioma preferido de la edición: `es`, cambiable a `en`.
+3. **Resultados** (≤ 10):
+   - `CoverArt` `sm`, que pide a `/api/covers` y muestra la tipográfica al momento (D97), título, autores, año (de la edición o de la obra), editorial e idioma;
+   - insignia «En tu Biblioteca» si hay una coincidencia `exact`;
+   - filas de ≥ 56 px;
+   - al final, siempre, «¿No está? Añadir a mano».
+4. **Ficha de confirmación** (en el mismo panel, con «‹ Resultados»):
+   - al abrirla se pide `books/detail` (descripción y temas sugeridos de la obra, y páginas de la edición);
+   - mientras llega, los datos del resultado ya son editables y nada se bloquea;
+   - **selector de edición** (`books/editions`, primero el idioma preferido): cambiar de edición actualiza ISBN, editorial, páginas, año, idioma y portada, sin tocar lo que ya hayas editado a mano en la ficha;
+   - campos editables: título, subtítulo, autores, año, páginas, editorial, ISBN-13/10 e idioma;
+   - descripción con «Guardar la descripción» (D7) y aviso si su idioma no coincide con el de la edición;
+   - temas sugeridos como chips para añadir (D6); ninguno viene marcado;
+   - **tus datos de M4**: estado (por defecto «Pendiente»), valoración 1–10 y favorito, con los mismos componentes de la ficha (`StatusPill` y `RatingInput`);
+   - «Datos: Open Library ↗» con el enlace de origen;
+   - botón «Añadir a la Biblioteca» de 48 px.
+5. **Guardar**:
+   - `libraryActions.createItem("book", toBookInput(resultado, elecciones))`, el mismo camino que el alta manual: va a la cola durable y funciona igual sin conexión;
+   - después se abre la ficha del libro con «Añadir idea» a mano, como hoy;
+   - **las notas y los enlaces no se tocan nunca**: el alta solo crea un elemento nuevo.
+
+### 17.2 Duplicados (`findBookMatches` antes de mostrar y antes de guardar)
+| Nivel | Qué ve el usuario | Acción |
+|---|---|---|
+| `exact` (misma obra) | «Ya está en tu Biblioteca: *Título*» | «Abrir» (principal) o «Añadir como otra edición»: se guarda sin referencia externa, con su ISBN (`separateEdition`) |
+| `strong` (mismo ISBN) | «Ya tienes esta edición» | «Abrir» o «Añadir igualmente» |
+| `possible` (título y autor) | «Puede que ya lo tengas: *Título*» | Aviso; se puede guardar |
+
+- Se compara con la copia local, así que también funciona sin conexión.
+- **Carrera entre dispositivos sin conexión**: el servidor rechaza el segundo con `duplicate_external`.
+  - Nuevo texto en `LibraryConflicts`: «Ya habías añadido este libro en otro dispositivo. Tus notas de aquí se conservan.» Los textos ya se conservan (D68/D75).
+  - Una prueba de integración comprueba que no se pierde ninguna nota.
+
+### 17.3 Entrada manual y uso sin conexión
+- **«Añadir a mano»** siempre visible: abre `ContentFormSheet` con el texto buscado como título (prop nueva `initialTitle`, sin más cambios en el formulario).
+- **Sin conexión** (`offline` del controlador): el campo de búsqueda queda deshabilitado y se muestra «Sin conexión. Añádelo a mano; se sincronizará al volver la red.» con el formulario manual. El alta va a la cola como hoy.
+- **Proveedor caído, ocupado o sin respuesta**: el texto de `METADATA_ERROR_TEXT`, «Reintentar» y «Añadir a mano» con lo escrito. Nunca se bloquea el alta (D8).
+- **Demo**: «La búsqueda está disponible con tu cuenta» y alta manual. El cliente no llama a la API en modo demo: lo sabe por `mode` y se ahorra el 401.
+
+### 17.4 Datos y sesión
+- **El navegador solo habla con `/api/metadata/*` y `/api/covers`, del mismo origen**: la CSP no cambia.
+  - Las respuestas se vuelven a validar con Zod (`metadataClient`).
+  - Lo que no pasa no se muestra.
+- **Lo que guarda la sesión de búsqueda**: las búsquedas se recuerdan solo en memoria y en esta sesión (`createSearchController`, ≤ 30). Al cerrar el panel se descartan. Nada va a IndexedDB ni a `localStorage`.
+- **Lo que se guarda en la Biblioteca**: solo lo confirmado (campos del elemento, portada canónica, `external` y atribución).
+  - No se guardan respuestas del proveedor, consultas ni temas sin marcar.
+  - Ningún dato del usuario sale hacia los proveedores; está garantizado en el servidor (M4g.1 y M4g.2).
+- **Sesión**:
+  - una respuesta 401 de la API (sesión caducada) muestra «Tu sesión ha caducado; vuelve a entrar para buscar» y deja la entrada manual;
+  - no hay redirecciones automáticas en mitad de un alta;
+  - lo escrito se conserva (el aviso «¿Descartar lo escrito?» actual cubre también el panel nuevo).
+
+### 17.5 Accesibilidad y adaptación
+- `role="search"` con etiqueta, `inputmode="search"`, `enterkeyhint="search"` y `autocapitalize="off"`.
+- **Resultados**: `role="listbox"` con `aria-activedescendant`, flechas, Intro y Esc en el escritorio; en el móvil, botones de lista de ≥ 56 px.
+- **Avisos por `aria-live="polite"`**: «8 resultados», «Sin resultados» y los errores, una vez por búsqueda y no por tecla.
+- **Foco**:
+  - va a la ficha al abrirla y vuelve al resultado al pulsar «‹ Resultados»;
+  - queda atrapado en la hoja, que ya lo hace (Radix);
+  - es visible.
+- **Teclado del iPhone**: la hoja usa `visualViewport` para que el campo y el botón principal no queden debajo del teclado.
+- **Interfaz**: tokens de color existentes, zonas táctiles de ≥ 44 px y `prefers-reduced-motion` respetado.
+- **Comprobación**: axe sin incidencias serias ni críticas en móvil (375 px) y escritorio (1280 px), en búsqueda, resultados y ficha; sin desbordamiento horizontal.
+
+### 17.6 Archivos
+| Archivo | Cambio |
+|---|---|
+| `src/features/library/components/add-book-sheet.tsx` | **Nuevo**: panel, buscador, resultados, ficha y estados |
+| `src/features/library/metadata/book-draft.ts` | **Nuevo**, puro y con pruebas: estado de la ficha (valores del resultado + ediciones aplicadas + campos tocados por el usuario), que no pisa lo editado al cambiar de edición. Lo convierte en `BookResult` para `toBookInput` |
+| `src/features/library/library-views.tsx` | Los botones «Añadir libro» abren `AddBookSheet`. «Añadir episodio» y «Programa» siguen igual hasta M4g.4 |
+| `src/features/library/components/content-form.tsx` | Prop `initialTitle` para la entrada manual |
+| `src/features/library/components/library-sync.tsx` | Texto de `duplicate_external` |
+| `e2e/add-book.spec.ts` | **Nuevo** |
+| `src/features/library/metadata/*.test.ts` y `tests/integration/library-sync.int.test.ts` | `book-draft`, y la carrera de duplicados sin pérdida de notas |
+
+### 17.7 Pruebas
+- **Unitarias**:
+  - `book-draft`: aplicar una edición sin pisar lo editado, campos vacíos y ediciones sin ISBN;
+  - elecciones del usuario → `toBookInput` → `createItem` válido;
+  - textos de los estados.
+- **Integración**: dos dispositivos crean sin conexión la misma obra → `duplicate_external` → el aviso nuevo y las notas del segundo dispositivo conservadas.
+- **E2E** (`add-book.spec.ts`, móvil y escritorio):
+  - **Cómo se simulan los proveedores**: con `page.route` sobre `/api/metadata/*` y `/api/covers`, con respuestas grabadas, igual que `covers.spec.ts`. Se recomienda esta opción porque **no abre ningún camino nuevo en el servidor**. Los navegadores no pueden interceptar las llamadas del servidor; la alternativa sería un origen de pruebas en `safeFetch`, que se descarta.
+  - **Casos**:
+    - buscar por título → resultado con portada → ficha → cambiar de edición → editar páginas → añadir → la ficha del libro, con su portada, estado y valoración;
+    - ISBN con guiones → búsqueda inmediata → resultado exacto;
+    - un duplicado `exact` → «Abrir» lleva al existente; «Añadir como otra edición» crea un segundo libro sin referencia;
+    - proveedor caído (503) → mensaje + «Añadir a mano» con el título prellenado → se guarda;
+    - sin conexión (`context.setOffline`) → alta manual → sincroniza al volver (modo cuenta, stack local);
+    - demo → solo manual, sin peticiones a `/api/metadata`;
+    - teclado (flechas, Intro, Esc) en escritorio;
+    - axe en los tres estados;
+    - el libro creado mantiene «Añadir idea», y sus notas y sincronización funcionan como siempre.
+  - **Recuento**: las pruebas nuevas no deben añadir omisiones, para que `E2E_SKIPS_PER_PASS` siga siendo 27. Si alguna tiene que omitirse, se cambiará ese número a propósito y se dirá en el informe.
+- **Regresión**: `check` e integración completas; E2E dirigida en local (portadas, biblioteca, cuenta, sin conexión y accesibilidad). La E2E completa, en la CI remota con autorización.
+
+### 17.8 Riesgos
+| Riesgo | Mitigación |
+|---|---|
+| Elegir mal la edición | Ficha de confirmación con portada, editorial, año, idioma e ISBN, y selector de edición |
+| Lentitud de Open Library (hasta 3,8 s) | Esqueleto a los 150 ms, caché de la sesión, nada bloquea y entrada manual a mano |
+| Teclado del iPhone | `visualViewport` y prueba manual en el iPhone |
+| Cambio de edición que pisa lo editado | `book-draft` con los campos tocados y sus pruebas |
+| Duplicados entre dispositivos | Aviso nuevo y prueba de integración sin pérdida |
+| Crecimiento del recuento E2E | Sin omisiones nuevas; el gate lo comprueba |
+
+### 17.9 Criterios de aceptación
+- Los 8 pasos de LIBROS del encargo de M4g, en móvil y escritorio.
+- Con el proveedor caído, sin conexión o en la demo, el alta manual funciona igual que hoy.
+- Ningún libro se duplica por la misma obra sin pedirlo.
+- Notas, estados, valoraciones y sincronización sin cambios.
+- CSP, service worker, migraciones y dependencias sin cambios.
+- Axe sin incidencias serias.
+
+### 17.10 Estimación
+**180–240 minutos**, más la validación (E2E dirigida en local y la CI remota con tu autorización).
