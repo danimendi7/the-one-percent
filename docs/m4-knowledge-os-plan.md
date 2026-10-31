@@ -2127,3 +2127,22 @@ Es el de §21.8 B, con el commit validado `f66b3b9`. **No se ha ejecutado nada.*
 - Si falla el paso 5: me detengo. El código no se ha tocado y la copia del paso 1 queda disponible. **No hay restauración automática.**
 - Si falla después del paso 6: `git revert` del despliegue en `main`, como commit nuevo y con tu autorización, sin tocar la base. Como la migración es aditiva, el código anterior funciona con ella.
 - Si el problema está en el arranque sin red: además del `revert`, la versión anterior no registra el service worker, y la carcasa en caché se queda sin uso. Cuando haga falta, la retira la versión siguiente o el propio navegador.
+
+### 22.10 Despliegue (31/10/2026)
+**M4 Knowledge OS está en producción: commit `f66b3b9`.** Se hizo con la autorización expresa y siguiendo §22.9. El registro completo y la guía de la prueba manual están en `docs/reports/m4-final.md`.
+- **Copia**: `top-cloud-2026-10-31T15-47-17-491Z.topbak`, con 18 tablas y 186 filas, verificada. La restauración aislada dio las 18 tablas idénticas.
+- **Ensayo** de la migración sobre la copia restaurada: 16/16. El script tuvo dos errores propios, corregidos antes de dar el ensayo por bueno:
+  - el mismo id de hábito para dos cuentas sintéticas;
+  - `op_id` de 7 caracteres, cuando el servidor exige al menos 8.
+- **Nube**: `push-dry` anunció exactamente `20261101090000_library.sql`; se aplicó solo esa. Verificación posterior: 27/27, con 11 migraciones.
+- **Avisos**: ningún aviso de seguridad nuevo. Hay avisos INFO nuevos de rendimiento en las tablas nuevas.
+- **Código**: `85fd1a0..f66b3b9` en `main`, avance directo. Vercel: success.
+- **CI de `main`**: run 41217079580, en verde. Unitarias 515, integración 145, `test:browser` 6, E2E 315 superadas y 27 omitidas, smoke 22.
+- **Producción**:
+  - smoke 22/22, solo demo;
+  - Biblioteca en demo con navegador limpio: 20/20, incluidos el service worker, la caché sin datos personales y el arranque sin red.
+- **Pendiente**:
+  - tu prueba manual;
+  - el diagnóstico del iPhone;
+  - decidir si se borra `ci/m4` y el artefacto 12963160670;
+  - publicar los commits de documentación (`9dfcb49` y este).
