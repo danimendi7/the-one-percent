@@ -1,21 +1,62 @@
 import type { Page } from "@playwright/test"
-import { adminClient, db } from "../../tests/integration/setup"
+import pg from "pg"
+import { adminClient, db, localStatus } from "../../tests/integration/setup"
 
 export interface Account {
   id: string
   email: string
 }
 
+/**
+ * Stage timings of the account being created (M4f: one creation stalled for 30 s in the Linux
+ * container). Stage names and milliseconds only, never the address. When creation does not
+ * finish, removeAccount (afterEach) reports the stage it stalled in and cleans up what was made.
+ */
+let creating: { email: string; stages: [string, number][]; stage: string; since: number } | null = null
+const SLOW_MS = 3000
+
+async function stage<T>(name: string, fn: () => T | Promise<T>): Promise<T> {
+  const c = creating!
+  c.stage = name
+  c.since = Date.now()
+  const out = await fn()
+  c.stages.push([name, Date.now() - c.since])
+  return out
+}
+
+const report = (c: NonNullable<typeof creating>) => c.stages.map(([s, ms]) => `${s} ${ms}ms`).join(" · ")
+
 /** Allowlisted, confirmed account on the LOCAL stack (no password: magic link only). */
 export async function newAccount(label: string): Promise<Account> {
   const email = `e2e-${label}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@theonepercent.local`
-  await db((c) => c.query("insert into private.allowed_emails (email, note) values ($1, 'e2e')", [email]))
-  const { data, error } = await adminClient().auth.admin.createUser({ email, email_confirm: true })
+  creating = { email, stages: [], stage: "", since: Date.now() }
+  const started = Date.now()
+  await stage("status", () => localStatus())
+  const c = new pg.Client({ connectionString: localStatus().DB_URL })
+  await stage("db-connect", () => c.connect())
+  try {
+    await stage("db-insert", () => c.query("insert into private.allowed_emails (email, note) values ($1, 'e2e')", [email]))
+  } finally {
+    await stage("db-end", () => c.end())
+  }
+  const { data, error } = await stage("auth-createUser", () => adminClient().auth.admin.createUser({ email, email_confirm: true }))
   if (error || !data.user) throw error ?? new Error("createUser failed")
+  if (Date.now() - started > SLOW_MS) console.warn(`[newAccount] slow: ${report(creating)}`)
+  creating = null
   return { id: data.user.id, email }
 }
 
-export async function removeAccount(a: Account): Promise<void> {
+export async function removeAccount(a: Account | undefined): Promise<void> {
+  // newAccount did not finish (its hook timed out or failed): say where, and remove its allowlist
+  // row. `a` is then unset or still the previous test's account, already removed.
+  if (creating) {
+    console.warn(`[newAccount] stalled in ${creating.stage} after ${Date.now() - creating.since}ms; done: ${report(creating) || "nothing"}`)
+    const email = creating.email
+    creating = null
+    await db((c) => c.query("delete from private.allowed_emails where email = $1", [email]))
+    return
+  }
+  if (!a) return
   await adminClient().auth.admin.deleteUser(a.id)
   await db((c) => c.query("delete from private.allowed_emails where email = $1", [a.email]))
 }

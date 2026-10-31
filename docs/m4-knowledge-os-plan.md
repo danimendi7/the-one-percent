@@ -1986,3 +1986,40 @@ En los 7 intentos fallidos de la Biblioteca, el error es `toBeVisible` del títu
 - **`a9f75d9`: sin resultado.** Claude Code detuvo la comprobación por falta de memoria en el PC mientras compilaba.
   - El contenedor quedó vivo y lo **detuve** (`docker stop`) sin borrarlo; la red también sigue ahí. La próxima ejecución del script retira ambos por su etiqueta.
   - No se relanzó.
+
+### 22.7 Continuación de la validación local (31/10, tarde)
+**Recursos.** El contenedor detenido `top-e2e-linux-20261031-143026` y su red se retiraron después de comprobar que eran del script:
+- tenían su etiqueta y su patrón de nombre;
+- la hora de creación era la de la ejecución interrumpida;
+- no tenían volúmenes ni otros contenedores conectados;
+- solo contenían el archivo del commit, registros de una compilación cortada y las herramientas del script.
+
+No se tocó ningún otro contenedor; siguen los 17 habituales.
+
+**Validación Linux dirigida de `800900d`: sin resultado.**
+- Se lanzó con un vigilante de memoria que solo detiene los contenedores con la etiqueta del script.
+- Con 3,0 GB libres al empezar, la memoria libre del PC bajó a 684 MB durante la ejecución de las pruebas, y el vigilante detuvo el contenedor. El script lo retiró junto con su red.
+- No se copiaron resultados.
+- Después quedaron 1,4 GB libres. Lo que ocupaba la memoria: WSL con 4,5 GB, que retiene tras el contenedor; Chrome con 2,9 GB; Claude Code con 1,7 GB.
+
+**`newAccount` instrumentado** (`e2e/support/account.ts`):
+- mide cinco etapas: estado local, conexión a Postgres, `insert`, cierre y `createUser`;
+- avisa cuando la creación pasa de 3 s;
+- si el `beforeEach` se agota, `afterEach` dice en qué etapa se quedó y cuánto llevaba, y borra la fila de la lista de permitidos que dejó a medias.
+
+Antes, el `afterEach` fallaba con `TypeError` (sin cuenta), tapaba el error original y dejaba esa fila. Solo se registran nombres de etapa y milisegundos.
+
+Hallazgos de la revisión:
+- `localStatus()` ejecuta `npx supabase status` de forma **síncrona** la primera vez en cada proceso *worker*, y Playwright arranca uno nuevo tras cada fallo.
+- `pg.Client` no tiene límite de conexión.
+
+Son candidatos, **no causas demostradas**. La causa no está identificada, porque no se ha reproducido.
+
+**Pruebas en este punto**
+| Prueba | Resultado |
+|---|---|
+| `npm run check` | 515/515 |
+| Integración y `test:browser` | Sin repetir: no ha cambiado nada que cubran desde las ejecuciones de 145/145 y 6/6 |
+| E2E completa en modo CI y smoke | **Pendientes**: no hay memoria para compilar Next y ejecutarlas con margen |
+
+**M4f no está validada.**
