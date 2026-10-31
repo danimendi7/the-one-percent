@@ -20,6 +20,7 @@
 15. M4g.2: portadas reales con respaldo tipográfico (hecho en local)
 16. M4g.2: validación remota en `ci/m4g`
 17. M4g.3: plan de implementación del alta asistida de libros (sin implementar)
+18. M4g.3: alta asistida de libros (hecho en local)
 
 ---
 
@@ -1335,3 +1336,153 @@ Construye sobre lo validado en M4g.1 y M4g.2, con D96–D98 vigentes. No necesit
 
 ### 17.10 Estimación
 **180–240 minutos**, más la validación (E2E dirigida en local y la CI remota con tu autorización).
+
+## 18. M4g.3 · Alta asistida de libros (31/10/2026, hecho en local)
+
+Autorizado solo en local. Sin migraciones, dependencias, cambios en el servidor, en el service worker ni en la CSP. Decisión: D99 en `docs/decisions.md`.
+
+### 18.1 Flujo terminado
+1. **«Añadir libro» con cuenta** (portada de Biblioteca, Libros y estado vacío) abre `AddBookSheet`:
+   - hoja inferior en el móvil y panel lateral en el escritorio;
+   - en el móvil, la hoja se coloca por encima del teclado del iPhone (`visualViewport`).
+   - En la **demo** abre el formulario manual de siempre: allí no hay búsqueda y no se pide nada a ningún proveedor.
+2. **Búsqueda**:
+   - un campo para título, autor o ISBN, con el filtro «Todo · Título · Autor»;
+   - espera 350 ms y cancela la búsqueda anterior; un ISBN válido sale al momento;
+   - un ISBN con el dígito de control mal se avisa y no se busca;
+   - solo se muestran respuestas a lo que está escrito en ese momento.
+3. **Resultados**:
+   - cada uno con `CoverArt` (tipográfica al instante y la imagen encima si llega, D97), título, autor, año, editorial, idioma, «Obra: …» si el título de la edición es otro, y el número de ediciones;
+   - insignias «En tu Biblioteca» y «Ya tienes esta edición»;
+   - con teclado: flechas, Intro y `aria-activedescendant`.
+4. **Ficha «Revisa y añade»**:
+   - pide una vez la descripción de la obra y los detalles de la edición, y la lista de ediciones; nada bloquea mientras llegan;
+   - «Cambiar edición (n)» actualiza los campos de la edición **que no hayas tocado** (`book-draft.ts`);
+   - todo es editable: título, autores, subtítulo, editorial, año, páginas, idioma, ISBN y descripción (con «Guardar la descripción»); portada con «Usar esta portada»; temas sugeridos que hay que elegir (D6); estado, valoración de 1 a 10 y favorito;
+   - atribución y enlace a Open Library.
+5. **Guardar**:
+   - `libraryActions.createItem("book", toBookInput(…))`, la misma operación que el alta manual (cola, copia del dispositivo, sincronización, conflictos);
+   - un doble clic guarda una sola vez;
+   - un error se muestra sin perder lo escrito;
+   - después se abre la ficha del libro con su estado de sincronización.
+6. **«Introducir manualmente»** en todos los pasos: abre el formulario de siempre con el título (o el ISBN) escrito. Si se cierra, se pregunta antes de descartar lo escrito.
+
+### 18.2 Componentes y archivos
+| Archivo | Qué |
+|---|---|
+| `components/add-book-sheet.tsx` (nuevo) | Asistente: búsqueda, resultados, ficha, ediciones, duplicados y estados |
+| `metadata/book-draft.ts` (nuevo) | Ficha pura: campos tocados, aplicar edición o detalle sin pisarlos, el par ISBN-13/10 de la edición, validación y paso a `BookResult` |
+| `library-views.tsx` | `useContentForm(state, source)`: un libro nuevo abre el asistente con cuenta y el manual en la demo |
+| `components/content-form.tsx` | `FormTarget.draft` para el texto que viene del asistente; `DiscardPrompt` exportado |
+| `components/library-sync.tsx` | Avisos de `duplicate_external` y «Guardar en «…»» |
+| `sync/engine.ts`, `store/types.ts`, `store/account-library.ts` | Opción `existing` de `resolveLibraryText` (aditiva) |
+| `e2e/add-book.spec.ts` (nuevo) | 8 pruebas (y capturas `@screens`, fuera de la E2E) |
+| `e2e/{library-account,knowledge-live,offline,screen-error}.spec.ts` | Un paso más («Introducir manualmente») en sus altas manuales con cuenta |
+| `tests/integration/library-sync.int.test.ts` | Prueba M: la misma obra creada sin conexión en dos dispositivos |
+
+### 18.3 Contratos utilizados
+- `metadataClient`: `books/search`, `books/detail` y `books/editions` de M4g.1, validados de nuevo con Zod.
+- `createSearchController`: debounce, cancelación y estados `offline` y `error`.
+- `/api/covers` de M4g.2, mediante `CoverArt`.
+- `findBookMatches` y `toBookInput`.
+- `libraryActions.createItem` y `resolveText`.
+- **Ningún contrato del servidor ha cambiado.**
+
+### 18.4 Duplicados
+| Caso | Tratamiento |
+|---|---|
+| **A. Mismo proveedor e id externo** (misma obra) | Insignia «En tu Biblioteca». En la ficha, «Ya está en tu Biblioteca: «…»» con «Abrir el existente» y «Añadir como otra edición»; **el botón de guardar queda desactivado** mientras no se elija otra edición. `ops.ts` y el índice único lo rechazarían igualmente |
+| **B. ISBN coincidente** | «Ya tienes esta edición (mismo ISBN)» y «Abrir el existente». Se puede guardar («Añadir igualmente») |
+| **C. Misma obra, otra edición** | «Añadir como otra edición» la guarda **sin referencia externa** y con su ISBN. El servidor lo acepta: el índice único solo afecta a filas con id externo. No se ofrece nada que el servidor vaya a rechazar |
+| **D. Coincidencia probable** (título y autor; p. ej., la obra duplicada de Open Library) | «Puede que ya lo tengas: «…»» y «Abrir el existente». Se puede guardar |
+| **E. Dos dispositivos sin conexión** | El servidor acepta el primero y rechaza el segundo (`duplicate_external`). **No se borra ni se fusiona nada.** El aviso del libro explica que ya estaba y ofrece «Abrir el existente» y «Entendido». Cada nota escrita en la copia rechazada se conserva **entera** (D68/D75), con «Guardar en «Título existente»» (nueva opción `existing`), «Guardar como idea suelta» o «Descartar mi texto». La prueba de integración M lo reproduce contra PostgreSQL local, con la nota, su página y su paso a la idea suelta |
+
+### 18.5 Demo, sin conexión y sesión
+- **Demo**: el formulario manual de siempre, sin peticiones a `/api/metadata` (comprobado en la E2E).
+- **Sin conexión**:
+  - el asistente lo dice, no hace peticiones y conserva lo escrito;
+  - «Introducir manualmente» lo lleva al formulario;
+  - el alta va a la cola como siempre.
+  - Abrir páginas nuevas sin red sigue dependiendo del service worker, que no cambia (D86).
+- **Proveedor caído, límite o sesión caducada**: mensajes distintos, «Reintentar» (excepto con la sesión caducada), el texto se conserva y «Introducir manualmente» pasa a botón principal.
+  - Si la sesión caduca **después** de elegir un resultado, la ficha lo dice y **permite guardar** con los datos que ya tiene: el alta es local y se sincroniza cuando vuelve la sesión.
+- **Datos y sesión**:
+  - las búsquedas solo se recuerdan en memoria, durante la sesión;
+  - en la Biblioteca solo se guarda lo confirmado;
+  - al proveedor no sale nada del usuario (M4g.1 y M4g.2).
+
+### 18.6 Accesibilidad y adaptación
+- **Buscador**: `role="search"`, campo `combobox` con `listbox` y `option`, flechas e Intro, estado en `aria-live`.
+- **Foco**:
+  - en el buscador al abrir;
+  - en «Revisa y añade» al pasar a la ficha;
+  - «Resultados» vuelve con la búsqueda y sus resultados intactos.
+- **Esc** pide confirmación antes de descartar lo escrito.
+- **Etiquetas**: todas con `Label`; errores por campo con `aria-invalid` y `aria-describedby`.
+- **Interfaz**: zonas táctiles de al menos 44 px, tokens de color y animaciones con `motion-reduce`.
+- **Comprobado en la E2E**: axe sin incidencias serias ni críticas en búsqueda, resultados y ficha, a 375 px y a 1440 px, sin desplazamiento horizontal.
+- **VoiceOver**: sin probar en un iPhone real (§18.9).
+
+### 18.7 Revisión visual (Chromium, capturas en `docs/screenshots/{mobile,desktop}-m4g3-*.png`)
+- **Estados capturados**: buscador vacío, resultados, ficha, selector de ediciones, error del proveedor y entrada manual, en móvil (375) y escritorio (1440). Cuenta sintética y datos simulados, sin datos personales.
+- **Corregido tras la revisión**: el ISBN de cada edición salía cortado en el selector, y es lo que las distingue. Ahora la línea ocupa las líneas que necesite.
+- **Comprobado**: la transparencia que se veía en la primera captura de la entrada manual era la animación de apertura del panel; terminada, es opaco.
+
+### 18.8 Pruebas y resultados (31/10/2026)
+| Suite | Resultado |
+|---|---|
+| `npm run check` (tipos, lint y unitarias) | **717/717**: 708 anteriores y 9 nuevas de `book-draft` |
+| `npm run test:integration` | **150/150**: 149 anteriores y la nueva M (misma obra en dos dispositivos sin conexión) |
+| `npm run test:browser` (motor con IndexedDB real) | **6/6** |
+| `e2e/add-book.spec.ts` | **16/16** (8 pruebas × móvil y escritorio), 0 omitidas |
+| E2E dirigida (1 worker, Windows): `add-book`, `library`, `library-account`, `knowledge-live`, `offline` (con service worker), `screen-error`, `a11y`, `covers`, `navigation` y `knowledge` | **178: 170 superadas y 8 omitidas previstas** (3 de `library-account` y 4 de `knowledge-live` en móvil, y 1 de `navigation` en escritorio), **0 fallidas** |
+| `npm run smoke` (local, sobre el build de producción) | **22/22** |
+| Build | Correcto (lo hacen la E2E y el smoke) |
+| **E2E completa** (366 × 2) | **No ejecutada en local** por la memoria de Windows. Pendiente de la CI |
+
+**Las 8 pruebas de `add-book.spec.ts`:**
+1. Por título → obra → otra edición: los campos tocados se conservan, el resto sigue a la edición; doble clic → **una** fila con todos los campos: editorial, páginas, ISBN-13 y ISBN-10, año, idioma, estado, valoración, favorito, descripción, tema elegido, portada y referencia con atribución. Sin cargas fallidas salvo las portadas que la prueba responde con 404.
+2. Por autor (`by=author`); ISBN con guiones (búsqueda inmediata); ISBN inválido (aviso, sin petición); sin resultados.
+3. Duplicados: A (bloqueado, «Añadir como otra edición» → fila sin referencia), D (probable, «Abrir el existente»).
+4. Límite (429, con `Retry-After`), proveedor caído (502) y sesión caducada (401): mensajes, el texto se conserva y la entrada manual sale con el título.
+5. Detalles que fallan tras elegir (401): se guarda igualmente.
+6. Sin conexión: aviso, ninguna petición, la entrada manual conserva el texto y se sincroniza al volver la red.
+7. Teclado (flechas, Intro), foco, axe en tres estados, sin desplazamiento horizontal y «Resultados» conserva la búsqueda; Esc pide confirmación en escritorio.
+8. Demo: formulario manual y ninguna petición a `/api/metadata`.
+
+**Defecto real encontrado por la E2E y corregido**: al cambiar de edición se perdía el ISBN-10 de la nueva edición, porque la ficha muestra un único campo ISBN. Ahora el borrador conserva el par de la edición, con una prueba unitaria.
+
+### 18.9 Riesgos y pendientes
+1. **VoiceOver y el teclado del iPhone** sin probar en un dispositivo real; la posición sobre el teclado (`visualViewport`) solo se puede verificar allí.
+2. **Abrir la ficha de un libro creado sin conexión** depende de que el service worker tenga la ruta preparada (D86), como cualquier alta manual.
+3. **E2E completa (366 × 2) no ejecutada en local**, por la memoria de Windows: se ejecutaron las suites afectadas una a una. Queda para la CI.
+4. **Cobertura de Open Library**: algunos libros llegan sin portada, editorial o año; quedan vacíos (nunca inventados) y se pueden escribir.
+5. **«Guardar en «…»»** solo aparece si el libro existente ya está en la copia del dispositivo, lo que ocurre tras sincronizar. Antes, quedan «Guardar como idea suelta» y conservar el aviso.
+
+### 18.10 Validación en `ci/m4g` (cuando se autorice)
+- Push normal del HEAD de M4g.3 a `ci/m4g`.
+- **Recuentos esperados**:
+  - unitarias **717**;
+  - integración **150** (la nueva, M);
+  - `test:browser` **6**;
+  - E2E con **366 pruebas listadas por pasada** (350 + 16 de `add-book.spec.ts`), es decir, **732 − 54 = 678 superadas y 54 omitidas**; las omisiones por pasada siguen siendo 27 y deben ser las mismas;
+  - smoke **22**.
+- **Comprobaciones**:
+  - ninguna llamada real a proveedores (los metadatos y las portadas se responden desde la página en la E2E);
+  - sin Preview;
+  - `main` sin cambios.
+
+### 18.11 Propuesta de M4g.4: podcasts y episodios (sin implementar)
+1. **Entrada**: «Añadir podcast» o «Añadir episodio» con cuenta abre `AddPodcastSheet`; en la demo sigue el formulario manual.
+2. **Programa**:
+   - búsqueda en `podcasts/search` (sin duplicados de Apple), con resultados con portada 1:1, autor, número de episodios y último lanzamiento;
+   - se reutiliza un programa existente (`existingShow`); un programa manual con el mismo nombre se avisa como posible coincidencia.
+3. **Episodios**:
+   - `podcasts/episodes`: los 200 más recientes, con un filtro local mientras se escribe y «Buscar episodios anteriores» (búsqueda de Apple filtrada por programa);
+   - el texto deja claro «Mostrando los 200 más recientes».
+4. **Ficha**: título, programa, fecha (en la zona del perfil), duración, descripción (≤ 2.000, opcional), portada, estado, valoración y favorito, con `toEpisodeInput` y `toShowInput`.
+5. **Duplicados**: episodio con el mismo `trackId` (exacto: «Abrir el existente»); mismo título en el mismo programa (probable); programa por `collectionId`.
+6. **Guardado**: crea el programa (si falta) y después el episodio, con las operaciones de M4 y sin nada paralelo.
+7. **Pruebas**: el mismo esquema que `add-book.spec.ts` (respuestas desde la página), más la lista de 200 episodios, la búsqueda de anteriores, la reutilización del programa y su accesibilidad.
+8. **Tamaño**: los ≈214 KB de la lista de 200 episodios (§12.6) se miden en el iPhone. Si pesa, la lista va sin descripciones y el detalle se pide al elegir.
+9. **Estimación**: 200–260 minutos, sin migraciones.

@@ -165,6 +165,7 @@
 | D96 | Tiempo de las portadas | **5 s** también para la cadena de `archive.org`; no se amplía en esta fase. Una portada antigua puede quedarse con la tipográfica mientras `archive.org` vaya lento | Decisión del propietario (31/10/2026) |
 | D97 | Portada tipográfica primero | La portada tipográfica aparece **al momento** y se queda como respaldo. Ninguna carga de portada bloquea la navegación ni el alta de libros | Decisión del propietario |
 | D98 | Autenticación de las portadas | Se mantiene `getUser()` (sesión verificada en el servidor de Auth). La optimización con `getClaims()` se estudiará aparte | Decisión del propietario |
+| D99 | Alta asistida de libros (M4g.3) | **Entrada**: con cuenta, «Añadir libro» abre el asistente (Open Library vía `/api/metadata`); en la demo sigue el formulario manual. «Introducir manualmente» está en todos los pasos y conserva lo escrito.<br>**Edición**: cambiar de edición no pisa los campos tocados (`book-draft.ts`).<br>**Guardado**: con `createItem`, sin nada paralelo.<br>**Duplicados**: misma obra → bloqueo de la misma referencia, con «Abrir el existente» o «Añadir como otra edición» (sin referencia externa, que el servidor acepta); ISBN o título y autor → solo aviso. Entre dispositivos sin conexión, el rechazo `duplicate_external` se explica y sus notas se guardan con la nueva opción `existing` (en el libro existente) o como idea suelta; nunca se borran ni se fusionan | Encargo de M4g.3. Prueba de integración M |
 
 ## M4 · Propuestas aún abiertas (30/10/2026)
 
