@@ -52,6 +52,10 @@ export async function proxy(request: NextRequest) {
 
   // If Auth is unreachable but a session exists, let the client work from its local cache.
   if (!userId && !demo && !isPublic && !authUnreachable) {
+    // An API caller gets an answer it can read, not the login page. The demo cookie still
+    // reaches the route, which verifies the user itself (src/features/library/metadata/server/auth.ts).
+    if (path.startsWith("/api/"))
+      return NextResponse.json({ ok: false, error: { code: "unauthorized" } }, { status: 401, headers: { "Cache-Control": "private, no-store" } })
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     url.search = ""

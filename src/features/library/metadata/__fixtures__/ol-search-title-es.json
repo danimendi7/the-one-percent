@@ -1,0 +1,260 @@
+{
+ "numFound": 98,
+ "start": 0,
+ "numFoundExact": true,
+ "num_found": 98,
+ "documentation_url": "https://openlibrary.org/dev/docs/api/search",
+ "q": "",
+ "offset": null,
+ "docs": [
+  {
+   "author_key": [
+    "OL27363A"
+   ],
+   "author_name": [
+    "Gabriel García Márquez"
+   ],
+   "cover_i": 12627383,
+   "edition_count": 208,
+   "first_publish_year": 1967,
+   "key": "/works/OL274505W",
+   "language": [
+    "ita",
+    "spa",
+    "pol",
+    "gre",
+    "chi",
+    "rus",
+    "por",
+    "tur",
+    "und",
+    "kor",
+    "jpn",
+    "ara",
+    "eng",
+    "fre",
+    "guj",
+    "ger"
+   ],
+   "title": "Cien años de soledad",
+   "editions": {
+    "numFound": 105,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL38570141M",
+      "title": "Cien años de soledad",
+      "cover_i": 12808734,
+      "language": [
+       "spa"
+      ],
+      "publisher": [
+       "Diana"
+      ],
+      "publish_date": [
+       "2012"
+      ],
+      "isbn": [
+       "9786070714863",
+       "6070714865"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_key": [
+    "OL340795A"
+   ],
+   "author_name": [
+    "Juan Manuel García Ramos"
+   ],
+   "cover_i": 4104330,
+   "edition_count": 1,
+   "first_publish_year": 1989,
+   "key": "/works/OL2454505W",
+   "language": [
+    "spa"
+   ],
+   "title": "Cien años de soledad [de] Gabriel García Márquez",
+   "editions": {
+    "numFound": 1,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL2267473M",
+      "title": "Cien años de soledad [de] Gabriel García Márquez",
+      "cover_i": 4104330,
+      "language": [
+       "spa"
+      ],
+      "publisher": [
+       "Alhambra"
+      ],
+      "publish_date": [
+       "1989"
+      ],
+      "isbn": [
+       "8420518050",
+       "9788420518053"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_key": [
+    "OL66624A"
+   ],
+   "author_name": [
+    "Josefina Ludmer"
+   ],
+   "cover_i": 9886522,
+   "edition_count": 1,
+   "first_publish_year": 1985,
+   "key": "/works/OL17994053W",
+   "language": [
+    "spa"
+   ],
+   "title": "Cien años de soledad",
+   "editions": {
+    "numFound": 1,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL26575304M",
+      "title": "Cien años de soledad",
+      "subtitle": "una interpretación",
+      "cover_i": 9886522,
+      "language": [
+       "spa"
+      ],
+      "publisher": [
+       "Centro Editor de América Latina"
+      ],
+      "publish_date": [
+       "1985"
+      ],
+      "isbn": [
+       "950251307X",
+       "9789502513072"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_key": [
+    "OL14454691A"
+   ],
+   "author_name": [
+    "Gabriel Marquez"
+   ],
+   "edition_count": 2,
+   "first_publish_year": 2015,
+   "key": "/works/OL40848841W",
+   "language": [
+    "spa"
+   ],
+   "title": "Cien años de Soledad",
+   "editions": {
+    "numFound": 2,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL56834967M",
+      "title": "Cien años de Soledad",
+      "language": [
+       "spa"
+      ],
+      "publisher": [
+       "CreateSpace Independent Publishing Platform"
+      ],
+      "publish_date": [
+       "2018"
+      ],
+      "isbn": [
+       "9781727878011",
+       "1727878019"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_key": [
+    "OL15193084A"
+   ],
+   "author_name": [
+    "Gabriel García Márquez"
+   ],
+   "edition_count": 1,
+   "first_publish_year": 1972,
+   "key": "/works/OL43144891W",
+   "language": [
+    "eng"
+   ],
+   "title": "Cien Años De Soledad",
+   "editions": {
+    "numFound": 1,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL58761792M",
+      "title": "Cien Años De Soledad",
+      "language": [
+       "eng"
+      ],
+      "publisher": [
+       "Editorial Sudamericana"
+      ],
+      "publish_date": [
+       "1972-01-01"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_key": [
+    "OL66624A"
+   ],
+   "author_name": [
+    "Josefina Ludmer"
+   ],
+   "edition_count": 2,
+   "first_publish_year": 1972,
+   "key": "/works/OL795855W",
+   "language": [
+    "spa"
+   ],
+   "title": "Cien años de soledad",
+   "editions": {
+    "numFound": 2,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL17183856M",
+      "title": "Cien años de soledad",
+      "subtitle": "una interpretación.",
+      "language": [
+       "spa"
+      ],
+      "publisher": [
+       "Tiempo Contemporáneo"
+      ],
+      "publish_date": [
+       "1972"
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

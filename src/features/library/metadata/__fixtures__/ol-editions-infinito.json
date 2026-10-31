@@ -1,0 +1,407 @@
+{
+ "links": {
+  "self": "/works/OL20770492W/editions.json?limit=5",
+  "work": "/works/OL20770492W",
+  "next": "/works/OL20770492W/editions.json?limit=5&offset=5"
+ },
+ "size": 19,
+ "entries": [
+  {
+   "type": {
+    "key": "/type/edition"
+   },
+   "authors": [
+    {
+     "key": "/authors/OL5980983A"
+    },
+    {
+     "key": "/authors/OL8565391A"
+    }
+   ],
+   "languages": [
+    {
+     "key": "/languages/spa"
+    }
+   ],
+   "pagination": "192",
+   "publish_date": "2024",
+   "publishers": [
+    "Debate"
+   ],
+   "source_records": [
+    "bwb:9788419399151"
+   ],
+   "title": "El infinito en un junco",
+   "weight": "0.943 ",
+   "subtitle": "Adaptación gráfica",
+   "works": [
+    {
+     "key": "/works/OL20770492W"
+    }
+   ],
+   "key": "/books/OL51103235M",
+   "covers": [
+    15138954
+   ],
+   "identifiers": {
+    "goodreads": [
+     "172870282"
+    ],
+    "amazon": [
+     "8419399159"
+    ],
+    "storygraph": [
+     "55af5a89-64ec-48ff-9c54-2751bd0b46f4"
+    ]
+   },
+   "isbn_13": [
+    "9788419399151"
+   ],
+   "isbn_10": [
+    "8419399159"
+   ],
+   "oclc_numbers": [
+    "1412605593"
+   ],
+   "publish_places": [
+    "Barcelona, España"
+   ],
+   "contributors": [
+    {
+     "role": "Illustrator",
+     "name": "Tyto Alba"
+    }
+   ],
+   "other_titles": [
+    "Infinito en un Junco  / Papyrus: the Invention of Books in T He Ancient World"
+   ],
+   "physical_format": "Hardcover",
+   "number_of_pages": 192,
+   "latest_revision": 4,
+   "revision": 4,
+   "created": {
+    "type": "/type/datetime",
+    "value": "2024-02-17T13:34:49.885581"
+   },
+   "last_modified": {
+    "type": "/type/datetime",
+    "value": "2025-11-04T18:00:41.036631"
+   }
+  },
+  {
+   "type": {
+    "key": "/type/edition"
+   },
+   "authors": [
+    {
+     "key": "/authors/OL5980983A"
+    }
+   ],
+   "isbn_13": [
+    "9788466367219"
+   ],
+   "languages": [
+    {
+     "key": "/languages/spa"
+    }
+   ],
+   "number_of_pages": 600,
+   "publish_date": "2025",
+   "publishers": [
+    "Penguin Random House Grupo Editorial"
+   ],
+   "source_records": [
+    "bwb:9788466367219"
+   ],
+   "title": "Infinito en un Junco  / Papyrus",
+   "weight": "0.568",
+   "subtitle": "the Inven Tion of Books",
+   "full_title": "Infinito en un Junco  / Papyrus the Inven Tion of Books",
+   "works": [
+    {
+     "key": "/works/OL20770492W"
+    }
+   ],
+   "key": "/books/OL57569851M",
+   "latest_revision": 2,
+   "revision": 2,
+   "created": {
+    "type": "/type/datetime",
+    "value": "2025-01-25T00:50:39.851114"
+   },
+   "last_modified": {
+    "type": "/type/datetime",
+    "value": "2025-10-25T07:46:32.313420"
+   }
+  },
+  {
+   "type": {
+    "key": "/type/edition"
+   },
+   "title": "L'infinit dins d'un jonc",
+   "authors": [
+    {
+     "key": "/authors/OL5980983A"
+    },
+    {
+     "key": "/authors/OL8004082A"
+    }
+   ],
+   "publish_date": "2020-08-26",
+   "source_records": [
+    "amazon:8466426949"
+   ],
+   "number_of_pages": 448,
+   "publishers": [
+    "Columna CAT"
+   ],
+   "physical_format": "Paperback",
+   "full_title": "L'infinit dins d'un jonc : La invenció dels llibres al món antic",
+   "subtitle": "La invenció dels llibres al món antic",
+   "notes": "Source title: L'infinit dins d'un jonc: La invenció dels llibres al món antic",
+   "covers": [
+    13622782
+   ],
+   "works": [
+    {
+     "key": "/works/OL20770492W"
+    }
+   ],
+   "key": "/books/OL47196577M",
+   "identifiers": {
+    "amazon": [
+     "8466426949"
+    ],
+    "goodreads": [
+     "55167179"
+    ],
+    "storygraph": [
+     "6c0ac389-e4df-4eb7-bcd2-f42b1eccfcfb"
+    ]
+   },
+   "isbn_10": [
+    "8466426949"
+   ],
+   "isbn_13": [
+    "9788466426947"
+   ],
+   "oclc_numbers": [
+    "1224243814"
+   ],
+   "publish_places": [
+    "Barcelona, España"
+   ],
+   "edition_name": "Primera edició",
+   "contributors": [
+    {
+     "role": "Translator",
+     "name": "Núria Parés Sellarès"
+    }
+   ],
+   "languages": [
+    {
+     "key": "/languages/cat"
+    }
+   ],
+   "translation_of": "El infinito en un junco: La invención de los libros en el mundo antiguo",
+   "translated_from": [
+    {
+     "key": "/languages/spa"
+    }
+   ],
+   "description": {
+    "type": "/type/text",
+    "value": "Aquest llibre tracta sobre la història dels llibres. Un recorregut per la vida d’aquest fascinant artefacte que vam inventar perquè les paraules poguessin viatjar per l’espai i el temps. La història de la seva fabricació, de tots els tipus que hem assajat al llarg de gairebé trenta segles: llibres de fum, de pedra, d’argila, de joncs, de seda, de pell, d’arbres i, els últims d’arribar, de plàstic i de llum.\r\n\r\nA més, és un llibre de viatges. Un fil que uneix els clàssics amb el vertiginós món contemporani, connectant-los amb debats actuals: Aristòfanes i els processos judicials contra humoristes, Safo i la veu literària de les dones, Titus Livi i el fenomen fan, Sèneca i la postveritat… Però, sobretot, aquest llibre és una fabulosa aventura col·lectiva protagonitzada per milers de persones que, al llarg del temps, han fet possibles i han protegit els llibres: narradors orals, escribes, il·luminadors, traductors, venedors ambulants, mestres, savis, espies, rebels, monges, esclaus, aventurers… Lectors en paisatges de muntanya i a la vora del mar, en capitals on l’energia es concentra i en els llocs més apartats on el saber es refugia en temps de caos. Gent normal i corrent de qui en molts casos la història no registra els noms; aquests salvadors de llibres són els autèntics protagonistes d’aquest assaig."
+   },
+   "latest_revision": 3,
+   "revision": 3,
+   "created": {
+    "type": "/type/datetime",
+    "value": "2023-03-18T17:54:30.838235"
+   },
+   "last_modified": {
+    "type": "/type/datetime",
+    "value": "2025-11-04T18:40:38.849256"
+   }
+  },
+  {
+   "type": {
+    "key": "/type/edition"
+   },
+   "title": "Infinitua ihi batean",
+   "authors": [
+    {
+     "key": "/authors/OL5980983A"
+    },
+    {
+     "key": "/authors/OL7998833A"
+    }
+   ],
+   "publish_date": "2021-11-10",
+   "source_records": [
+    "amazon:8491722521"
+   ],
+   "number_of_pages": 464,
+   "publishers": [
+    "Pamiela argitaletxea"
+   ],
+   "physical_format": "Paperback",
+   "full_title": "Infinitua ihi batean : Liburuen asmakuntza Antzinaroko munduan",
+   "subtitle": "Liburuen asmakuntza Antzinaroko munduan",
+   "notes": "Source title: Infinitua ihi batean: Liburuen asmakuntza Antzinaroko munduan",
+   "covers": [
+    13607225
+   ],
+   "works": [
+    {
+     "key": "/works/OL20770492W"
+    }
+   ],
+   "key": "/books/OL47184634M",
+   "identifiers": {
+    "goodreads": [
+     "59762603"
+    ],
+    "amazon": [
+     "8491722521"
+    ],
+    "storygraph": [
+     "fb47c9fa-584f-4020-9f4c-4dacb917bfb9"
+    ]
+   },
+   "isbn_10": [
+    "8491722521"
+   ],
+   "isbn_13": [
+    "9788491722526"
+   ],
+   "oclc_numbers": [
+    "1287123151"
+   ],
+   "publish_places": [
+    "Arre, Nafarroa, España"
+   ],
+   "contributors": [
+    {
+     "role": "Translator",
+     "name": "Fernando Rey Escalera"
+    }
+   ],
+   "languages": [
+    {
+     "key": "/languages/baq"
+    }
+   ],
+   "translation_of": "El infinito en un junco: La invención de los libros en el mundo antiguo",
+   "translated_from": [
+    {
+     "key": "/languages/spa"
+    }
+   ],
+   "description": {
+    "type": "/type/text",
+    "value": "Liburuen historiari buruzko liburua da hau. Hitzek espazioan eta denboran zehar bidaiatu zezaten asmatu genuen tresna liluragarriaren bizitzan barnako ibilbidea. Haien fabrikazioaren historia, ia hogeita hamar mendean egin diren proba eta diseinu guztiena. Mota askotako liburuak sortu baitira: kez, harriz, buztinez, ihi edo lezkaz, zetaz, larruz, zuhaitzez eginak, eta azkenak, plastikoz eta argiz eginak. Gainera, bidaia-liburua ere bada. Alexandroren gudu-zelaietara joateko, Vesuvioren mendi mazelako Papiroen Villara joateko, edo Kleopatraren jauregietara edo Hipatiaren hilketaren gertalekura, ezagututako lehen- biziko liburutegietara eta eskuizkribuak kopiatzeko lantegietara, kodex debekatuak suntsitu zituzten suetara, gulagera, Sarajevoko liburutegira eta Oxfordeko lur azpiko 2000. urteko labirintora. Liburu honek, bestalde, klasikoak mundu garaikidearekin lotzen ditu, baita gaur egungo eztabaidagaiekin ere: Aristofanes eta umoristen kontrako epaiketak, Safo eta emakumeen literatur ahotsa, Tito Livio eta fanen fenomenoa, Seneka eta egia ondokoa… Baina, oroz gain, denboran zehar liburuak sortu eta babestu dituzten milaka gizon-emakumeren abentura kolektibo xarmagarria da: istorio eta ipuinen kontalariak, eskribak, irudigileak, itzultzaileak, saltzaile ibiltariak, maisu-maistrak, jakintsuak, espioiak, errebeldeak, mojak, esklaboak, abenturazaleak… Irakurleak, mendialdekoak zein orroka ari den itsasoaren ondokoak, energiaren bilgune diren hiriburuetakoak zein kaos garaietan babesleku diren bazter-parajeetakoak. Jende xehea, xumea, historiak erregistratu ez dituen hainbeste gizon-emakume. Liburuen salbatzaileak, horiek baitira saiakera honen egiazko protagonistak."
+   },
+   "latest_revision": 3,
+   "revision": 3,
+   "created": {
+    "type": "/type/datetime",
+    "value": "2023-03-18T10:35:13.063063"
+   },
+   "last_modified": {
+    "type": "/type/datetime",
+    "value": "2025-11-04T18:14:57.172516"
+   }
+  },
+  {
+   "type": {
+    "key": "/type/edition"
+   },
+   "title": "O infinito nun xunco",
+   "authors": [
+    {
+     "key": "/authors/OL5980983A"
+    },
+    {
+     "key": "/authors/OL12556172A"
+    }
+   ],
+   "publish_date": "2021-04-01",
+   "source_records": [
+    "amazon:8491218432"
+   ],
+   "number_of_pages": 480,
+   "publishers": [
+    "Xerais"
+   ],
+   "physical_format": "paperback",
+   "full_title": "O infinito nun xunco : A invención dos libros no mundo antigo",
+   "subtitle": "A invención dos libros no mundo antigo",
+   "notes": "Source title: O infinito nun xunco: A invención dos libros no mundo antigo",
+   "covers": [
+    13538063
+   ],
+   "works": [
+    {
+     "key": "/works/OL20770492W"
+    }
+   ],
+   "key": "/books/OL47140346M",
+   "identifiers": {
+    "storygraph": [
+     "a2104188-22d0-44b9-b677-88b240b8ffd9"
+    ],
+    "goodreads": [
+     "58505561"
+    ],
+    "amazon": [
+     "8491218432"
+    ]
+   },
+   "isbn_10": [
+    "8491218432"
+   ],
+   "isbn_13": [
+    "9788491218432"
+   ],
+   "oclc_numbers": [
+    "1300744064"
+   ],
+   "publish_places": [
+    "Vigo, España"
+   ],
+   "edition_name": "1ª edición",
+   "contributors": [
+    {
+     "role": "Translator",
+     "name": "María López Suárez"
+    }
+   ],
+   "languages": [
+    {
+     "key": "/languages/glg"
+    }
+   ],
+   "translation_of": "El infinito en un junco: La invención de los libros en el mundo antiguo",
+   "translated_from": [
+    {
+     "key": "/languages/spa"
+    }
+   ],
+   "description": {
+    "type": "/type/text",
+    "value": "«O infinito nun xunco» é un libro sobre os libros. Os libros e a súa historia, os libros e o seu nacemento, os libros e o seu impacto social. Irene Vallejo condúcenos a través dunha fascinante viaxe pola historia dos libros, ese asombroso artefacto que atravesou o espazo e o tempo. Ao longo de trinta séculos, a fabricación dos libros botou man do fume, da pedra, do barro, dos xuncos, da seda, da pel, das árbores e, finalmente, do plástico. Esta é unha abraiante aventura colectiva protagonizada por miles de persoas que ao longo dos séculos fixeron e protexeron libros: narradoras orais, escribas, iluminadores, tradutoras, vendedores ambulantes, mestras, sabios, espías, rebeldes, monxas, escravos, aventureiras, lectoras e lectores... «O infinito nun xunco» é un libro orixinal, entretido, erudito; unha alfaia literaria que se le coma unha novela. Escrito cunha voz profundamente literaria, que conecta trinta séculos de historia, Irene Vallejo constrúe rutas que se deteñen na Vila dos Papiros, nos pazos de Cleopatra, nas primeiras librarías coñecidas e nos talleres de copia de manuscritos, nas fogueiras dos códices prohibidos, no Gulag, na biblioteca de Saraxevo e no labirinto subterráneo de Óxford en 2000. Son rutas que vencellan os clásicos co trepidante mundo contemporáneo, conectándoos cos debates actuais."
+   },
+   "latest_revision": 3,
+   "revision": 3,
+   "created": {
+    "type": "/type/datetime",
+    "value": "2023-03-17T01:16:41.230163"
+   },
+   "last_modified": {
+    "type": "/type/datetime",
+    "value": "2025-11-04T18:35:40.423090"
+   }
+  }
+ ]
+}
