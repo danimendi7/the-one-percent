@@ -15,6 +15,8 @@
 10. Mantenimiento pendiente (fuera de M4g)
 11. Primer prompt de implementación (preparado, no ejecutado)
 12. M4g.1: servicio seguro de metadatos (hecho en local)
+13. M4g.1: validación remota en `ci/m4g`
+14. M4g.2: revisión previa del proxy de portadas (sin implementar)
 
 ---
 
@@ -752,7 +754,7 @@ Se buscan en la copia local, así que también funciona sin conexión.
   - Programas en español e inglés, 200 episodios recientes y un episodio antiguo (el n.º 89) encontrado por búsqueda.
 
 ### 12.7 Pruebas
-- **121 unitarias nuevas** en 8 ficheros, con respuestas reales grabadas y recortadas (`__fixtures__`). **Ninguna llama a Internet.**
+- **121 unitarias nuevas** en 7 ficheros, con respuestas reales grabadas y recortadas (`__fixtures__`). **Ninguna llama a Internet.**
   - Limpieza de texto.
   - Adaptadores de Open Library y Apple: español, inglés, ISBN, datos incompletos y respuestas malformadas.
   - Consultas y ordenación.
@@ -798,7 +800,7 @@ Se buscan en la copia local, así que también funciona sin conexión.
 | `npm run build` | Correcto; las 5 rutas nuevas son dinámicas (`ƒ`) |
 | HTTP sobre el build de producción | 5/5 comprobaciones (§12.7) |
 | `npm run explore:metadata` (proveedores reales, fuera de la CI) | 3/3 |
-| `npm run e2e` (Windows, 2 workers) | **NO VÁLIDA, sin conclusión.** Se listaron y lanzaron las 342: 163 superadas, 25 omitidas y 154 fallidas. Las 154 fallidas son exactamente las 154 caídas de proceso (`Target crashed`, o un worker terminado con código `0xC0000142`, fallo de Windows al iniciar un proceso por falta de recursos); **ninguna es un fallo de aserción** ni toca `/api/`. Claude Code paró la ejecución por falta de memoria del sistema (≈2,2 GB libres) y no se ha relanzado. **La regresión E2E de M4g.1 está pendiente**: en la CI remota (`ci/m4g`, con autorización) o en local cuando haya memoria suficiente |
+| `npm run e2e` (Windows, 2 workers) | **NO VÁLIDA, sin conclusión.** Se listaron y lanzaron las 342: 163 superadas, 25 omitidas y 154 fallidas. Las 154 fallidas son exactamente las 154 caídas de proceso (`Target crashed`, o un worker terminado con código `0xC0000142`, fallo de Windows al iniciar un proceso por falta de recursos); **ninguna es un fallo de aserción** ni toca `/api/`. Claude Code paró la ejecución por falta de memoria del sistema (≈2,2 GB libres) y no se ha relanzado. **La regresión E2E de M4g.1 está pendiente**: en la CI remota (`ci/m4g`, con autorización) o en local cuando haya memoria suficiente. **Validada después en Linux (§13): 630 superadas, 54 omitidas, 0 fallidas** |
 
 ### 12.9 Impacto en la arquitectura
 - **Nuevo:**
@@ -825,3 +827,152 @@ Se buscan en la copia local, así que también funciona sin conexión.
   - **E2E:** el navegador no puede interceptar las llamadas del servidor, así que hace falta un origen de prueba para los proveedores.
     - Propuesta: una variable que solo se respete fuera de Vercel y en `http://127.0.0.1:<puerto>`, con un servidor local de fixtures en Playwright.
     - Obliga a admitir ese host en `safeFetch` solo en pruebas, así que se revisará como cambio de seguridad.
+
+## 13. M4g.1 · Validación remota en `ci/m4g` (31/10/2026)
+
+### 13.1 Auditoría previa
+- **Árbol limpio.** HEAD `b5ad26b` desciende de `origin/main` = `ci/m4` = `f66b3b9`, y `ci/m4g` no existía.
+- **Commits que publica la rama** (5, todos de este repositorio y con la identidad `noreply`, D88):
+  - tres documentales anteriores: `9dfcb49`, `de7ec4f` y `8a3dd95`;
+  - los dos de M4g.1: `67bccd8` y `b5ad26b`.
+  - Los documentales suben como antecesores del HEAD, **solo en `ci/m4g`**, no en `main`.
+- **Diff contra `origin/main`:**
+  - sin migraciones ni cambios en `package-lock.json`, `.github` o `supabase/`;
+  - en `package.json`, solo el script `explore:metadata`.
+- **Sin secretos ni datos personales.** Los únicos correos son URLs de prueba con credenciales, que deben rechazarse, y un contacto público de un podcast de terceros dentro de una fixture.
+- **Las cinco rutas exponen solo `GET`.** La comprobación del usuario va antes que la cuota, los parámetros y cualquier llamada externa. Probado con sesiones reales; la cookie de demo y un token alterado dan 401.
+- **Datos de las pruebas:** solo usuarios sintéticos `@theonepercent.local` en el stack local.
+- **SSRF:** la ventana DNS entre validar y conectar está documentada (§12.4) y tiene una solución propuesta para M4g.2 (§14.2).
+- **Cuotas y caché:**
+  - se documentan como de cada instancia, no globales (D92, D93);
+  - las respuestas son `private, no-store`;
+  - la caché del servidor solo guarda registros públicos por id; nunca sesiones ni búsquedas.
+- **Workflow:** `ci/**` lanza la CI con 2 pasadas y `E2E_SKIPS_PER_PASS = 27`, y `vercel.json` desactiva los despliegues de `ci/**`. Las pruebas exploratorias (`*.explore.ts`) no entran en la CI.
+- **Pruebas omitidas: 27 frente a 25.**
+  - Las 27 omisiones por pasada son `test.skip(...)` que se evalúan **dentro** de cada prueba.
+  - En la ejecución local invalidada, las dos únicas pruebas que se omiten en escritorio (`habits.spec.ts:54` y `navigation.spec.ts:30`, «mobile only») cayeron antes de llegar a su `test.skip`, y contaron como fallidas: 27 − 2 = 25.
+- **Presupuesto de Actions:**
+  - el repositorio es privado y la ejecución anterior en `ci/**` duró unos 30 minutos;
+  - la herramienta de solo lectura no permite consultar la facturación de la cuenta, así que el saldo de minutos no se pudo verificar.
+
+### 13.2 Ejecución
+- **Push normal:** `b5ad26b → ci/m4g`, rama nueva y sin forzar. `main` y `ci/m4` no se tocaron.
+- **Run** [41229248953](https://github.com/danimendi7/the-one-percent/actions/runs/41229248953) sobre `b5ad26b12053784b942abbbf34d467c8989db5c6`, por un `push`: **éxito**, de 18:24 a 19:02 UTC (38 min). Runner de 2 CPU y 7,7 GB, 2 pasadas, 2 workers.
+
+Recuentos leídos de los artefactos y comprobados por las puertas de `ci-gate.mjs`:
+
+| Suite | Resultado |
+|---|---|
+| Tipos y lint | Correctos |
+| Unitarias | **636/636** en 54 ficheros. Incluye las 121 de `library/metadata` (7 ficheros); 0 omitidas |
+| Aislamiento | Supabase efímero en `127.0.0.1:55321` dentro del runner, sin credenciales de la nube ni secretos del repositorio en los workflows |
+| Integración | **148/148** en 9 ficheros. `metadata-auth.int.test.ts`: 3/3 |
+| `test:browser` | **6/6** |
+| E2E (2 pasadas) | **630 superadas y 54 omitidas** (27 × 2). 342 listadas por pasada y 684 resultados (342 × 2): 0 fallidas, 0 inestables, 0 interrumpidas, 0 errores globales, 0 reintentos, las 20 specs presentes |
+| Smoke | **22/22** |
+| Revisión de secretos de la CI | 9 ficheros, 0 eliminados |
+
+### 13.3 Escenarios críticos
+1. **API sin sesión → 401, y las páginas siguen igual.** Pruebas de rutas y HTTP sobre el build (§12.7); la E2E de navegación y de cuenta pasa completa.
+2. **La demo no consulta proveedores:** pruebas de rutas y de integración (cookie de demo → 401 sin llamadas externas).
+3. **Respuestas malformadas:** se rechazan o se normalizan (pruebas de adaptadores y del servicio).
+4. **Límites de tamaño y tiempo:** pruebas de `safeFetch`, tanto por cabecera como por streaming, y del tiempo máximo.
+5. **URLs y redirecciones peligrosas:** se rechazan sin hacer la petición (24 direcciones bloqueadas y 6 redirecciones).
+6. **Nada guardado se modifica:** los metadatos solo crean entradas nuevas por las operaciones de M4. La prueba `matching.test.ts` comprueba que el libro ya existente queda idéntico (`toBe`).
+7. **Sin conexión de M4:** `offline.spec.ts` superada en móvil y escritorio, en las dos pasadas.
+8. **M2 y M3:** todas sus specs E2E y de integración superadas.
+9. **Supabase Cloud:**
+   - la CI no tiene credenciales de la nube (puerta de aislamiento);
+   - la verificación de solo lectura de la nube tras la ejecución da **27/27**: 11 migraciones y funciones idénticas al fichero.
+10. **Auth y `newAccount`:** ningún error de autenticación.
+    - Hubo 4 avisos informativos `[newAccount] slow`, todos en la etapa `status`: la primera llamada a `npx supabase status` de cada proceso worker, que luego queda en caché, tardó 3,1–3,9 s en un runner de 2 CPU (el umbral es 3 s).
+    - Auth y la base tardaron menos de 0,5 s, y las pruebas afectadas pasaron.
+    - En las ejecuciones 41212978680 y 41217079580 hubo 0 avisos. M4g.1 no toca ese código; queda como observación.
+
+### 13.4 Estado final
+- **Vercel:** ningún estado ni despliegue para `b5ad26b`; no se creó Preview. Producción sigue sirviendo `f66b3b931aac`.
+- **Ramas remotas:** `main` = `ci/m4` = `f66b3b9` y `ci/m4g` = `b5ad26b`.
+- **Supabase Cloud:** sin cambios (13.3, punto 9).
+- **Sin repeticiones de la CI, sin pushes adicionales y sin borrar nada.**
+
+## 14. M4g.2 · Revisión previa del proxy de portadas (31/10/2026, **sin implementar**)
+
+Esta sección solo documenta. No se amplía ninguna lista de destinos y no existe `/api/covers`.
+
+### 14.1 Hosts y redirecciones (medido el 31/10/2026, §4.1)
+| Proveedor | URL canónica guardada | Cadena real | Hosts que habría que permitir |
+|---|---|---|---|
+| Open Library | `https://covers.openlibrary.org/b/id/{n}-{S\|M\|L}.jpg` | `covers.openlibrary.org` → 302 `archive.org` → 302 `iaNNNNNN.us.archive.org` (JPEG, `max-age=10800`) | `covers.openlibrary.org`, `archive.org` y el patrón anclado `^ia\d{6}\.us\.archive\.org$` |
+| Apple | `https://isN-ssl.mzstatic.com/image/thumb/…/600x600bb.jpg` | Directo, sin redirecciones (JPEG, `max-age` de unos 6 meses) | `is1`–`is5-ssl.mzstatic.com` (5 nombres exactos) |
+
+**Comportamientos de los proveedores que hay que tener en cuenta:**
+- Una portada inexistente de Open Library pedida por id devuelve **200 con un GIF de 43 bytes**.
+- `?default=false` solo da 404 en las consultas por ISBN, que están limitadas a 100 cada 5 minutos por IP. Por eso solo se guardan portadas por id.
+
+**Propuesta:**
+- Una lista **propia de la ruta de portadas**, separada de la de metadatos, para que esta no se amplíe.
+- `checkDestination` acepta además expresiones regulares ancladas, con pruebas de casos límite: `ia1.us.archive.org.evil.example`, `xia123456.us.archive.org` y puntos finales.
+- Como máximo 3 redirecciones, cada una validada (hoy se usan 2).
+- El parámetro de entrada solo puede ser una URL que pase `isCanonicalCoverUrl` (que ya existe y tiene pruebas). Ninguna otra URL se acepta, ni siquiera de esos hosts.
+
+### 14.2 Direcciones privadas y cambios de DNS
+- **Hoy (M4g.1):** resolvemos el nombre, validamos todas sus direcciones y después `fetch` vuelve a resolver. Queda una ventana teórica de *DNS rebinding* entre las dos resoluciones (§12.4).
+- **Propuesta para M4g.2, también aplicable a los metadatos y sin dependencias nuevas:** pedir con `node:https` en lugar de `fetch` y pasarle una función `lookup` propia. Esa función resuelve el nombre, rechaza cualquier dirección bloqueada (`isBlockedAddress`) y devuelve **la dirección validada, que es exactamente a la que se conecta el socket**.
+  - El certificado TLS se sigue comprobando contra el nombre (SNI), así que no se pierde la verificación del servidor.
+  - Elimina la ventana entre validar y conectar.
+- **Alternativa descartada:** `undici` con un `Agent` y `connect.lookup`. Exige instalar `undici` como dependencia, porque Node no lo expone para importarlo.
+- **Pruebas:**
+  - un `lookup` que devuelve primero una dirección pública y después una privada: la conexión usa la validada o se rechaza;
+  - IPv6 mapeada;
+  - redirección a un host permitido que resuelve a una dirección privada.
+
+### 14.3 Imágenes, autenticación y sesiones
+- **Las imágenes no necesitan autenticación ante los proveedores:** las portadas de Open Library y de Apple son públicas. El proxy las pide sin cookies, sin `Authorization` y sin `Referer` del usuario. No hay peticiones autenticadas adicionales hacia terceros.
+- **El navegador envía las cookies de sesión** con `<img src="/api/covers?…">`, porque es del mismo origen. La ruta verifica al usuario igual que los metadatos, así que la cookie de demo y las sesiones falsas reciben 401. `<img>` no puede añadir cabeceras, y no hace falta.
+- **Coste de verificar cada imagen.** Una cuadrícula de 60 portadas implicaría unas 120 llamadas al servidor de Auth: `getUser()` en `src/proxy.ts` y otra vez en la ruta.
+  - La nube firma con **ES256**, lo que se comprobó en la JWKS pública del proyecto.
+  - Así, `auth.getClaims()` verifica la firma **en local**, con la JWKS en caché en cada instancia.
+  - **Propuesta:** en `/api/covers`, `getClaims()` en lugar de `getUser()`.
+  - **Contrapartida:** una sesión cerrada en otro dispositivo sigue siendo válida para portadas hasta que caduca el token (≈1 h). Es aceptable porque una portada es un dato público; los metadatos mantienen `getUser()`.
+  - El doble trabajo en `src/proxy.ts` para `/api/covers` (refrescar la sesión) se mide antes de tocarlo.
+- **Sesión caducada o sin conexión:** la imagen falla (401 o error de red) y `CoverArt` muestra la portada tipográfica. Nunca se ve una imagen rota ni se pide iniciar sesión por una portada.
+
+### 14.4 Caché y condiciones de los proveedores
+- **Respuesta del proxy:** `Cache-Control: private, max-age=2592000, immutable`. La URL canónica de una portada no cambia de imagen.
+  - `private`: la CDN de Vercel no la guarda (la ruta exige sesión). Cada dispositivo la pide una vez y después la sirve su caché HTTP.
+  - Sin caché en el servidor: las imágenes pesan de 16 a 100 KB. Una caché en memoria por instancia aporta poco y consume RAM de la función.
+- **Open Library:**
+  - pide cachear;
+  - la Covers API es para mostrar portadas, no para descargas masivas;
+  - por id no hay límite publicado (por ISBN sí, y no se usa);
+  - se aprecia un enlace a Open Library, que ya figura en la ficha (`sourceUrl` y atribución).
+- **Apple:**
+  - las portadas son material promocional para enlazar con su tienda;
+  - se muestran junto al enlace a Apple Podcasts (`sourceUrl`) y la atribución «Datos: Apple Podcasts»;
+  - no se modifican ni se usan para otra cosa.
+- **Límites propuestos:** 120 portadas por minuto por usuario; 2 MB y 5 s por imagen; tipos JPEG, PNG o WebP según sus bytes mágicos; rechazo de GIF y de imágenes de menos de 1 KB; cortacircuitos por proveedor como en D92.
+
+### 14.5 Respaldo tipográfico y sin conexión
+- `CoverArt` pinta siempre primero la portada tipográfica actual y pone la imagen encima, con la misma proporción y `object-cover`. Ante un error, un tamaño mínimo no superado o un tiempo agotado, la imagen se retira sin que se mueva nada.
+  - `loading="lazy"` y `decoding="async"`.
+  - `alt=""` en las listas (el título ya es texto) y «Portada de …» en la ficha.
+- **Sin conexión:**
+  - el service worker sigue sin tocar `/api/`;
+  - una portada ya vista puede salir de la caché HTTP del navegador;
+  - en iPhone (PWA instalada) no está garantizado, y entonces se ve la tipográfica;
+  - una caché propia de portadas en el SW, borrada al cerrar sesión, sigue siendo M4g.6, aparte.
+- **Demo:** no tiene portadas externas, así que no cambia.
+
+### 14.6 Riesgos de M4g.2
+| Riesgo | Mitigación |
+|---|---|
+| `archive.org` cambia sus nombres de servidor | Patrón anclado con pruebas; si falla, la tipográfica |
+| Un proveedor añade protección contra enlaces externos | La imagen falla y se ve la tipográfica; no hay nada que autenticar |
+| Coste de Auth por imagen | `getClaims()` local (ES256) y caché HTTP de 30 días |
+| Memoria de la función con imágenes grandes | Corte a 2 MB en streaming |
+| Saltos de diseño | Misma caja y proporción, la imagen se superpone |
+| *DNS rebinding* | `node:https` con `lookup` validado (§14.2) |
+
+**Estimación:** 120–150 minutos, sin migraciones ni dependencias nuevas.
+- Incluye el cambio de transporte a `node:https`, también para los metadatos, con sus pruebas.
+- Requiere tu autorización.
