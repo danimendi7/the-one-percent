@@ -2023,3 +2023,107 @@ Son candidatos, **no causas demostradas**. La causa no está identificada, porqu
 | E2E completa en modo CI y smoke | **Pendientes**: no hay memoria para compilar Next y ejecutarlas con margen |
 
 **M4f no está validada.**
+
+### 22.8 Segunda validación remota: en verde (31/10/2026)
+**Comprobaciones previas**
+- Árbol limpio, con HEAD en `f66b3b9`, que desciende directamente de `027f219`.
+- El diff desde `027f219` no toca `.github`, `supabase/`, `vercel.json` ni las dependencias.
+- El motor solo cambia el orden de arranque (D89), sin tocar el protocolo.
+- Listado E2E: 342 pruebas por pasada (338 más las 4 nuevas de regresión), 171 por proyecto, con 27 omitidas previstas por pasada.
+- La instrumentación de `newAccount` guarda su estado en cada proceso *worker*, que ejecuta las pruebas de una en una. Solo registra nombres de etapa y milisegundos.
+- Sin procesos ni contenedores de prueba locales.
+
+**Push**: solo `git push origin f66b3b9:refs/heads/ci/m4`, un avance directo desde `027f219`. `main` sigue en `85fd1a0`.
+
+**Run** [41212978680](https://github.com/danimendi7/the-one-percent/actions/runs/41212978680), sobre `f66b3b9`: **éxito**. Duró unos 30 minutos.
+
+| Paso | Resultado |
+|---|---|
+| Typecheck y lint | ✓ |
+| Unitarias | **515/515**, en 47 ficheros |
+| Aislamiento | ✓ |
+| Integración | **145/145**, en 8 ficheros |
+| `test:browser` | **6/6** |
+| E2E, 2 pasadas | **630 superadas, 54 omitidas (las esperadas), 0 fallidas, 0 inestables, 0 interrumpidas, 0 errores globales.** Listadas 342 × 2 = 684 y ejecutadas 684. **0 reintentos.** Specs representadas: 20/20 |
+| Smoke | **22/22** |
+| Revisión de secretos y subida | ✓; artefacto `e2e-41212978680-1`, de 1,4 MB, que caduca el 30/11 |
+
+**Escenarios comprobados**: cada uno pasó a la primera en las 2 pasadas, en móvil y en escritorio.
+- **A**: `library.spec.ts:214`, navegación sin red por Biblioteca → Libros → ficha → Cerebro, con captura.
+- **B**: `offline.spec.ts`, las 6 pruebas:
+  - arranque sin red;
+  - la nueva, navegación sin precarga resuelta por el service worker;
+  - privacidad de la caché;
+  - cambio de versión;
+  - cuenta sin red, enviada una sola vez;
+  - redirección a `/login` sin guardar.
+- **C y D**: `screen-error.spec.ts`, Objetivos y su variante con la copia lenta, más la página dañada de la Biblioteca.
+  - Comprueba que se envía exactamente una vez (`sync_operations` = 1) y que la cola queda vacía.
+  - La prueba unitaria `engine-startup.test.ts` comprueba un solo envío y una sola descarga al arrancar.
+- **E**, `newAccount`: **ningún aviso**. Ninguna de las 684 ejecuciones escribió en stdout o stderr, y en el log no aparece `[newAccount]`. El fallo aislado del contenedor local no se repitió en el *runner*. La instrumentación sigue activa.
+
+**Seguridad**
+- Sin despliegues ni estados de Vercel para `f66b3b9` ni para `ci/m4`; solo el *check run* `verify`.
+- `main` sigue en `85fd1a0` y la nube tiene 10 migraciones.
+- Producción responde: `/` redirige a `/login` con un 307 y `/login` devuelve 200. Todavía no incluye M4f: no tiene `top-version`.
+- El artefacto no tiene trazas (no hubo fallos), ni correos personales, ni `sb_secret_`, `service_role` o JWT.
+- No se ha borrado ningún artefacto anterior.
+
+**M4f queda validada en CI con el commit exacto `f66b3b9`.** El commit con esta sección es posterior y solo contiene documentación.
+
+### 22.9 Procedimiento final de publicación de Knowledge OS (pendiente de autorización)
+Es el de §21.8 B, con el commit validado `f66b3b9`. **No se ha ejecutado nada.**
+
+**0. Partida, en solo lectura**
+- `origin/main` sigue en `85fd1a0` y `ci/m4` en `f66b3b9`.
+- La nube tiene 10 migraciones, la última `20261031090000`.
+- Producción responde.
+
+**1. Copia de seguridad**
+- `npm run backup`: copia nueva y cifrada de Supabase Cloud, con el token propio por variable de entorno (nunca la sesión global de la CLI).
+- Anotar la ruta y el resumen de la copia, sin valores.
+
+**2. Restauración aislada**
+- `npm run restore:drill -- <copia.topbak> --schema-at 20261031090000`, en el stack de simulacro.
+- Comprobar que las 17 tablas y sus filas coinciden con la copia.
+
+**3. Ensayo de la migración**
+- Aplicar `20261101090000_library.sql` sobre esa restauración.
+- Repetir `upgrade.spec.ts` y el smoke contra ella.
+- Destruir el simulacro, solo sus contenedores.
+
+**4. Revisión previa**
+- `npm run cloud -- db push --dry-run`.
+- Debe anunciar exactamente una migración: `20261101090000_library.sql`. Si anuncia otra cosa, me detengo.
+
+**5. Migración**
+- Aplicar solo esa migración (`npm run cloud -- db push`).
+- Comprobar después, en solo lectura:
+  - 11 migraciones;
+  - las 4 tablas de la Biblioteca con RLS;
+  - la publicación realtime;
+  - `pull_library(p_skip_deleted_upto)`;
+  - `apply_ops` y `pull_changes` iguales al fichero.
+- Es una migración aditiva: el código de producción actual (`85fd1a0`) sigue funcionando con ella.
+
+**6. Código**
+- `git push origin f66b3b9:refs/heads/main`, un avance directo desde `85fd1a0`.
+- Se publica **exactamente** el commit validado. Los commits posteriores, solo de documentación (§22.8 y §22.9), quedan en local o se publican después con su propia autorización.
+
+**7. Comprobaciones**
+- Despliegue de Vercel en verde para `f66b3b9`.
+- `<meta name="top-version" content="f66b3b931aac">` en producción.
+- `/sw.js?v=…` responde con `no-cache`.
+- Smoke de producción.
+- CI de `main` en verde.
+- **Borrar `ci/m4` solo si lo autorizas aparte.**
+
+**8. Pruebas manuales**
+- Los 10 casos de §21.8 B.8 entre tu móvil y tu ordenador, incluido el arranque en frío sin red tras una primera carga.
+- El diagnóstico del iPhone de §21.3.
+- Solo los harás tú; no los daré por hechos.
+
+**9. Vuelta atrás, preparada antes de empezar**
+- Si falla el paso 5: me detengo. El código no se ha tocado y la copia del paso 1 queda disponible. **No hay restauración automática.**
+- Si falla después del paso 6: `git revert` del despliegue en `main`, como commit nuevo y con tu autorización, sin tocar la base. Como la migración es aditiva, el código anterior funciona con ella.
+- Si el problema está en el arranque sin red: además del `revert`, la versión anterior no registra el service worker, y la carcasa en caché se queda sin uso. Cuando haga falta, la retira la versión siguiente o el propio navegador.
