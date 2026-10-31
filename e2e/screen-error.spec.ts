@@ -2,6 +2,25 @@ import { expect, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
 
 /**
+ * Runs in the page: opening the device copy (the «the-one-percent» database) answers `ms` later, as
+ * on a slow phone. Nothing else changes; the data itself is untouched.
+ */
+function delayDeviceCopy(ms: number) {
+  const open = IDBFactory.prototype.open
+  const onsuccess = Object.getOwnPropertyDescriptor(IDBRequest.prototype, "onsuccess")!
+  IDBFactory.prototype.open = function (this: IDBFactory, name: string, version?: number) {
+    const req = open.call(this, name, version)
+    if (name !== "the-one-percent") return req
+    Object.defineProperty(req, "onsuccess", {
+      configurable: true,
+      get: () => onsuccess.get!.call(req),
+      set: (fn: ((e: Event) => void) | null) => onsuccess.set!.call(req, fn && ((e: Event) => setTimeout(() => fn.call(req, e), ms))),
+    })
+    return req
+  }
+}
+
+/**
  * Incident 27/10/2026 (docs/reports/incident-2026-10-27-m3.1-upgrade.md): an error while rendering one
  * screen must stay inside that screen. The per-screen boundary (src/app/(app)/error.tsx) sits below the
  * shell, so navigation, the data-status pill and the sync engine keep working: pending offline work is
@@ -18,7 +37,8 @@ test.describe("account · a failing screen keeps syncing", () => {
     await removeAccount(account)
   })
 
-  test("Objetivos throws on a malformed local goal; the shell, the queue and the sync survive", async ({ page, context }) => {
+  for (const slowCopy of [false, true])
+  test(slowCopy ? "Objetivos fails as above on a device whose copy is slow to open; the queue is still sent first and once (M4f)" : "Objetivos throws on a malformed local goal; the shell, the queue and the sync survive", async ({ page, context }) => {
     await signIn(page, account)
     await page.goto("/habits")
     await page.getByRole("button", { name: /^(Nuevo|Crear) hábito$/ }).first().click()
@@ -66,6 +86,9 @@ test.describe("account · a failing screen keeps syncing", () => {
       await route.continue()
     })
 
+    // ci/m4 (run 41183910815): on the slower runner the realtime channel connected before the engine
+    // had read the device copy, and its early cycle sat on the held pull with an empty queue (D89).
+    if (slowCopy) await context.addInitScript(delayDeviceCopy, 2500)
     const p = await context.newPage()
     const errors: string[] = []
     p.on("pageerror", (e) => errors.push(e.message))

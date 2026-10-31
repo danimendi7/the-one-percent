@@ -56,7 +56,37 @@ describe("SyncEngine · startup ordering", () => {
     await Promise.all([started, early])
     expect(calls[0]).toBe("push:entry-1")
     expect(calls.indexOf("push:entry-1")).toBeLessThan(calls.indexOf("pull"))
+    // one cycle for both requests: the change is sent once, and there is one pull, not two in parallel
+    expect(calls.filter((c) => c.includes("entry-1"))).toHaveLength(1)
+    expect(calls.filter((c) => c === "pull")).toHaveLength(1)
     expect(server.entryCount()).toBe(1)
     expect(second.getSnapshot()).toMatchObject({ pending: 0 })
+    expect(storage.data?.queue).toEqual([])
+  })
+
+  it("the saved queue survives a start-up whose first cycle cannot reach the server, and is sent once later", async () => {
+    const server = new FakeServer(TODAY, () => NOW)
+    const storage = memoryStorage()
+    const t1 = fakeTransport(server)
+    const first = new SyncEngine({ transport: t1, storage, deviceId: "dev-a", now: () => NOW, schedule: () => () => {} })
+    await first.start()
+    first.submit(createHabit())
+    await first.sync()
+    t1.online = false
+    first.submit(mark())
+    await first.sync()
+    first.stop()
+
+    const t2 = fakeTransport(server)
+    t2.online = false
+    const second = new SyncEngine({ transport: t2, storage, deviceId: "dev-a", now: () => NOW, schedule: () => () => {} })
+    await Promise.all([second.start(), second.sync()])
+    expect(second.getSnapshot()).toMatchObject({ pending: 1 })
+    expect(storage.data?.queue.map((q) => q.op.op_id)).toEqual(["entry-1"])
+    t2.online = true
+    await second.sync()
+    await second.sync()
+    expect(server.entryCount()).toBe(1)
+    expect(storage.data?.queue).toEqual([])
   })
 })

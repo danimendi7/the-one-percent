@@ -7,6 +7,8 @@
  *   npm run e2e:linux                       2 consecutive full runs, 3 workers
  *   npm run e2e:linux -- --runs 1 --workers 2
  *   npm run e2e:linux -- --remove-image     also delete the Playwright image afterwards
+ *   npm run e2e:linux -- --only "e2e/screen-error.spec.ts e2e/library.spec.ts:214" --repeat-each 10 --cpus 4
+ *                                           targeted check of some specs, repeated, no retries (M4f)
  *
  * Isolation guarantees:
  * - Validates the committed HEAD (git archive), built with `npm ci` and `next build` inside Linux.
@@ -35,8 +37,12 @@ const arg = (name, fallback) => {
 const RUNS = Number(arg("--runs", "2"))
 const WORKERS = Number(arg("--workers", "3"))
 const REMOVE_IMAGE = process.argv.includes("--remove-image")
-if (!Number.isInteger(RUNS) || RUNS < 1 || RUNS > 5 || !Number.isInteger(WORKERS) || WORKERS < 1 || WORKERS > 6) {
-  console.error("✖ --runs 1–5 y --workers 1–6")
+/** Targeted check (M4f): only these spec files or file:line, repeated, with no retries. */
+const ONLY = arg("--only", "").trim()
+const REPEAT = Number(arg("--repeat-each", "1"))
+const CPUS = Number(arg("--cpus", "6"))
+if (!Number.isInteger(RUNS) || RUNS < 1 || RUNS > 5 || !Number.isInteger(WORKERS) || WORKERS < 1 || WORKERS > 6 || !Number.isInteger(REPEAT) || REPEAT < 1 || REPEAT > 50 || !Number.isInteger(CPUS) || CPUS < 1 || CPUS > 6 || !/^(e2e\/[\w.-]+\.spec\.ts(:\d+)?( |$))*$/.test(ONLY)) {
+  console.error("✖ --runs 1–5, --workers 1–6, --repeat-each 1–50, --cpus 1–6 y --only con rutas e2e/<x>.spec.ts[:línea]")
   process.exit(2)
 }
 
@@ -117,7 +123,8 @@ const tmp = mkdtempSync(join(tmpdir(), "top-e2e-linux-"))
 const out = join(tmp, "results")
 mkdirSync(out)
 log(`Validación Linux de ${head}${dirty ? " (hay cambios sin commit: se valida solo el commit)" : ""}`)
-log(`  imagen ${image} · ${RUNS} ejecuciones · ${WORKERS} workers · contenedor ${container}`)
+log(`  imagen ${image} · ${RUNS} ejecuciones · ${WORKERS} workers · ${CPUS} CPU · contenedor ${container}`)
+if (ONLY) log(`  solo ${ONLY} · ${REPEAT} repeticiones · sin reintentos`)
 
 let created = false
 const results = []
@@ -133,7 +140,7 @@ try {
   created = true
   docker([
     "create", "--name", container, "--label", LABEL, "--network", network,
-    "--memory", "4g", "--cpus", "6", "--shm-size", "1g", "-e", "TZ=Europe/Madrid", "-w", "/work/app",
+    "--memory", "4g", "--cpus", String(CPUS), "--shm-size", "1g", "-e", "TZ=Europe/Madrid", "-w", "/work/app",
     // The forwarder is copied in after start: wait for it (up to 60 s), or the container could exit first.
     image, "bash", "-c", "for i in $(seq 1 300); do [ -f /work/tools/proxy.mjs ] && exec node /work/tools/proxy.mjs; sleep 0.2; done; exit 1",
   ])
@@ -166,7 +173,7 @@ try {
 
   for (let run = 1; run <= RUNS; run++) {
     log(`Ejecución ${run}/${RUNS}…`)
-    const r = docker(["exec", container, "bash", "-c", `cd /work/app && npx playwright test --grep-invert @screens --workers=${WORKERS} --reporter=list > /work/out/run${run}.txt 2>&1; echo $?`], { allowFail: true })
+    const r = docker(["exec", container, "bash", "-c", `cd /work/app && npx playwright test ${ONLY ? ONLY + " --repeat-each=" + REPEAT + " --retries=0 " : ""}--grep-invert @screens --workers=${WORKERS} --reporter=list > /work/out/run${run}.txt 2>&1; echo $?`], { allowFail: true })
     const text = docker(["exec", container, "cat", `/work/out/run${run}.txt`]).stdout
     const alive = docker(["exec", container, "bash", "-c", "pgrep -f 'next start' >/dev/null && echo yes || echo no"]).stdout.trim() === "yes"
     const s = { run, exit: Number(r.stdout.trim()), serverAlive: alive, ...summarize(text) }
@@ -187,7 +194,7 @@ try {
   const serverErrors = serverLog.split("\n").filter((l) => / ERR |EXITED/.test(l)).length
   writeFileSync(join(out, "summary.json"), JSON.stringify({ head, image, workers: WORKERS, results, serverErrors, stamp }, null, 2))
   const ok = results.length === RUNS && results.every((r) => r.exit === 0 && r.failed === 0 && r.flaky === 0 && r.interrupted === 0 && r.serverAlive) && serverErrors === 0
-  log(ok ? `✔ ${RUNS} ejecuciones completas consecutivas sin fallos en Linux.` : "✖ La validación no es limpia: revisa los registros.")
+  log(ok ? `✔ ${RUNS} ejecuciones ${ONLY ? "dirigidas" : "completas"} consecutivas sin fallos en Linux.` : "✖ La validación no es limpia: revisa los registros.")
   if (!ok) process.exitCode = 1
 } catch (e) {
   fail(e instanceof Error ? e.message : String(e))

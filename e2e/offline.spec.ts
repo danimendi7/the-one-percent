@@ -90,6 +90,46 @@ test.describe("service worker · demo", () => {
     expect(consoleErrors.filter((e) => !offlineNoise(e))).toEqual([])
   })
 
+  test("links work offline even when Next could not prefetch them: the browser navigation falls back to the prepared shell", async ({ page, context, consoleErrors }) => {
+    // ci/m4 (run 41183910815): on a slow device the prefetch of the next pages may not have happened
+    // when the connection drops. Here NO page data (RSC) ever arrives, so every link the app follows
+    // fails its client fetch and Next falls back to a browser navigation, which the worker serves.
+    const rsc: string[] = []
+    await context.route(
+      (url) => url.searchParams.has("_rsc"),
+      (route) => {
+        rsc.push(new URL(route.request().url()).pathname)
+        return route.abort("internetdisconnected")
+      }
+    )
+    await page.goto("/")
+    await prepared(page)
+    await page.goto("/knowledge/library")
+    await expect(page.getByTestId("door-Libros")).toContainText("7 libros")
+    await context.setOffline(true)
+
+    await page.getByTestId("door-Libros").click()
+    await expect(page.getByRole("heading", { level: 1, name: "Libros" })).toBeVisible()
+    await page.getByTestId("item-tile").filter({ hasText: "Hábitos atómicos" }).first().click()
+    await expect(page.getByRole("heading", { level: 1, name: "Hábitos atómicos" })).toBeVisible()
+    expect(new URL(page.url()).searchParams.get("id")).toBeTruthy()
+    await page.getByTestId("capture-open").locator("visible=true").click()
+    await page.getByTestId("capture-text").locator("visible=true").fill("Capturada sin precarga ni red")
+    await expect(page.getByTestId("capture-save").locator("visible=true")).toHaveText("Guardado en este navegador · demo")
+    await page.getByRole("link", { name: /Libros/ }).first().click()
+    await expect(page.getByRole("heading", { level: 1, name: "Libros" })).toBeVisible()
+    await page.goto("/knowledge/library")
+    await page.getByTestId("door-Cerebro").click()
+    await expect(page.getByRole("heading", { level: 1, name: "Cerebro" })).toBeVisible()
+    await expect(page.getByTestId("note").locator("visible=true").filter({ hasText: "Capturada sin precarga ni red" })).toBeVisible()
+    // the idea is kept on the device: a reload with no connection still shows it
+    await page.reload()
+    await expect(page.getByTestId("note").locator("visible=true").filter({ hasText: "Capturada sin precarga ni red" })).toBeVisible()
+    // it really was the fallback: the app asked for page data and got none
+    expect(rsc).toEqual(expect.arrayContaining(["/knowledge/library/books", "/knowledge/library/item"]))
+    expect(consoleErrors.filter((e) => !offlineNoise(e) && !/Failed to fetch RSC payload/.test(e))).toEqual([])
+  })
+
   test("privacy: only this origin's static shell is cached; no API, auth, RSC or cookies; headers limited", async ({ page }) => {
     await page.goto("/")
     await prepared(page)
