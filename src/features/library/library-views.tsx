@@ -93,7 +93,7 @@ const showTitle = (s: KnowledgeState, i: ContentItem) => (i.kind === "episode" &
 function ItemTile({ item, state }: { item: ContentItem; state: KnowledgeState }) {
   return (
     <Link href={itemHref(item.id)} className="group block min-w-0 rounded-xl focus-visible:outline-2" data-testid="item-tile">
-      <CoverArt seed={item.id} title={item.title} byline={byline(item, showTitle(state, item))} kind={item.kind} className="transition-transform group-hover:-translate-y-0.5 motion-reduce:transition-none" />
+      <CoverArt seed={item.id} title={item.title} byline={byline(item, showTitle(state, item))} kind={item.kind} cover={item.cover} className="transition-transform group-hover:-translate-y-0.5 motion-reduce:transition-none" />
       <p className="mt-2 line-clamp-2 text-sm leading-snug font-medium">{item.title}</p>
       <div className="mt-1 flex flex-wrap items-center gap-1.5">
         <StatusPill kind={item.kind} status={item.status} />
@@ -111,7 +111,7 @@ function ItemRow({ item, state }: { item: ContentItem; state: KnowledgeState }) 
     <li>
       <Link href={itemHref(item.id)} className="flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-surface-raised/50" data-testid="item-row">
         <div className={cn("shrink-0", item.kind === "book" ? "w-10" : "w-12")}>
-          <CoverArt seed={item.id} title={item.title} kind={item.kind} size="sm" />
+          <CoverArt seed={item.id} title={item.title} kind={item.kind} size="sm" cover={item.cover} />
         </div>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{item.title}</span>
@@ -364,7 +364,7 @@ export function PodcastsView() {
             const eps = episodesOfShow(snap.state, sh.id)
             return (
               <Link key={sh.id} href={showHref(sh.id)} className="group block min-w-0" data-testid="show-tile">
-                <CoverArt seed={sh.id} title={sh.title} byline={sh.publisher} kind="show" className="transition-transform group-hover:-translate-y-0.5 motion-reduce:transition-none" />
+                <CoverArt seed={sh.id} title={sh.title} byline={sh.publisher} kind="show" cover={sh.cover} className="transition-transform group-hover:-translate-y-0.5 motion-reduce:transition-none" />
                 <p className="mt-2 line-clamp-2 text-sm font-medium">{sh.title}</p>
                 <p className="num text-xs text-text-tertiary">
                   {eps.length} {eps.length === 1 ? "episodio" : "episodios"}

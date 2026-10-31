@@ -7,7 +7,8 @@ import { createServerClient } from "@supabase/ssr"
 import { NextRequest } from "next/server"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { callerOf, type AuthConfig } from "@/features/library/metadata/server/auth"
-import { createMetadataRoutes, USER_LIMIT } from "@/features/library/metadata/server/routes"
+import { createCoverService } from "@/features/library/metadata/server/cover-service"
+import { COVER_CACHE, createCoverRoute, createMetadataRoutes, USER_LIMIT } from "@/features/library/metadata/server/routes"
 import { createMetadataService } from "@/features/library/metadata/server/service"
 import { AUTH_COOKIE_NAME, DEMO_COOKIE } from "@/lib/supabase/env"
 import olTitleEs from "../../src/features/library/metadata/__fixtures__/ol-search-title-es.json"
@@ -100,5 +101,42 @@ describe("metadata endpoints and real sessions (local stack)", () => {
     expect((await r.booksSearch(req("books/search?q=cien", cb))).status).toBe(200)
     // Only parameters went upstream: no ids, emails or tokens of either user.
     for (const u of upstream) for (const secret of [a.id, b.id, a.email, b.email]) expect(u).not.toContain(secret)
+  })
+
+  it("covers (M4g.2): a real session gets the image; anonymous, demo and forged sessions get 401 without any outside call", async () => {
+    const upstream: string[] = []
+    const jpeg = Uint8Array.from({ length: 4_000 }, (_, i) => [0xff, 0xd8, 0xff, 0xe0][i] ?? 1)
+    const handle = createCoverRoute({
+      caller: (q) => callerOf(q, cfg),
+      now: () => 0,
+      covers: createCoverService({
+        now: () => 0,
+        sleep: async () => {},
+        random: () => 0,
+        fetch: {
+          lookup: async () => ["93.184.216.34"],
+          fetch: async (input, init) => {
+            upstream.push(input)
+            const h = new Headers(init?.headers)
+            if (h.has("cookie") || h.has("authorization")) throw new Error("user data sent upstream")
+            return new Response(jpeg, { headers: { "content-type": "image/jpeg" } })
+          },
+        },
+      }),
+    })
+    const cover = (cookie?: string) => handle(new NextRequest("http://localhost:3000/api/covers?ol=12627383&s=md", { headers: cookie ? { cookie } : {} }))
+    const forgedToken = (await a.client.auth.getSession()).data.session!.access_token.replace(/.[^.]+$/, ".invalidsignature")
+    const forged = `${AUTH_COOKIE_NAME}=base64-${Buffer.from(JSON.stringify({ access_token: forgedToken, refresh_token: "x", token_type: "bearer", expires_at: 4102444800, user: { id: a.id } })).toString("base64url")}`
+    for (const cookie of [undefined, `${DEMO_COOKIE}=demo`, forged]) {
+      const r = await cover(cookie)
+      expect([r.status, r.headers.get("cache-control")]).toEqual([401, "no-store"])
+    }
+    expect(upstream).toEqual([])
+    const ok = await cover(await cookiesOf(b))
+    expect(ok.status).toBe(200)
+    expect(ok.headers.get("content-type")).toBe("image/jpeg")
+    expect(ok.headers.get("cache-control")).toBe(COVER_CACHE)
+    expect(ok.headers.get("set-cookie")).toBeNull()
+    expect(upstream).toEqual(["https://covers.openlibrary.org/b/id/12627383-M.jpg"])
   })
 })

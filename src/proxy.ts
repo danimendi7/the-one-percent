@@ -11,6 +11,9 @@ const PUBLIC_PATHS = ["/login", "/auth/"]
  */
 export async function proxy(request: NextRequest) {
   if (!isSupabaseConfigured) return NextResponse.next()
+  // Cover images (M4g.2) are cacheable by the browser, so they must never carry a refreshed
+  // session cookie: the route verifies the user itself with the Auth server and sets nothing.
+  if (request.nextUrl.pathname === "/api/covers") return NextResponse.next()
 
   // Auth falls back to the bare Site URL when a redirect is not allowlisted: route
   // email credentials that land on "/" to the confirm handler instead of dropping them.

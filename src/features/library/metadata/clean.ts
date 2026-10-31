@@ -1,5 +1,6 @@
 import { cleanLine, cleanText, compactIsbn, isbn10to13, isValidIsbn10, isValidIsbn13, normalizeNames, normalizeTopics, safeUrl } from "@/features/knowledge/domain/text"
 import { LIMITS } from "@/features/knowledge/domain/types"
+import { coverKeyOf } from "./covers"
 import { DESCRIPTION_MAX, TOPIC_SUGGESTIONS_MAX } from "./types"
 
 /**
@@ -149,15 +150,12 @@ export function openLibraryCover(id: unknown): string | null {
   return positiveInt(id, 999_999_999) === null ? null : `https://covers.openlibrary.org/b/id/${id}-L.jpg`
 }
 
-const APPLE_ART = /^https:\/\/is[1-5]-ssl\.mzstatic\.com\/image\/thumb\/[A-Za-z0-9/._-]+\/\d{2,4}x\d{2,4}(?:bb|cc|sr)?\.(?:jpg|png|webp)$/
-
+/** Apple artwork in the exact shape the cover proxy can serve (covers.ts); anything else is no cover. */
 export function appleArtwork(v: unknown): string | null {
-  return typeof v === "string" && v.length <= LIMITS.url && APPLE_ART.test(v) ? v : null
+  return typeof v === "string" && coverKeyOf(v)?.provider === "apple" ? v : null
 }
 
-const OPEN_LIBRARY_COVER = /^https:\/\/covers\.openlibrary\.org\/b\/id\/[1-9]\d{0,8}-[SML]\.jpg$/
-
-/** The only cover URLs the app stores from providers; the M4g.2 proxy accepts nothing else. */
+/** The only cover URLs the app stores from providers; the M4g.2 proxy serves nothing else. */
 export function isCanonicalCoverUrl(url: string): boolean {
-  return OPEN_LIBRARY_COVER.test(url) || APPLE_ART.test(url)
+  return coverKeyOf(url) !== null
 }

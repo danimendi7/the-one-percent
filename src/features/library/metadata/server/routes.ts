@@ -1,8 +1,10 @@
 import type { NextRequest } from "next/server"
+import { parseCoverRequest } from "../covers"
 import { PARAMS } from "../query"
 import type { MetadataError, MetadataErrorCode, MetadataResponse } from "../types"
 import { callerOf, type Caller } from "./auth"
 import { KeyedLimiter, type Clock } from "./limits"
+import { createCoverService, type CoverService } from "./cover-service"
 import { createMetadataService, ServiceError, type MetadataService } from "./service"
 
 /**
@@ -70,6 +72,59 @@ export function createMetadataRoutes(deps: RouteDeps) {
     showsSearch: route(PARAMS.showSearch, (p) => s.searchShows(p)),
     showEpisodes: route(PARAMS.showEpisodes, (p) => s.showEpisodes(p)),
   }
+}
+
+// ---------- covers (M4g.2) ----------
+
+/** Per user: a whole grid at once, then two a second. */
+export const COVER_USER_LIMIT = { capacity: 120, perMinute: 120 }
+
+/**
+ * Caching is decided here, separately from who may ask: only a proven image is cacheable, and
+ * only by the browser (`private`: the route needs a session, so no shared cache may keep it).
+ * The answer never carries cookies (the proxy skips this route, src/proxy.ts) and the URL holds
+ * only the provider's identifier. Every refusal is `no-store` and has no body.
+ */
+export const COVER_CACHE = "private, max-age=2592000, immutable"
+
+export interface CoverRouteDeps {
+  caller: (request: NextRequest) => Promise<Caller>
+  covers: CoverService
+  now: Clock
+}
+
+export function createCoverRoute(deps: CoverRouteDeps) {
+  const perUser = new KeyedLimiter(COVER_USER_LIMIT.capacity, COVER_USER_LIMIT.perMinute, deps.now)
+  const refuse = (status: number, retryAfter?: number) =>
+    new Response(null, { status, headers: { "Cache-Control": "no-store", ...(retryAfter !== undefined && { "Retry-After": String(retryAfter) }) } })
+
+  return async (request: NextRequest): Promise<Response> => {
+    const caller = await deps.caller(request)
+    if (caller.kind === "unavailable") return refuse(503)
+    if (caller.kind !== "user") return refuse(401)
+    const quota = perUser.take(caller.id)
+    if (!quota.ok) return refuse(429, Math.max(1, Math.ceil(quota.retryAfterMs / 1000)))
+    const req = parseCoverRequest(request.nextUrl.searchParams)
+    if (!req) return refuse(400)
+    try {
+      const { bytes, type } = await deps.covers.get(req.key, req.size)
+      return new Response(bytes as Uint8Array<ArrayBuffer>, {
+        status: 200,
+        headers: { "Content-Type": type, "Content-Length": String(bytes.byteLength), "Cache-Control": COVER_CACHE, "Content-Disposition": "inline", "Cross-Origin-Resource-Policy": "same-origin" },
+      })
+    } catch (e) {
+      if (e instanceof ServiceError) return refuse(STATUS[e.code], e.retryAfter)
+      return refuse(502)
+    }
+  }
+}
+
+let coverRoute: ReturnType<typeof createCoverRoute> | null = null
+
+/** The process-wide cover handler (created on first use, never at build time). */
+export function coverRouteHandler() {
+  coverRoute ??= createCoverRoute({ caller: (r) => callerOf(r), covers: createCoverService(), now: () => Date.now() })
+  return coverRoute
 }
 
 let routes: ReturnType<typeof createMetadataRoutes> | null = null

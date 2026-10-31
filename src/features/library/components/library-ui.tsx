@@ -1,12 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { AlertTriangle, BookOpen, Check, CloudOff, Headphones, Loader2, Mic, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { STATUS_LABEL, type ContentItem, type ContentKind, type ContentStatus } from "@/features/knowledge/domain/types"
+import { STATUS_LABEL, type ContentItem, type ContentKind, type ContentStatus, type CoverRef } from "@/features/knowledge/domain/types"
 import { formatTimestamp } from "@/features/knowledge/domain/text"
 import { progressOf } from "@/features/knowledge/domain/library"
+import { coverKeyOf, coverSrc } from "../metadata/covers"
 import type { EntitySyncState, LibrarySnapshot } from "../store/types"
 
 export const LIBRARY_HREF = "/knowledge/library"
@@ -30,8 +31,14 @@ function hueOf(seed: string): number {
 }
 
 /**
- * Generated typographic cover (D11): the designed cover while there is no authorised image (external
- * covers arrive with M4g). Books are 2:3 with a spine; episodes and shows are square. Never distorted.
+ * A content's cover. The generated typographic cover (D11) is always drawn; a real provider image
+ * (M4g.2), when the item has one the proxy can serve, is laid over it in the same box once it has
+ * loaded. While loading, on any error, offline, signed out or in the demo, the typographic cover
+ * is what shows: never a broken image, never a jump in the layout. Books are 2:3 with a spine;
+ * episodes and shows are square; images are cropped (`object-cover`), never distorted.
+ *
+ * Decorative by default (the title is next to it as text). With `label` it is announced as an
+ * image («Portada de …»), whichever of the two covers is showing.
  */
 export function CoverArt({
   seed,
@@ -39,6 +46,8 @@ export function CoverArt({
   byline,
   kind,
   size = "md",
+  cover,
+  label,
   className,
 }: {
   seed: string
@@ -46,11 +55,19 @@ export function CoverArt({
   byline?: string | null
   kind: ContentKind | "show"
   size?: "sm" | "md" | "lg"
+  /** Only external covers the proxy accepts become images; anything else keeps the typographic one. */
+  cover?: CoverRef | null
+  label?: string
   className?: string
 }) {
   const h = hueOf(seed)
   const square = kind !== "book"
   const Icon = KIND_ICON[kind]
+  const key = cover?.source === "external" ? coverKeyOf(cover.url) : null
+  const src = key ? coverSrc(key, size) : null
+  // Outcome for the current address only: a new address starts over without an effect.
+  const [outcome, setOutcome] = useState<{ src: string; ok: boolean } | null>(null)
+  const state = !src ? "none" : outcome?.src === src ? (outcome.ok ? "loaded" : "failed") : "loading"
   return (
     <div
       className={cn("relative w-full overflow-hidden rounded-lg", square ? "aspect-square" : "aspect-[2/3]", className)}
@@ -60,7 +77,8 @@ export function CoverArt({
           : `linear-gradient(160deg, oklch(0.42 0.06 ${h}) 0%, oklch(0.26 0.045 ${h}) 70%, oklch(0.2 0.03 ${h}) 100%)`,
         boxShadow: "inset 0 1px 0 rgb(255 255 255 / 0.08), 0 6px 18px rgb(2 6 10 / 0.45)",
       }}
-      aria-hidden
+      {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}
+      data-cover={state === "loaded" ? "image" : "typographic"}
     >
       {!square && <div className="absolute inset-y-0 left-[6%] w-px bg-white/10" />}
       {square && size !== "sm" && <Icon className="absolute top-[10%] right-[10%] size-[18%] text-white/35" strokeWidth={1.5} />}
@@ -76,6 +94,21 @@ export function CoverArt({
           </p>
           {byline && <p className={cn("truncate text-white/60", size === "lg" ? "text-sm" : "text-[0.625rem]")}>{byline}</p>}
         </div>
+      )}
+      {src && state !== "failed" && (
+        // eslint-disable-next-line @next/next/no-img-element -- same-origin proxy with its own checks; next/image would add an optimiser and another image origin.
+        <img
+          key={src}
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onLoad={(e) => setOutcome({ src, ok: e.currentTarget.naturalWidth >= 16 && e.currentTarget.naturalHeight >= 16 })}
+          onError={() => setOutcome({ src, ok: false })}
+          className={cn("absolute inset-0 size-full object-cover transition-opacity duration-300 motion-reduce:transition-none", state === "loaded" ? "opacity-100" : "opacity-0")}
+          data-testid="cover-image"
+        />
       )}
     </div>
   )

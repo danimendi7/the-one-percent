@@ -61,10 +61,13 @@ describe("provider text becomes plain, clean text", () => {
     expect(openLibraryCover(9689877)).toBe("https://covers.openlibrary.org/b/id/9689877-L.jpg")
     expect(openLibraryCover(-1)).toBeNull()
     expect(openLibraryCover("9689877")).toBeNull()
-    const art = "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/2b/1a/09/mza_1.jpg/600x600bb.jpg"
+    const art = "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/2b/1a/09/2b1a09d7-c6dc-22c2-d2f6-2a34ef83a6dd/mza_16581116865991017367.jpg/600x600bb.jpg"
     expect(appleArtwork(art)).toBe(art)
     expect(appleArtwork("https://evil.example/600x600bb.jpg")).toBeNull()
     expect(appleArtwork("http://is1-ssl.mzstatic.com/image/thumb/a.jpg/600x600bb.jpg")).toBeNull()
+    // Not the exact shape Apple uses (no uuid folder): the proxy could not serve it, so it is no cover.
+    expect(appleArtwork("https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/2b/1a/09/mza_1.jpg/600x600bb.jpg")).toBeNull()
+    expect(appleArtwork("https://is6-ssl.mzstatic.com/image/thumb/Podcasts221/v4/2b/1a/09/2b1a09d7-c6dc-22c2-d2f6-2a34ef83a6dd/mza_1.jpg/600x600bb.jpg")).toBeNull()
     expect(isCanonicalCoverUrl("https://covers.openlibrary.org/b/id/1-M.jpg")).toBe(true)
     expect(isCanonicalCoverUrl("https://covers.openlibrary.org/b/isbn/9788417860790-M.jpg")).toBe(false)
     expect(isCanonicalCoverUrl("https://covers.openlibrary.org/b/id/1-M.jpg?redirect=http://127.0.0.1")).toBe(false)

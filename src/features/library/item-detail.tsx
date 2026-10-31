@@ -183,7 +183,7 @@ export function ItemDetail({ id }: { id: string }) {
         <header className="min-w-0 space-y-4">
           <div className="flex gap-4">
             <div className={cn("shrink-0", item.kind === "book" ? "w-28 sm:w-36" : "w-32 sm:w-40")}>
-              <CoverArt seed={item.id} title={item.title} byline={item.creators.join(", ") || show?.title} kind={item.kind} size="lg" />
+              <CoverArt seed={item.id} title={item.title} byline={item.creators.join(", ") || show?.title} kind={item.kind} size="lg" cover={item.cover} label={`Portada de ${item.title}`} />
             </div>
             <div className="min-w-0 space-y-2">
               <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{item.title}</h1>
@@ -326,7 +326,7 @@ export function ShowDetail({ id }: { id: string }) {
     <Chrome snap={snap} back={{ href: PODCASTS_HREF, label: "Podcasts" }}>
       <header className="mb-6 flex gap-4">
         <div className="w-32 shrink-0 sm:w-40">
-          <CoverArt seed={show.id} title={show.title} byline={show.publisher} kind="show" size="lg" />
+          <CoverArt seed={show.id} title={show.title} byline={show.publisher} kind="show" size="lg" cover={show.cover} label={`Portada de ${show.title}`} />
         </div>
         <div className="min-w-0 space-y-2">
           <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{show.title}</h1>
