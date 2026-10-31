@@ -224,6 +224,63 @@ describe("F/G/H/J · two devices of one account", () => {
   })
 })
 
+/** The text a kept library notice holds. */
+const bodyOf = (n: { op?: unknown }) => (n.op as { fields: { body: string } }).fields.body
+
+describe("M · the same work added offline on two devices (M4g.3)", () => {
+  it("the second copy is refused as a duplicate; nothing is lost and its notes can be saved on the existing book", async () => {
+    const a = await device(small)
+    const b = await device(small)
+    a.net.online = false
+    b.net.online = false
+    const work = { external_provider: "openlibrary", external_id: "OL20770492W", external_attribution: "Datos: Open Library" }
+    const bookA = a.engine.libraryCreate("item", { title: "El infinito en un junco", ...work }, { kind: "book" })
+    const bookB = b.engine.libraryCreate("item", { title: "El infinito en un junco", isbn13: "9788417860790", ...work }, { kind: "book" })
+    const noteA = a.engine.libraryCreate("note", { item_id: bookA, note_type: "idea", body: "Idea escrita en A" })
+    const noteB = b.engine.libraryCreate("note", { item_id: bookB, note_type: "quote", body: "Cita escrita en B", page: 12 })
+    b.engine.libraryCreate("note", { item_id: bookB, note_type: "idea", body: "Otra idea de B" })
+    a.net.online = true
+    await settle(a.engine)
+    b.net.online = true
+    await settle(b.engine)
+
+    // The server keeps one record of the work (A's) and nothing of B's copy.
+    const live = await db((c) => c.query("select id from public.library_items where user_id = $1 and external_id = 'OL20770492W' and deleted_at is null", [small.id]))
+    expect(live.rows.map((r) => r.id)).toEqual([bookA])
+    expect(await serverNote(noteB)).toBeUndefined()
+    expect(await serverNote(noteA)).toMatchObject({ body: "Idea escrita en A", item_id: bookA })
+
+    // B is told why, and both of its notes are kept whole, waiting for a decision.
+    const notices = b.engine.getSnapshot().notices
+    expect(notices.find((n) => n.op && "id" in n.op && n.op.id === bookB)).toMatchObject({ code: "duplicate_external", kind: "rejected" })
+    const kept = notices.filter((n) => n.code === "item_deleted")
+    expect(kept.map((n) => bodyOf(n)).sort()).toEqual(["Cita escrita en B", "Otra idea de B"])
+    expect(b.engine.getSnapshot().library.items[bookA]).toBeDefined()
+    expect(b.engine.getSnapshot().library.items[bookB]).toBeUndefined()
+
+    // «Guardar en el libro existente»: the quote, with its page, now belongs to A's book.
+    const quote = kept.find((n) => bodyOf(n) === "Cita escrita en B")!
+    expect(b.engine.resolveLibraryText(quote.id, "existing", bookB)).toBe(false)
+    expect(b.engine.resolveLibraryText(quote.id, "existing", bookA)).toBe(true)
+    // The other one as a free idea: also nothing lost.
+    const idea = kept.find((n) => n !== quote)!
+    expect(b.engine.resolveLibraryText(idea.id, "free")).toBe(true)
+    await settle(b.engine)
+    const onA = await db((c) => c.query("select body, page, item_id from public.knowledge_notes where user_id = $1 and body = 'Cita escrita en B' and deleted_at is null", [small.id]))
+    expect(onA.rows).toEqual([{ body: "Cita escrita en B", page: 12, item_id: bookA }])
+    const free = await db((c) => c.query("select item_id from public.knowledge_notes where user_id = $1 and body = 'Otra idea de B' and deleted_at is null", [small.id]))
+    expect(free.rows).toEqual([{ item_id: null }])
+
+    // The duplicate's own notice only informs; dismissing it leaves no pending texts.
+    const dup = b.engine.getSnapshot().notices.find((n) => n.code === "duplicate_external")!
+    expect(b.engine.resolveLibraryText(dup.id, "theirs")).toBe(true)
+    await settle(b.engine)
+    expect(b.engine.getSnapshot().notices).toEqual([])
+    await settle(a.engine)
+    expect(Object.values(notesOf(a.engine)).filter((n) => n.itemId === bookA).map((n) => n.body).sort()).toEqual(["Cita escrita en B", "Idea escrita en A"])
+  })
+})
+
 describe("K/L · lost copy and two accounts", () => {
   it("K · the library copy is lost while edits wait offline: it is rebuilt and the edits still reach the server once", async () => {
     const d = await device(small)

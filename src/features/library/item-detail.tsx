@@ -159,7 +159,7 @@ function ItemConnections({ id, snap }: { id: string; snap: LibrarySnapshot }) {
 export function ItemDetail({ id }: { id: string }) {
   const snap = useLibrary()
   const router = useRouter()
-  const form = useContentForm(snap?.state)
+  const form = useContentForm(snap?.state, snap?.source)
   if (!snap) return <LibrarySkeleton />
   const s: KnowledgeState = snap.state
   const found = Object.hasOwn(s.items, id) ? s.items[id] : undefined
@@ -309,7 +309,7 @@ export function ShowDetailFromUrl() {
 export function ShowDetail({ id }: { id: string }) {
   const snap = useLibrary()
   const router = useRouter()
-  const form = useContentForm(snap?.state)
+  const form = useContentForm(snap?.state, snap?.source)
   if (!snap) return <LibrarySkeleton />
   const show = Object.hasOwn(snap.state.shows, id) ? snap.state.shows[id] : undefined
   if (!show) return <NotHere back={PODCASTS_HREF} />

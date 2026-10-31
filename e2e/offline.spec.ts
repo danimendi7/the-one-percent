@@ -192,6 +192,8 @@ test.describe("service worker · account", () => {
     await page.goto("/knowledge/library/books")
     await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ }).first()).toBeVisible({ timeout: 15_000 })
     await page.getByTestId("add-book").click()
+    // With an account «Añadir libro» opens the search assistant (M4g.3); these tests use manual entry.
+    await page.getByTestId("add-manual").click()
     await page.getByTestId("form-title").fill("Libro de arranque sin red")
     await page.getByTestId("form-save").click()
     await expect(page.getByTestId("item-save")).toHaveText("Sincronizado", { timeout: 15_000 })

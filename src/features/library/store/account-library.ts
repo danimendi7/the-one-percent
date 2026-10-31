@@ -142,8 +142,8 @@ export function accountLibrary(engine: SyncEngine): LibraryBackend {
     syncStateOf(entity, id) {
       return engine.librarySyncStateOf(entity, id)
     },
-    resolveText(noticeId, choice) {
-      return engine.resolveLibraryText(noticeId, choice)
+    resolveText(noticeId, choice, target) {
+      return engine.resolveLibraryText(noticeId, choice, target)
     },
   } as LibraryActions
 

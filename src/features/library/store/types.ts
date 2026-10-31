@@ -28,7 +28,7 @@ export type EntitySyncState = "demo" | "local" | "pending" | "synced" | "conflic
 export type LibraryRefusal = KnowledgeError | { code: "pending" | "in_flight" | "not_found"; detail: string }
 export type LibraryResult<T = object> = ({ ok: true } & T) | { ok: false; error: LibraryRefusal }
 
-export type ConflictChoice = "mine" | "theirs" | "both" | "restore" | "free"
+export type ConflictChoice = "mine" | "theirs" | "both" | "restore" | "free" | "existing"
 
 export interface LibraryActions {
   createItem(kind: "book", input: BookInput): LibraryResult<{ id: string }>
@@ -48,7 +48,8 @@ export interface LibraryActions {
   /** «Deshacer» after a delete. */
   undo(removed: Removed): void
   syncStateOf(entity: "item" | "show" | "note", id: string): EntitySyncState
-  resolveText(noticeId: string, choice: ConflictChoice): boolean
+  /** `target`: the existing content for «existing» (a note whose content was refused as a duplicate). */
+  resolveText(noticeId: string, choice: ConflictChoice, target?: string): boolean
 }
 
 export interface LibraryBackend {

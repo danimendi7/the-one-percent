@@ -483,7 +483,7 @@ export class SyncEngine {
    * - restore: bring back what was deleted elsewhere, with this device's text;
    * - free: save the note as a free-standing idea (its content was deleted).
    */
-  resolveLibraryText(noticeId: string, choice: "mine" | "theirs" | "both" | "restore" | "free"): boolean {
+  resolveLibraryText(noticeId: string, choice: "mine" | "theirs" | "both" | "restore" | "free" | "existing", target?: string): boolean {
     const n = this.notices.find((x) => x.id === noticeId)
     if (!n || !isLibraryText(n) || !n.op || !isLibraryOp(n.op) || n.op.type === "library.link.set") return false
     const op = n.op as LibraryWriteOp | LibraryUpdateOp
@@ -517,6 +517,15 @@ export class SyncEngine {
         // Without its content: no content and no page or minute, the text and everything else kept.
         const rest = pick(recover, Object.keys(recover).filter((k) => !["item_id", "page", "position_seconds", "locator_label"].includes(k)))
         this.libraryCreate("note", { ...rest, item_id: null })
+        return true
+      }
+      case "existing": {
+        // M4g.3: its content was refused as a duplicate of one already in the Library (created on
+        // another device); the note is written again, whole, on that existing content.
+        const row = target ? this.libraryRow("item", target) : undefined
+        if (entity !== "note" || n.code !== "item_deleted" || !row || row.deleted) return false
+        this.dismissNotice(noticeId)
+        this.libraryCreate("note", { ...recover, item_id: target })
         return true
       }
     }

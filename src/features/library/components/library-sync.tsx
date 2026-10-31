@@ -1,11 +1,14 @@
 "use client"
 
+import Link from "next/link"
 import { AlertTriangle, CloudDownload, CloudOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import type { ContentItem } from "@/features/knowledge/domain/types"
 import type { LibraryOp } from "@/features/sync/domain/types"
 import { libraryActions } from "../store/use-library"
 import type { ConflictChoice, LibrarySnapshot } from "../store/types"
+import { itemHref } from "./library-ui"
 
 /**
  * How the Library stands with the account (M4d): the first download with its progress, an account
@@ -50,6 +53,21 @@ const MESSAGE: Record<string, string> = {
   field_conflict: "Se cambió a la vez en otro dispositivo. Elige qué versión se queda.",
   deleted: "Se eliminó en otro dispositivo mientras lo editabas aquí.",
   item_deleted: "Su libro o episodio se eliminó en otro dispositivo.",
+  duplicate_external: "Ya estaba en tu Biblioteca: lo añadiste en otro dispositivo. No se ha creado una segunda copia, y lo que escribiste en esta se conserva aquí para que decidas dónde guardarlo.",
+}
+
+type Notice = LibrarySnapshot["notices"][number]
+const fieldsOf = (n: Notice): Record<string, unknown> => (n.op && "fields" in n.op ? (n.op.fields as Record<string, unknown>) : {})
+const idOf = (n: Notice): string | null => (n.op && "id" in n.op ? String(n.op.id) : null)
+
+/**
+ * M4g.3: the content already in the Library that a refused duplicate (`duplicate_external`) stands
+ * for — same provider and external id — so its notes can be saved there.
+ */
+function existingFor(snap: LibrarySnapshot, refused: Notice | undefined): ContentItem | null {
+  const f = refused ? fieldsOf(refused) : {}
+  if (typeof f.external_id !== "string") return null
+  return Object.values(snap.state.items).find((i) => i.external?.provider === f.external_provider && i.external?.id === f.external_id) ?? null
 }
 
 /** Kept texts waiting for a decision (D68/D75): nothing is dropped until the user chooses. */
@@ -64,16 +82,21 @@ export function LibraryConflicts({ snap, className }: { snap: LibrarySnapshot; c
         const entity = op && op.type !== "library.link.set" ? op.type.split(".")[1] : null
         const id = op && "id" in op ? op.id : null
         const theirs = entity === "note" && id ? snap.state.notes[id]?.body : entity === "item" && id ? snap.state.items[id]?.description : null
-        const choose = (c: ConflictChoice) => libraryActions.resolveText(n.id, c)
+        const choose = (c: ConflictChoice, target?: string) => libraryActions.resolveText(n.id, c, target)
+        // A duplicate refused by the server, or a note written on one: where its text can go.
+        const refused = n.code === "duplicate_external" ? n : n.code === "item_deleted" ? snap.notices.find((x) => x.code === "duplicate_external" && idOf(x) === fieldsOf(n).item_id) : undefined
+        const existing = existingFor(snap, refused)
+        const message =
+          n.code === "item_deleted" && existing ? `Su libro ya estaba en tu Biblioteca desde otro dispositivo: puedes guardarla en «${existing.title}».` : (MESSAGE[n.code ?? ""] ?? "El servidor no aceptó este cambio. Tu texto se conserva.")
         return (
           <article key={n.id} className="rounded-2xl border border-warning/40 bg-warning/5 p-4" data-testid="library-conflict" data-code={n.code}>
             <p className="flex items-center gap-2 text-sm font-medium text-warning">
               <AlertTriangle className="size-4" aria-hidden />
               {n.subject ?? "Un texto"}
             </p>
-            <p className="mt-1 text-sm text-text-secondary">{MESSAGE[n.code ?? ""] ?? "El servidor no aceptó este cambio. Tu texto se conserva."}</p>
+            <p className="mt-1 text-sm text-text-secondary">{message}</p>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
-              {mine && (
+              {mine && n.code !== "duplicate_external" && (
                 <div>
                   <p className="mb-1 text-xs text-text-tertiary">Tu versión</p>
                   <p className="rounded-xl border border-border bg-background/40 p-3 text-sm whitespace-pre-wrap" data-testid="conflict-mine">
@@ -109,15 +132,31 @@ export function LibraryConflicts({ snap, className }: { snap: LibrarySnapshot; c
                   Restaurar con mi texto
                 </Button>
               )}
+              {n.code === "item_deleted" && entity === "note" && existing && (
+                <Button onClick={() => choose("existing", existing.id)} data-testid="conflict-existing">
+                  Guardar en «{existing.title}»
+                </Button>
+              )}
+              {n.code === "duplicate_external" && existing && (
+                <Button asChild>
+                  <Link href={itemHref(existing.id)}>Abrir el existente</Link>
+                </Button>
+              )}
               {(n.code === "deleted" || n.code === "item_deleted") && entity === "note" && (
                 <Button variant="outline" onClick={() => choose("free")}>
                   Guardar como idea suelta
                 </Button>
               )}
-              {n.code !== "field_conflict" && (
+              {n.code === "duplicate_external" ? (
                 <Button variant="ghost" onClick={() => choose("theirs")}>
-                  Descartar mi texto
+                  Entendido
                 </Button>
+              ) : (
+                n.code !== "field_conflict" && (
+                  <Button variant="ghost" onClick={() => choose("theirs")}>
+                    Descartar mi texto
+                  </Button>
+                )
               )}
             </div>
           </article>

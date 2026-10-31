@@ -19,6 +19,8 @@ import { formatDate } from "@/features/habits/domain/dates"
 import { DEMO_NOTICE } from "@/features/knowledge/demo"
 import { useLibrary } from "./store/use-library"
 import type { LibrarySnapshot } from "./store/types"
+import type { DataSource } from "@/features/habits/store/types"
+import { AddBookSheet } from "./components/add-book-sheet"
 import { ContentFormSheet, type FormTarget } from "./components/content-form"
 import { NoteCard, QuickCapture } from "./components/knowledge-notes"
 import { BackLink, BOOKS_HREF, BRAIN_HREF, byline, CoverArt, itemHref, LIBRARY_HREF, PODCASTS_HREF, ProgressLine, RatingBadge, showHref, StatusPill } from "./components/library-ui"
@@ -38,11 +40,30 @@ export function LibrarySkeleton() {
 }
 
 /** One form sheet for the whole screen: what to add or edit, or nothing. */
-export function useContentForm(state: KnowledgeState | undefined) {
+/**
+ * The add and edit sheets of the Library. With an account, a new book opens the search assistant
+ * (M4g.3), which can hand over to the manual form with what was typed; the demo has no search, so a
+ * new book there is manual as before. Editing, episodes and shows keep the manual form.
+ */
+export function useContentForm(state: KnowledgeState | undefined, source?: DataSource) {
   const router = useRouter()
   const [target, setTarget] = useState<FormTarget | null>(null)
+  const [assistant, setAssistant] = useState(false)
+  const open = (t: FormTarget) => {
+    const newBook = t.kind === "book" && !("item" in t && t.item) && !("draft" in t && t.draft)
+    if (newBook && source === "account") setAssistant(true)
+    else setTarget(t)
+  }
   const sheet = state ? (
-    <ContentFormSheet
+    <>
+      <AddBookSheet
+        open={assistant}
+        onOpenChange={setAssistant}
+        state={state}
+        onManual={(draft) => setTarget({ kind: "book", draft })}
+        onCreated={(id) => router.push(itemHref(id))}
+      />
+      <ContentFormSheet
       target={target ?? { kind: "book" }}
       state={state}
       open={!!target}
@@ -51,9 +72,10 @@ export function useContentForm(state: KnowledgeState | undefined) {
         const t = target
         if (t && !("item" in t && t.item) && !("show" in t && t.show)) router.push(t.kind === "show" ? showHref(id) : itemHref(id))
       }}
-    />
+      />
+    </>
   ) : null
-  return { open: setTarget, sheet }
+  return { open, sheet }
 }
 
 function AddMenu({ open, only }: { open: (t: FormTarget) => void; only?: ContentKind | "podcasts" }) {
@@ -142,7 +164,7 @@ function Header({ snap, title, back, actions, description }: { snap: LibrarySnap
 /** `/knowledge/library`: the door to Books, Podcasts and Cerebro, what you are on now, and a free idea. */
 export function LibraryHome() {
   const snap = useLibrary()
-  const form = useContentForm(snap?.state)
+  const form = useContentForm(snap?.state, snap?.source)
   if (!snap) return <LibrarySkeleton />
   const s = snap.state
   const items = Object.values(s.items)
@@ -262,7 +284,7 @@ function Shelves({ kind, state, shelf, onShelf }: { kind: ContentKind; state: Kn
 /** `/knowledge/library/books`. */
 export function BooksView() {
   const snap = useLibrary()
-  const form = useContentForm(snap?.state)
+  const form = useContentForm(snap?.state, snap?.source)
   const [shelf, setShelf] = useState<Shelf>("all")
   const [sort, setSort] = useState<ContentSort>("recent")
   const [layout, setLayout] = useState<"grid" | "list">("grid")
@@ -324,7 +346,7 @@ export function BooksView() {
 /** `/knowledge/library/podcasts`: episodes (by status) and shows (grouping their episodes). */
 export function PodcastsView() {
   const snap = useLibrary()
-  const form = useContentForm(snap?.state)
+  const form = useContentForm(snap?.state, snap?.source)
   const [tab, setTab] = useState<"episodes" | "shows">("episodes")
   const [shelf, setShelf] = useState<Shelf>("all")
   const episodes = useMemo(() => (snap ? (filterContent(snap.state, { kind: "episode", shelf, sort: "recent" }) as Episode[]) : []), [snap, shelf])

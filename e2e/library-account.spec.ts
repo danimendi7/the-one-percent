@@ -41,6 +41,8 @@ async function openLibrary(page: Page, path = "/knowledge/library") {
 async function addBook(page: Page, title: string): Promise<string> {
   await openLibrary(page, "/knowledge/library/books")
   await page.getByTestId("add-book").click()
+  // With an account «Añadir libro» opens the search assistant (M4g.3); these tests use manual entry.
+  await page.getByTestId("add-manual").click()
   await page.getByTestId("form-title").fill(title)
   await page.getByTestId("form-save").click()
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible()
