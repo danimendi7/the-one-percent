@@ -172,6 +172,14 @@
 | D103 | M4g.4 solo en local | Implementación y validación local; sin push, CI remota, nube ni despliegue | Decisión del propietario |
 | D104 | Alta asistida de podcasts (M4g.4) | **Entrada**: con cuenta, «Episodio» y «Programa de podcast» abren el asistente (Apple vía `/api/metadata`); la ficha de un programa de Apple abre en sus episodios; demo y programas escritos a mano, manual.<br>**Episodios**: «Los 200 más recientes de N», 30 filas a la vez y «Buscar episodios anteriores en Apple». Fechas: el día del instante en la zona del perfil.<br>**Guardado**: `createShow` (solo si falta) y `createItem`, en la misma cola.<br>**Duplicados**: programa por `collectionId` siempre reutilizado; episodio por `trackId` bloqueado con «Abrir el existente»; probables, solo aviso.<br>**El mismo programa creado sin conexión en dos dispositivos** deja el episodio del segundo rechazado (`show_not_found`): opción `show` del motor (aditiva) para escribirlo de nuevo, con el mismo id, en el programa existente o sin programa; sus notas lo siguen | Encargo de M4g.4. Pruebas de integración N1–N3 |
 
+## Hotfix M4-H1 · Altas sin conexión (01/11/2026)
+
+Numerada después de D104 (M4g) para que no choque al trasladarla.
+
+| # | Tema | Decisión | Motivo |
+| --- | --- | --- | --- |
+| D105 | Guardado en el dispositivo antes de navegar | Una escritura solo cuenta como **guardada en este dispositivo** cuando la transacción de IndexedDB que guarda la cola ha terminado (`SyncEngine.whenSaved()`, `LibraryActions.saved()`).<br>**Formulario**: espera esa confirmación antes de cerrarse y abrir la ficha:<br>• muestra «Guardando en este dispositivo…»;<br>• a los 3 s avisa y sigue esperando;<br>• si falla, no navega, conserva los datos y ofrece «Reintentar», que vuelve a escribir la copia sin crear otro elemento.<br>**Línea de estado**: dice `saving` hasta entonces.<br>Corrección independiente de M4g, sobre `f66b3b9` (`hotfix/m4-offline-save`), sin migración ni cambios de protocolo ni del service worker. Detalle: `docs/hotfix-m4-h1.md` | Pérdida real de datos en producción desde M4, encontrada por la CI de M4g.4 (run 41296762714): sin red, abrir la ficha recarga la app y la escritura en curso moría con la página. Decisión del propietario: hotfix independiente, solo en local hasta nueva autorización |
+
 ## M4 · Propuestas aún abiertas (30/10/2026)
 
 El detalle está en `docs/m4-knowledge-os-plan.md` (§15 y §16.10). Las aprobadas ya figuran arriba como D59–D69; la tabla siguiente es el registro original de la propuesta.

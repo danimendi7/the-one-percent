@@ -114,6 +114,8 @@ export function createDemoLibrary(today: () => LocalDate, notify: () => void): L
     undo: (removed) => commit(restoreRemoved(ensure().state, removed)),
     syncStateOf: () => "demo",
     resolveText: () => false,
+    // The demo writes localStorage synchronously, before the action returns.
+    saved: async () => ensure().persisted,
   } as LibraryActions
 
   return {

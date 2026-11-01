@@ -208,6 +208,8 @@ export function syncLine(state: EntitySyncState, snap: LibrarySnapshot | null): 
       return { text: "Guardado en este navegador · demo", tone: "ok", offline: false }
     case "synced":
       return { text: "Sincronizado", tone: "ok", offline: false }
+    case "saving":
+      return { text: "Guardando en este dispositivo…", tone: "pending", offline: false }
     case "pending":
       return { text: "Guardado en este dispositivo · sincronizando…", tone: "pending", offline: false }
     case "local":

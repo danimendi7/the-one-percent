@@ -74,6 +74,8 @@ function Field({ id, label, children, hint }: { id: string; label: string; child
 }
 
 const selectClass = "h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+/** After this long still saving on the device, the form says so (it keeps waiting). */
+const SLOW_SAVE_MS = 3000
 
 function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; state: KnowledgeState; onDone: (id: string) => void; onDirty: (dirty: boolean) => void }) {
   const id = useId()
@@ -114,6 +116,15 @@ function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; s
   useEffect(() => onDirty(dirty), [dirty, onDirty])
   const [more, setMore] = useState(editing || !!draft?.isbn)
   const [error, setError] = useState<string | null>(null)
+  // M4-H1: the form closes, and a new page opens, only once the write is stored on this device.
+  // Offline, opening the page reloads the app, and a write still in progress was lost with it.
+  const [saving, setSaving] = useState<"saving" | "slow" | "failed" | null>(null)
+  const written = useRef<string | null>(null)
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => void (alive.current = false)
+  }, [])
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setV({ ...v, [k]: e.target.value })
   const shows = Object.values(state.shows).sort((a, b) => a.title.localeCompare(b.title, "es"))
   const kindName = target.kind === "book" ? "libro" : target.kind === "episode" ? "episodio" : "programa"
@@ -124,15 +135,28 @@ function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; s
     return t === null ? "bad" : t
   }
 
+  async function settle(savedId: string) {
+    written.current = savedId
+    setSaving("saving")
+    const slow = setTimeout(() => setSaving((s) => (s === "saving" ? "slow" : s)), SLOW_SAVE_MS)
+    const ok = await libraryActions.saved()
+    clearTimeout(slow)
+    if (!alive.current) return
+    if (!ok) return setSaving("failed")
+    onDone(savedId)
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault()
+    // Already written: only the device copy is awaited or retried, never a second create.
+    if (written.current) return void (saving === "failed" && settle(written.current))
     setError(null)
     if (!v.title.trim()) return setError("Escribe al menos el título.")
     if (target.kind === "show") {
       const input = { title: v.title, publisher: text(v.publisher), description: text(v.description), topics: list(v.topics), sourceUrl: text(v.sourceUrl) }
       const r = show ? libraryActions.updateShow(show.id, input) : libraryActions.createShow(input)
       if (!r.ok) return setError(refusalText(r.error))
-      return onDone(show?.id ?? (r as unknown as { id: string }).id)
+      return void settle(show?.id ?? (r as unknown as { id: string }).id)
     }
     const common = {
       title: v.title,
@@ -176,7 +200,7 @@ function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; s
       r = item ? libraryActions.updateItem(item.id, { ...common, episode: details }) : libraryActions.createItem("episode", { ...common, episode: details })
     }
     if (!r.ok) return setError(refusalText(r.error))
-    onDone(item?.id ?? (r as unknown as { id: string }).id)
+    void settle(item?.id ?? (r as unknown as { id: string }).id)
   }
 
   return (
@@ -185,7 +209,7 @@ function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; s
         <SheetTitle className="text-lg">{editing ? `Editar ${kindName}` : `Nuevo ${kindName}`}</SheetTitle>
         <SheetDescription>Solo el título es obligatorio. Puedes completar el resto cuando quieras.</SheetDescription>
       </SheetHeader>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
+      <fieldset disabled={saving !== null} className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
         <Field id={f("title")} label="Título">
           <Input id={f("title")} value={v.title} onChange={set("title")} autoFocus={!editing} maxLength={300} data-testid="form-title" />
         </Field>
@@ -320,15 +344,20 @@ function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; s
             </Field>
           </div>
         )}
-        {error && (
-          <p role="alert" className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
-            {error}
+        {(error || saving === "failed") && (
+          <p role="alert" className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning" data-testid="form-error">
+            {saving === "failed" ? "No se ha podido guardar en este dispositivo (puede que falte espacio). Lo escrito sigue aquí: no cierres ni recargues la app y pulsa «Reintentar»." : error}
           </p>
         )}
-      </div>
+        {saving === "slow" && (
+          <p role="status" className="rounded-xl border border-border px-3 py-2 text-sm text-text-secondary" data-testid="form-slow">
+            Está tardando más de lo normal. Seguimos esperando a que quede guardado: no cierres ni recargues la app.
+          </p>
+        )}
+      </fieldset>
       <SheetFooter className="pb-safe flex-row gap-2 border-t border-border px-5 py-4">
-        <Button type="submit" className="flex-1" data-testid="form-save">
-          {editing ? "Guardar" : `Añadir ${kindName}`}
+        <Button type="submit" className="flex-1" disabled={saving === "saving" || saving === "slow"} aria-busy={saving === "saving" || saving === "slow"} data-testid="form-save">
+          {saving === "saving" || saving === "slow" ? "Guardando en este dispositivo…" : saving === "failed" ? "Reintentar" : editing ? "Guardar" : `Añadir ${kindName}`}
         </Button>
       </SheetFooter>
     </form>

@@ -22,8 +22,8 @@ export interface LibrarySnapshot {
   persisted: boolean
 }
 
-/** What one row shows (D57 precedent): never «synced» for something only on this device. */
-export type EntitySyncState = "demo" | "local" | "pending" | "synced" | "conflict" | "error"
+/** What one row shows (D57 precedent): never «synced» for something only on this device, never «saved» before the device copy holds it (M4-H1). */
+export type EntitySyncState = "demo" | "saving" | "local" | "pending" | "synced" | "conflict" | "error"
 
 export type LibraryRefusal = KnowledgeError | { code: "pending" | "in_flight" | "not_found"; detail: string }
 export type LibraryResult<T = object> = ({ ok: true } & T) | { ok: false; error: LibraryRefusal }
@@ -53,6 +53,11 @@ export interface LibraryActions {
    * refused episode on again (none: the episode is kept without a show).
    */
   resolveText(noticeId: string, choice: ConflictChoice, target?: string): boolean
+  /**
+   * M4-H1: true once every write made so far is stored on this device (false: storage refused it,
+   * and calling again retries). Wait for it before opening another page or reloading.
+   */
+  saved(): Promise<boolean>
 }
 
 export interface LibraryBackend {

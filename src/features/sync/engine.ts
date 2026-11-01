@@ -184,6 +184,8 @@ export class SyncEngine {
   private goneOps: string[] = []
   /** Op ids of the queue as last read from or written to the device copy. */
   private savedIds = new Set<string>()
+  /** The latest write of the device copy and its outcome (M4-H1). */
+  private writing: Promise<boolean> = Promise.resolve(true)
   /** The last attempt failed for lack of network (the visible status turns «syncing» while retrying). */
   private offline = false
   private listeners = new Set<() => void>()
@@ -395,11 +397,14 @@ export class SyncEngine {
    * What the UI says about one row (M4d; D57 precedent): «synced» only when the server has it and
    * nothing about it waits in the queue; a write only on this device is «local» or «pending».
    */
-  librarySyncStateOf(entity: LibraryEntity, id: string): "local" | "pending" | "synced" | "conflict" | "error" {
+  librarySyncStateOf(entity: LibraryEntity, id: string): "saving" | "local" | "pending" | "synced" | "conflict" | "error" {
     const about = (op: Op) => isLibraryOp(op) && "id" in op && op.id === id && entityOfOp(op) === entity
     if (this.notices.some((n) => n.op && about(n.op) && isLibraryText(n))) return "conflict"
-    if (this.queue.some((q) => about(q.op))) {
+    const queued = this.queue.filter((q) => about(q.op))
+    if (queued.length > 0) {
       if (!this.persisted) return "error"
+      // M4-H1: never «saved on this device» before the device copy holds the write.
+      if (queued.some((q) => !this.savedIds.has(q.op.op_id))) return "saving"
       return this.offline || this.status === "error" || !this.cache.features?.library ? "local" : "pending"
     }
     if (this.libError) return "error"
@@ -1164,8 +1169,30 @@ export class SyncEngine {
   }
   private lastSampleAt = 0
 
-  private async persist(): Promise<void> {
-    if (this.stopped) return
+  /**
+   * M4-H1: resolves once everything queued so far is in the device copy (the IndexedDB transaction
+   * completed): true, or false when storage refused it; a refused copy is written again once per
+   * call, so «Reintentar» really retries. Whatever navigates or reloads after a write waits for this
+   * first: offline, opening another page reloads the app and drops a write still in progress.
+   */
+  async whenSaved(): Promise<boolean> {
+    let last: Promise<boolean>
+    do {
+      last = this.writing
+      await last
+    } while (last !== this.writing)
+    if (await last) return true
+    return this.persist()
+  }
+
+  private persist(): Promise<boolean> {
+    const p = this.write()
+    this.writing = p
+    return p
+  }
+
+  private async write(): Promise<boolean> {
+    if (this.stopped) return false
     const lock = this.deps.lock ?? ((fn) => fn())
     try {
       await lock(async () => {
@@ -1185,6 +1212,9 @@ export class SyncEngine {
     } catch {
       this.persisted = false
     }
+    // What the rows say («saving», «local», «error») depends on this outcome.
+    this.invalidate()
+    return this.persisted
   }
 
   /**
