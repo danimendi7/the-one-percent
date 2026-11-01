@@ -136,6 +136,9 @@ describe("duplicates (D5: exact may block the same reference, probable only warn
     expect(findEpisodeMatches(st, { id: episodes[0].id, localShowId: "s1", title: episodes[0].title })[0]).toEqual({ id: "e1", level: "exact", reason: "external_id" })
     expect(findEpisodeMatches(st, { id: "999", localShowId: "s1", title: episodes[0].title })).toEqual([{ id: "e1", level: "possible", reason: "title_show" }])
     expect(findEpisodeMatches(st, { id: episodes[1].id, localShowId: "s1", title: episodes[1].title })).toEqual([])
+    // M4g.4: the same title in another show is another episode, not a duplicate.
+    expect(findEpisodeMatches(st, { id: "998", localShowId: "s2", title: episodes[0].title })).toEqual([])
+    expect(findEpisodeMatches(st, { id: "997", localShowId: null, title: episodes[0].title })).toEqual([])
   })
 
   it("shows: reused by Apple id; a manual show with the same name is a possible match", () => {

@@ -1,7 +1,7 @@
 import { localDateInZone } from "@/features/habits/domain/dates"
 import type { BookInput, EpisodeInput, ShowInput } from "@/features/knowledge/domain/ops"
-import type { ContentStatus } from "@/features/knowledge/domain/types"
-import type { BookResult, EpisodeResult, ShowResult } from "./types"
+import type { ContentStatus, PodcastShow } from "@/features/knowledge/domain/types"
+import { ATTRIBUTION, type BookResult, type EpisodeResult, type ShowResult } from "./types"
 
 /**
  * A confirmed result as the input of the existing M4 operations (createItem / createShow): the
@@ -83,5 +83,22 @@ export function toEpisodeInput(e: EpisodeResult, localShowId: string | null, tim
       durationSeconds: e.durationSeconds,
       publishedOn: e.publishedAt ? localDateInZone(new Date(e.publishedAt), timeZone) : null,
     },
+  }
+}
+
+/** A show of the Library that came from Apple, as Apple's result: to open its episodes (M4g.4). */
+export function showResultOf(s: PodcastShow): ShowResult | null {
+  if (s.external?.provider !== "itunes") return null
+  return {
+    provider: "itunes",
+    id: s.external.id,
+    title: s.title,
+    publisher: s.publisher,
+    cover: s.cover?.source === "external" ? s.cover.url : null,
+    sourceUrl: s.sourceUrl,
+    episodeCount: null,
+    latestReleaseAt: null,
+    topicSuggestions: [],
+    attribution: s.external.attribution ?? ATTRIBUTION.itunes,
   }
 }

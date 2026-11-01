@@ -15,7 +15,7 @@ import { refusalText } from "./knowledge-notes"
 import { RatingInput } from "./library-ui"
 
 /** `draft`: what was typed in the book assistant (M4g.3), kept when switching to manual entry. */
-export type FormTarget = { kind: ContentKind; item?: ContentItem; showId?: string | null; draft?: { title?: string; isbn?: string } } | { kind: "show"; show?: PodcastShow }
+export type FormTarget = { kind: ContentKind; item?: ContentItem; showId?: string | null; draft?: { title?: string; isbn?: string } } | { kind: "show"; show?: PodcastShow; draft?: { title?: string } }
 
 const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean)
 const num = (s: string) => (s.trim() === "" ? null : Number(s))
@@ -83,7 +83,7 @@ function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; s
   const editing = !!(item || show)
   const book = item?.kind === "book" ? item.book : null
   const ep = item?.kind === "episode" ? item.episode : null
-  const draft = "draft" in target ? target.draft : undefined
+  const draft: { title?: string; isbn?: string } | undefined = "draft" in target ? target.draft : undefined
   const [v, setV] = useState({
     title: item?.title ?? show?.title ?? draft?.title ?? "",
     creators: (item?.creators ?? []).join(", "),

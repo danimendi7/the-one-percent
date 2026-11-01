@@ -291,6 +291,104 @@ describe("M · the same work added offline on two devices (M4g.3)", () => {
   })
 })
 
+describe("N · podcasts added offline on two devices (M4g.4)", () => {
+  const apple = (id: string) => ({ external_provider: "itunes", external_id: id, external_attribution: "Datos: Apple Podcasts" })
+
+  it("N1 · the same episode of a synced show: the second is refused; its note, with its minute, goes to the existing episode", async () => {
+    const seed = await device(small)
+    const showId = seed.engine.libraryCreate("show", { title: "Programa compartido", ...apple("1455818214") })
+    await settle(seed.engine)
+    const a = await device(small)
+    const b = await device(small)
+    a.net.online = false
+    b.net.online = false
+    const epA = a.engine.libraryCreate("item", { title: "331. La Ruina", show_id: showId, duration_seconds: 4596, ...apple("1000798560432") }, { kind: "episode" })
+    const epB = b.engine.libraryCreate("item", { title: "331. La Ruina", show_id: showId, duration_seconds: 4596, ...apple("1000798560432") }, { kind: "episode" })
+    const noteB = b.engine.libraryCreate("note", { item_id: epB, note_type: "quote", body: "Momento desde B", position_seconds: 754 })
+    a.net.online = true
+    await settle(a.engine)
+    b.net.online = true
+    await settle(b.engine)
+    const live = await db((c) => c.query("select id from public.library_items where user_id = $1 and external_id = '1000798560432' and deleted_at is null", [small.id]))
+    expect(live.rows.map((r) => r.id)).toEqual([epA])
+    expect(await serverNote(noteB)).toBeUndefined()
+    const kept = b.engine.getSnapshot().notices.find((n) => n.code === "item_deleted")!
+    expect(bodyOf(kept)).toBe("Momento desde B")
+    expect(b.engine.resolveLibraryText(kept.id, "existing", epA)).toBe(true)
+    await settle(b.engine)
+    const moved = await db((c) => c.query("select item_id, position_seconds from public.knowledge_notes where user_id = $1 and body = 'Momento desde B' and deleted_at is null", [small.id]))
+    expect(moved.rows).toEqual([{ item_id: epA, position_seconds: 754 }])
+  })
+
+  it("N2 · the same show created offline on two devices: the second show and its episode are refused; nothing is lost, the episode goes to the existing show and its note follows", async () => {
+    const a = await device(small)
+    const b = await device(small)
+    a.net.online = false
+    b.net.online = false
+    const showA = a.engine.libraryCreate("show", { title: "Huberman Lab", ...apple("1545953110") })
+    a.engine.libraryCreate("item", { title: "Episodio en A", show_id: showA, ...apple("1000798668305") }, { kind: "episode" })
+    const showB = b.engine.libraryCreate("show", { title: "Huberman Lab", ...apple("1545953110") })
+    const epB = b.engine.libraryCreate("item", { title: "Episodio en B", show_id: showB, duration_seconds: 2100, published_on: "2026-10-26", ...apple("1000798140884") }, { kind: "episode" })
+    b.engine.libraryCreate("note", { item_id: epB, note_type: "learning", body: "Aprendizaje de B", position_seconds: 600 })
+    a.net.online = true
+    await settle(a.engine)
+    b.net.online = true
+    await settle(b.engine)
+
+    // One show on the server (A's); B's show and episode were not written, nothing of B is lost.
+    const shows = await db((c) => c.query("select id from public.podcast_shows where user_id = $1 and external_id = '1545953110' and deleted_at is null", [small.id]))
+    expect(shows.rows.map((r) => r.id)).toEqual([showA])
+    expect((await db((c) => c.query("select count(*)::int n from public.library_items where id = $1", [epB]))).rows[0].n).toBe(0)
+    const codes = b.engine.getSnapshot().notices.map((n) => n.code).sort()
+    expect(codes).toEqual(["duplicate_external", "item_deleted", "show_not_found"])
+
+    // Durable until decided: reopening the device keeps the three.
+    b.engine.stop()
+    const again = await device(small, { storage: b.storage, store: b.store })
+    const r = again.engine
+    expect(r.getSnapshot().notices.map((n) => n.code).sort()).toEqual(codes)
+
+    // The episode goes, whole and with its id, to the existing show (a show that is not live is refused).
+    const episode = r.getSnapshot().notices.find((n) => n.code === "show_not_found")!
+    expect(r.resolveLibraryText(episode.id, "show", showB)).toBe(false)
+    expect(r.resolveLibraryText(episode.id, "show", showA)).toBe(true)
+    expect(r.resolveLibraryText(episode.id, "show", showA)).toBe(false)
+    await settle(r)
+    const placed = await db((c) => c.query("select id, show_id, duration_seconds, published_on::text, external_id from public.library_items where id = $1 and deleted_at is null", [epB]))
+    expect(placed.rows).toEqual([{ id: epB, show_id: showA, duration_seconds: 2100, published_on: "2026-10-26", external_id: "1000798140884" }])
+
+    // Its note can now follow it, with its minute.
+    const note = r.getSnapshot().notices.find((n) => n.code === "item_deleted")!
+    expect(r.resolveLibraryText(note.id, "existing", epB)).toBe(true)
+    await settle(r)
+    const followed = await db((c) => c.query("select item_id, position_seconds from public.knowledge_notes where user_id = $1 and body = 'Aprendizaje de B' and deleted_at is null", [small.id]))
+    expect(followed.rows).toEqual([{ item_id: epB, position_seconds: 600 }])
+    const dup = r.getSnapshot().notices.find((n) => n.code === "duplicate_external")!
+    expect(r.resolveLibraryText(dup.id, "theirs")).toBe(true)
+    await settle(r)
+    expect(r.getSnapshot().notices).toEqual([])
+  })
+
+  it("N3 · without a show to choose, the refused episode is kept without a show — never lost", async () => {
+    const a = await device(small)
+    const b = await device(small)
+    a.net.online = false
+    b.net.online = false
+    a.engine.libraryCreate("show", { title: "Otro programa", ...apple("1229124446") })
+    const showB = b.engine.libraryCreate("show", { title: "Otro programa", ...apple("1229124446") })
+    const epB = b.engine.libraryCreate("item", { title: "Episodio sin hogar", show_id: showB, ...apple("1000700000001") }, { kind: "episode" })
+    a.net.online = true
+    await settle(a.engine)
+    b.net.online = true
+    await settle(b.engine)
+    const episode = b.engine.getSnapshot().notices.find((n) => n.code === "show_not_found")!
+    expect(b.engine.resolveLibraryText(episode.id, "show")).toBe(true)
+    await settle(b.engine)
+    const row = await db((c) => c.query("select show_id, title from public.library_items where id = $1 and deleted_at is null", [epB]))
+    expect(row.rows).toEqual([{ show_id: null, title: "Episodio sin hogar" }])
+  })
+})
+
 describe("K/L · lost copy and two accounts", () => {
   it("K · the library copy is lost while edits wait offline: it is rebuilt and the edits still reach the server once", async () => {
     const d = await device(small)

@@ -3,12 +3,11 @@
 import Link from "next/link"
 import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { AlertTriangle, ArrowLeft, Check, CloudOff, ExternalLink, Loader2, PenLine, Search } from "lucide-react"
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { useMediaQuery } from "@/hooks/use-media-query"
 import { cn } from "@/lib/utils"
 import { Segmented } from "@/features/habits/components/habit-form-sheet"
 import { compactIsbn } from "@/features/knowledge/domain/text"
@@ -19,9 +18,9 @@ import { findBookMatches, type Match } from "../metadata/duplicates"
 import { detectIsbn } from "../metadata/query"
 import { createSearchController, type SearchState } from "../metadata/search-controller"
 import { toBookInput } from "../metadata/to-input"
-import { METADATA_ERROR_TEXT, type BookResult, type MetadataErrorCode } from "../metadata/types"
+import type { BookResult, MetadataErrorCode } from "../metadata/types"
 import { libraryActions } from "../store/use-library"
-import { DiscardPrompt } from "./content-form"
+import { AssistantSheet, OFFLINE_TEXT, searchErrorText } from "./assistant-ui"
 import { refusalText } from "./knowledge-notes"
 import { CoverArt, itemHref, RatingInput } from "./library-ui"
 
@@ -50,30 +49,7 @@ const yearOf = (b: BookResult) => b.year ?? b.firstPublishedYear
 const LANGUAGE: Record<string, string> = { es: "Español", en: "Inglés", fr: "Francés", de: "Alemán", it: "Italiano", pt: "Portugués", ca: "Catalán", eu: "Euskera", gl: "Gallego" }
 const languageName = (code: string | null) => (code ? (LANGUAGE[code] ?? code.toUpperCase()) : null)
 
-function errorText(code: MetadataErrorCode, retryAfter?: number): string {
-  if (code === "unauthorized") return "Tu sesión ha caducado. Vuelve a entrar para buscar; mientras, puedes introducirlo manualmente."
-  if (code === "network") return "No se pudo conectar con la app. Tu búsqueda sigue aquí: inténtalo de nuevo o introdúcelo manualmente."
-  const base = code === "provider_unavailable" ? "Open Library no responde ahora." : METADATA_ERROR_TEXT[code]
-  return retryAfter ? `${base} Vuelve a intentarlo en ${retryAfter} s.` : base
-}
-
-/** Bottom sheet above the iPhone keyboard: the visual viewport says how much room is left. */
-function useKeyboardInset(active: boolean): { bottom: number; height: number } | null {
-  const [v, setV] = useState<{ bottom: number; height: number } | null>(null)
-  useEffect(() => {
-    const vv = typeof window === "undefined" ? null : window.visualViewport
-    if (!active || !vv) return
-    const update = () => setV({ bottom: Math.max(0, window.innerHeight - vv.height - vv.offsetTop), height: vv.height })
-    update()
-    vv.addEventListener("resize", update)
-    vv.addEventListener("scroll", update)
-    return () => {
-      vv.removeEventListener("resize", update)
-      vv.removeEventListener("scroll", update)
-    }
-  }, [active])
-  return active ? v : null
-}
+const errorText = (code: MetadataErrorCode, retryAfter?: number) => searchErrorText(code, "Open Library", retryAfter)
 
 export function AddBookSheet({
   open,
@@ -89,30 +65,10 @@ export function AddBookSheet({
   onManual: (draft: { title?: string; isbn?: string }) => void
   onCreated: (id: string) => void
 }) {
-  const desktop = useMediaQuery("(min-width: 768px)")
-  const inset = useKeyboardInset(open && !desktop)
-  const [dirty, setDirty] = useState(false)
-  const [asking, setAsking] = useState(false)
-  const close = () => (setDirty(false), setAsking(false), onOpenChange(false))
   return (
-    <Sheet open={open} onOpenChange={(v) => (v ? onOpenChange(true) : dirty ? setAsking(true) : close())}>
-      <SheetContent
-        side={desktop ? "right" : "bottom"}
-        className={cn("gap-0 p-0", desktop ? "w-full sm:max-w-md" : "max-h-[92dvh] rounded-t-3xl border-x-0")}
-        style={inset ? { bottom: inset.bottom, maxHeight: Math.round(inset.height * 0.92) } : undefined}
-        data-testid="add-book-sheet"
-      >
-        {asking && <DiscardPrompt onKeep={() => setAsking(false)} onDiscard={close} />}
-        {open && (
-          <Assistant
-            state={state}
-            onDirty={setDirty}
-            onManual={(d) => (close(), onManual(d))}
-            onCreated={(id) => (close(), onCreated(id))}
-          />
-        )}
-      </SheetContent>
-    </Sheet>
+    <AssistantSheet open={open} onOpenChange={onOpenChange} testId="add-book-sheet">
+      {({ setDirty, close }) => <Assistant state={state} onDirty={setDirty} onManual={(d) => (close(), onManual(d))} onCreated={(id) => (close(), onCreated(id))} />}
+    </AssistantSheet>
   )
 }
 
@@ -203,7 +159,7 @@ function SearchStep({
   else if (busy) status = "Buscando…"
   else if (results) status = results.length === 0 ? `Sin resultados para «${trimmed}».` : `${results.length} ${results.length === 1 ? "resultado" : "resultados"}`
   else if (current && search.status === "error") status = errorText(search.code, search.retryAfter)
-  else if (current && search.status === "offline") status = "Sin conexión. Tu búsqueda sigue aquí; puedes introducirlo manualmente y se sincronizará al volver la red."
+  else if (current && search.status === "offline") status = OFFLINE_TEXT
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!results?.length) return

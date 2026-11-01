@@ -21,6 +21,10 @@ import { useLibrary } from "./store/use-library"
 import type { LibrarySnapshot } from "./store/types"
 import type { DataSource } from "@/features/habits/store/types"
 import { AddBookSheet } from "./components/add-book-sheet"
+import { AddPodcastSheet } from "./components/add-podcast-sheet"
+import { showResultOf } from "./metadata/to-input"
+import type { ShowResult } from "./metadata/types"
+import { useHabits } from "@/features/habits/store/habit-store"
 import { ContentFormSheet, type FormTarget } from "./components/content-form"
 import { NoteCard, QuickCapture } from "./components/knowledge-notes"
 import { BackLink, BOOKS_HREF, BRAIN_HREF, byline, CoverArt, itemHref, LIBRARY_HREF, PODCASTS_HREF, ProgressLine, RatingBadge, showHref, StatusPill } from "./components/library-ui"
@@ -49,10 +53,17 @@ export function useContentForm(state: KnowledgeState | undefined, source?: DataS
   const router = useRouter()
   const [target, setTarget] = useState<FormTarget | null>(null)
   const [assistant, setAssistant] = useState(false)
+  const [podcast, setPodcast] = useState<{ show: ShowResult | null } | null>(null)
+  const timeZone = useHabits()?.state.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
   const open = (t: FormTarget) => {
-    const newBook = t.kind === "book" && !("item" in t && t.item) && !("draft" in t && t.draft)
-    if (newBook && source === "account") setAssistant(true)
-    else setTarget(t)
+    const isNew = !("item" in t && t.item) && !("show" in t && t.show) && !("draft" in t && t.draft)
+    if (!isNew || source !== "account") return setTarget(t)
+    if (t.kind === "book") return setAssistant(true)
+    // A new episode or show: the podcast assistant (M4g.4). From a show's page, at that show's
+    // episodes when it came from Apple; a show written by hand keeps the manual form.
+    const local = t.kind === "episode" && t.showId ? state?.shows[t.showId] : undefined
+    if (local && local.external?.provider !== "itunes") return setTarget(t)
+    setPodcast({ show: local ? showResultOf(local) : null })
   }
   const sheet = state ? (
     <>
@@ -62,6 +73,15 @@ export function useContentForm(state: KnowledgeState | undefined, source?: DataS
         state={state}
         onManual={(draft) => setTarget({ kind: "book", draft })}
         onCreated={(id) => router.push(itemHref(id))}
+      />
+      <AddPodcastSheet
+        open={!!podcast}
+        onOpenChange={(v) => !v && setPodcast(null)}
+        state={state}
+        timeZone={timeZone}
+        initialShow={podcast?.show ?? null}
+        onManual={(m) => setTarget(m.kind === "show" ? { kind: "show", draft: { title: m.title } } : { kind: "episode", showId: m.showId ?? null, draft: { title: m.title } })}
+        onCreated={(href) => router.push(href)}
       />
       <ContentFormSheet
       target={target ?? { kind: "book" }}

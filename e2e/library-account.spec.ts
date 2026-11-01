@@ -110,6 +110,8 @@ test.describe("library · account mode", () => {
     await openLibrary(page, "/knowledge/library/podcasts")
     await page.getByTestId("add-menu").click()
     await page.getByRole("menuitem", { name: "Programa de podcast" }).click()
+    // With an account the podcast assistant opens (M4g.4); this test writes the show by hand.
+    await page.getByTestId("add-manual-show").click()
     await page.getByTestId("form-title").fill("Programa de cuenta E2E")
     await page.getByTestId("form-save").click()
     await expect(page).toHaveURL(/\/knowledge\/library\/show\?id=[^&]+$/)
@@ -124,6 +126,7 @@ test.describe("library · account mode", () => {
     await openLibrary(page, "/knowledge/library/podcasts")
     await page.getByTestId("add-menu").click()
     await page.getByRole("menuitem", { name: "Episodio" }).click()
+    await page.getByTestId("add-manual-episode").click()
     await page.getByTestId("form-title").fill("Episodio suelto E2E")
     await page.getByTestId("form-save").click()
     await expect(page.getByTestId("item-save")).toHaveText("Sincronizado", { timeout: 15_000 })
