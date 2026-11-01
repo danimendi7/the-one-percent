@@ -1943,3 +1943,108 @@ La corrección 0 de §23 ya está en producción como hotfix M4-H1 (`docs/hotfix
    - smoke 22/22;
    - `offline-save` y `add-podcast` en los dos proyectos.
 3. Si sale en verde, M4g.5 y la publicación conjunta de M4g siguen requiriendo autorización aparte.
+
+## 25. Validación remota de la integración en `ci/m4g` (01/11/2026)
+
+### 25.1 Verificación previa y publicación
+- **Antes del push:**
+  - el árbol estaba limpio con HEAD en `c44ed44`, descendiente de `ci/m4g` (`8b18e5b`), y `origin/main` seguía en `b8388f7`;
+  - los 6 commits son de THE ONE PERCENT y tienen la identidad noreply del propietario;
+  - `git range-diff` muestra los dos commits del hotfix con el mismo parche (solo cambia el contexto de M4g);
+  - el diff frente a `ci/m4g` no toca `supabase/`, dependencias, `.github`, `public/` (service worker), `vercel.json`, `next.config`, `src/app/api` ni el proxy, y no contiene secretos;
+  - `--list --grep-invert @screens` da 396 pruebas en 24 ficheros;
+  - el workflow fija 27 omisiones por pasada y dos pasadas para `ci/**`, levanta Supabase local en el runner y `vercel.json` desactiva los despliegues de `ci/**`.
+- **Push:** `git push origin c44ed44:refs/heads/ci/m4g` (`8b18e5b..c44ed44`, fast-forward). No se tocó ninguna otra rama.
+
+### 25.2 Resultado: run [41344366084](https://github.com/danimendi7/the-one-percent/actions/runs/41344366084), **en verde**
+- **SHA:** `c44ed448d395bc5a7238a3a41032c6df8cbf9c87`, de 19:57 a 20:45 UTC.
+- **Artefacto:** `e2e-41344366084-1`.
+
+| Paso | Resultado |
+|---|---|
+| Tipos y lint | Correctos |
+| Unitarias | **726/726** |
+| Integración | **153/153** (incluye las recuperaciones entre dispositivos de notas y episodios rechazados, `show_not_found`) |
+| `test:browser` | **6/6** |
+| E2E, dos pasadas | 792 resultados: **738 superadas y 54 omitidas**, 0 fallidas, 0 inestables, 0 interrumpidas y 0 reintentos. Las 24 specs están representadas y las 396 enumeradas se ejecutaron en cada pasada |
+| Omisiones | 27 entradas ×2, exactamente las del contrato (D87): las pruebas de cuenta en un solo proyecto, `habits:54` y `navigation:30` en escritorio |
+| Smoke | **22/22** |
+| Búsqueda de secretos en los informes | Correcta |
+
+- **`offline-save.spec.ts`:** 28/28 (7 pruebas × 2 proyectos × 2 pasadas). Cubre:
+  - libro manual y de Open Library, programa manual y «Seguir el programa», y episodio con programa nuevo a CPU ×6;
+  - la escritura retenida en IndexedDB, la navegación y la recarga sin red;
+  - el almacenamiento rechazado con «Reintentar»;
+  - la reconexión, con un único envío.
+- **`add-podcast.spec.ts`:** 32/32. Incluye la línea 308 («chosen online, saved without connection»), que falló en el run 41296762714 y ahora pasa en móvil y escritorio, en las dos pasadas.
+- **`reviews.spec.ts:144` [desktop]**, sin resultado en Windows por memoria (§24.4), pasa en las dos pasadas.
+- **Avisos de `newAccount`:** 4, todos en `account.spec.ts`, en la etapa `status` (≈3,0–3,4 s). El resto de etapas tarda menos de 0,7 s. Son informativos y no hubo fallos.
+- **Proveedores:** sin consultas reales a Apple ni a Open Library. Las pruebas usan mocks deterministas y el log del job no contiene sus dominios.
+- **Datos personales en los artefactos:** ninguno. Las únicas apariciones del usuario de GitHub son las URL del repositorio en los metadatos de Playwright, como en los runs anteriores.
+
+**Después del run:**
+- el commit no tiene estados ni despliegues (sin Vercel Preview);
+- `main` sigue en `b8388f7` y producción sirve `top-version` `b8388f716861`;
+- Supabase Cloud supera las 27 comprobaciones de solo lectura, con 11 migraciones (la última, `20261101090000`).
+
+### 25.3 Reconciliación con `main` (D107; requiere autorización)
+- **Situación:** `main` (`b8388f7`) no es antepasado de `c44ed44`.
+  - La base común es `f66b3b9`. `main` solo añade `fb0d651` y `b8388f7`, ya incluidos en M4g como `341490c` y `c5996fc` con el mismo parche.
+- **Simulación** con `git merge-tree --write-tree c44ed44 origin/main` (sin escribir en ninguna rama):
+  - conflictos en `docs/decisions.md`, `docs/hotfix-m4-h1.md` (add/add), `e2e/offline-save.spec.ts` (add/add) y `store/types.ts`;
+  - **la fusión automática de `account-library.ts` y `types.ts` duplica `saved()`** sin marcar conflicto.
+
+**Procedimiento propuesto:**
+1. Crear una rama de trabajo nueva desde la punta validada de M4g, por ejemplo `m4g/merge-main`.
+2. Ejecutar `git merge --no-ff origin/main`.
+3. Resolver **todos** los ficheros con la versión de M4g: `git checkout <m4g> -- .` sobre el merge en curso. Después, `git diff --quiet <m4g> HEAD`, antes y después del commit, debe dar un **árbol idéntico**.
+4. Comprobar los dos padres del merge (`<m4g>` y `b8388f7`) y que `git merge-base --is-ancestor origin/main HEAD` da cierto.
+5. Repetir `npm run check` y la integración en local, que deben coincidir con el árbol ya validado.
+6. **Nueva CI** en `ci/m4g`, por fast-forward desde `c44ed44`, porque el SHA cambia aunque el árbol sea el mismo.
+7. Con la CI en verde, publicar en `main` por fast-forward desde `b8388f7` según D48. Requiere copia de seguridad, smoke en producción y plan de vuelta atrás.
+
+**Prohibido** en todo el procedimiento: rebase, `reset --hard`, force push y tocar el `main` local divergente (`2b9feb6`). Hacerlo después de M4g.5 o antes es una decisión del propietario: si es antes, M4g.5 parte ya de una rama que contiene `main`.
+
+### 25.4 Riesgos de persistencia pendientes
+1. **Recarga o cierre manual** durante los milisegundos de la transacción de IndexedDB: se pierde lo no escrito, igual que antes de M4-H1.
+2. **Borrar y volver** no espera al guardado (M4g.5, fila 0 ampliada).
+3. **Autoguardado de notas (800 ms)** antes de pulsar un enlace sin red, desde M4.
+4. **Línea de estado** de ediciones fundidas en un alta aún no enviada: puede adelantarse unos milisegundos.
+5. **Cerrar el asistente durante la espera:** la escritura continúa, pero un fallo solo lo muestra la línea de estado de la Biblioteca.
+6. **Sin verificar en un iPhone real:** guardado sin red, teclado y VoiceOver. Solo hay emulación.
+
+### 25.5 Condiciones de entrada de M4g.5 (sin implementar)
+- **Para empezar:**
+  - autorización expresa del propietario y elección del alcance entre las filas 1–7 de §23. La fila 0 ya está hecha (M4-H1 y D106);
+  - decidir antes si M4g.5 parte de `c44ed44` o de la rama reconciliada de §25.3 (recomendado: reconciliar antes, para que la CI de M4g.5 ya contenga `main`).
+- **Base técnica:**
+  - `ci/m4g` = `c44ed44` en verde (este run);
+  - copia de la nube verificada del 01/11, sin migraciones previstas.
+- **Puntos que M4g.5 debe cubrir, además de §23:**
+  - **borrar y volver:** esperar a `saved()`;
+  - **cerrar el asistente durante la espera:** decidir si se avisa en el propio asistente;
+  - **guía para el iPhone:** añadir la prueba sin red.
+
+### 25.6 Estado para retomar
+- **Ramas:**
+
+| Rama | Local | Remota |
+|---|---|---|
+| `main` | `2b9feb6` (divergente; no tocar) | `b8388f7` (producción) |
+| `m4g/h1` | Este commit de documentación (solo local), sobre `c44ed44` | — |
+| `ci/m4g` | — | `c44ed44` |
+| `ci/m4-h1` | — | `b8388f7` |
+| `ci/m4` | — | `f66b3b9` |
+
+- **Worktrees:**
+  - `the-one-percent` (`main`);
+  - `the-one-percent-hotfix` (`hotfix/m4-offline-save`);
+  - `the-one-percent-m4g-h1` (`m4g/h1`).
+- **Evidencias:** en el scratchpad de la sesión: artefacto y log del run en `ci-m4g-h1/`, y logs locales en `m4g-h1-prefix/`.
+- **Pendiente de autorización:**
+  - publicar este commit de documentación;
+  - la reconciliación (§25.3);
+  - M4g.5 y la publicación de M4g;
+  - borrar `ci/m4`;
+  - el artefacto 12963160670;
+  - los avisos INFO de los advisors.

@@ -121,7 +121,7 @@ La E2E completa, una pasada, cabe en Windows con un solo worker (13,7 min). La C
 4. **Vuelta atrás:** `git revert` del commit en `main`. No hay datos ni esquema que deshacer.
 
 ## 7. Traslado a M4g
-> **Estado (01/11/2026):** publicado en producción (`main` = `b8388f7`, CI 41331470319) e integrado en local en la rama `m4g/h1` (D106, `docs/m4g-plan.md` §24). Pendiente: validación remota en `ci/m4g`.
+> **Estado (01/11/2026):** publicado en producción (`main` = `b8388f7`, CI 41331470319) e integrado en local en la rama `m4g/h1` (D106, `docs/m4g-plan.md` §24). Validado en `ci/m4g` sobre `c44ed44` (run 41344366084, en verde; `docs/m4g-plan.md` §25). Pendiente: reconciliar con `main` (D107) y publicar M4g, con autorización.
 
 M4g toca otros sitios que también navegan tras un alta: el asistente de libros, el de podcasts y «Seguir el programa».
 1. Cuando `main` tenga el hotfix, hacer `cherry-pick` del commit sobre `ci/m4g`, en una rama de trabajo propia.
