@@ -19,6 +19,7 @@ import { toShowInput } from "../metadata/to-input"
 import type { EpisodeList, EpisodeResult, MetadataErrorCode, ShowResult } from "../metadata/types"
 import { libraryActions } from "../store/use-library"
 import { AssistantSheet, OFFLINE_TEXT, searchErrorText } from "./assistant-ui"
+import { DeviceSaveNotice, SAVING_LABEL, useDeviceSave } from "./device-save"
 import { refusalText } from "./knowledge-notes"
 import { CoverArt, itemHref, RatingInput, showHref } from "./library-ui"
 
@@ -335,6 +336,7 @@ function EpisodesStep({
   const owned = existingShow(state, show.id)
   const heading = useRef<HTMLHeadingElement>(null)
   const olderAbort = useRef<AbortController | null>(null)
+  const device = useDeviceSave(onCreated)
 
   useEffect(() => heading.current?.focus(), [])
   useEffect(() => {
@@ -360,10 +362,13 @@ function EpisodesStep({
     )
   }
 
+  // «Seguir el programa»: its page opens once the show is stored on this device (M4-H1); a retry
+  // only writes the device copy again.
   function saveShowOnly() {
-    if (owned) return onCreated(showHref(owned.id))
+    if (device.started()) return device.retry()
+    if (owned) return device.begin(showHref(owned.id))
     const r = libraryActions.createShow(toShowInput(show))
-    if (r.ok) onCreated(showHref(r.id))
+    if (r.ok) device.begin(showHref(r.id))
   }
 
   const list = older ? older.state : recent
@@ -375,7 +380,7 @@ function EpisodesStep({
     <div className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="border-b border-border px-5 pt-4 pb-3">
         {canGoBack && (
-          <Button variant="ghost" size="sm" className="-ml-2 w-fit" onClick={onBack} data-testid="episodes-back">
+          <Button variant="ghost" size="sm" className="-ml-2 w-fit" onClick={onBack} disabled={device.locked} data-testid="episodes-back">
             <ArrowLeft aria-hidden /> Programas
           </Button>
         )}
@@ -393,7 +398,12 @@ function EpisodesStep({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          {owned ? (
+          {device.locked ? (
+            <Button variant="outline" size="sm" onClick={saveShowOnly} disabled={device.waiting} aria-busy={device.waiting} data-testid="save-show">
+              {device.waiting && <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden />}
+              {device.waiting ? SAVING_LABEL : "Reintentar"}
+            </Button>
+          ) : owned ? (
             <Button asChild variant="outline" size="sm">
               <Link href={showHref(owned.id)} data-testid="open-show">
                 En tu Biblioteca · abrir
@@ -424,8 +434,9 @@ function EpisodesStep({
             data-testid="episode-filter"
           />
         </div>
+        <DeviceSaveNotice state={device.state} />
       </SheetHeader>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3" inert={device.locked}>
         {list.status === "loading" && <SkeletonRows />}
         {list.status === "error" && (
           <div className="space-y-2 px-2">
@@ -469,7 +480,7 @@ function EpisodesStep({
         <p className="px-2 pt-3 text-xs text-text-tertiary">Datos: Apple Podcasts</p>
       </div>
       <SheetFooter className="pb-safe flex-row gap-2 border-t border-border px-5 py-4">
-        <Button variant={list.status === "error" ? "default" : "outline"} className="flex-1" onClick={() => onManual(filter.trim() || undefined)} data-testid="add-manual-episode">
+        <Button variant={list.status === "error" ? "default" : "outline"} className="flex-1" onClick={() => onManual(filter.trim() || undefined)} disabled={device.locked} data-testid="add-manual-episode">
           <PenLine aria-hidden /> Añadir episodio manualmente
         </Button>
       </SheetFooter>
@@ -584,13 +595,13 @@ function ConfirmEpisode({
   const [favorite, setFavorite] = useState(false)
   const [errors, setErrors] = useState<EpisodeErrors>({})
   const [failure, setFailure] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const busy = useRef(false)
+  const device = useDeviceSave((episodeId) => onCreated(itemHref(episodeId)))
   const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => heading.current?.focus(), [])
 
   const localShowId = program === NEW_SHOW ? (owned?.id ?? null) : program === NO_SHOW ? null : program
-  const matches = findEpisodeMatches(state, { id: episode.id, localShowId, title: draft.values.title })
+  // The episode just written is not a duplicate of itself while its device copy is awaited.
+  const matches = findEpisodeMatches(state, { id: episode.id, localShowId, title: draft.values.title }).filter((m) => m.id !== device.written)
   const exact = matches.find((m) => m.level === "exact")
   // A show written by hand with the same name: only a warning, the user picks it if it is the same.
   const manualTwin = owned ? null : findShowMatches(state, show).find((m) => m.level === "possible")
@@ -601,34 +612,28 @@ function ConfirmEpisode({
   const edit = (field: EpisodeField) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => (setErrors((x) => ({ ...x, [field]: undefined })), setDraft((d) => editEpisodeField(d, field, e.target.value)))
 
   function save() {
-    if (busy.current) return
+    // Already written: only the device copy is awaited or retried, never a second create.
+    if (device.started()) return device.retry()
     setFailure(null)
     const errs = episodeDraftErrors(draft)
     setErrors(errs)
     const first = Object.keys(errs)[0]
     if (first) return document.getElementById(f(first))?.focus()
     if (exact) return setFailure("Este episodio ya está en tu Biblioteca.")
-    busy.current = true
-    setSaving(true)
     let showId: string | null = localShowId
     // The show is created only when it is not there yet (a retry after a failure finds it).
     if (program === NEW_SHOW && !showId) {
       const s = libraryActions.createShow(toShowInput(show))
-      if (!s.ok) {
-        busy.current = false
-        setSaving(false)
-        return setFailure(refusalText(s.error))
-      }
+      if (!s.ok) return setFailure(refusalText(s.error))
       showId = s.id
     }
     const r = libraryActions.createItem("episode", episodeDraftInput(draft, showId, { status, rating, favorite }))
     if (!r.ok) {
-      busy.current = false
-      setSaving(false)
       if (showId && program === NEW_SHOW) setProgram(showId)
       return setFailure(refusalText(r.error))
     }
-    onCreated(itemHref(r.id))
+    // One device write holds both, in queue order: the show before its episode (M4-H1).
+    device.begin(r.id)
   }
 
   const field = (k: EpisodeField, extra: React.ComponentProps<typeof Input> = {}) => (
@@ -648,7 +653,7 @@ function ConfirmEpisode({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="border-b border-border px-5 pt-4 pb-3">
-        <Button variant="ghost" size="sm" className="-ml-2 w-fit" onClick={onBack} data-testid="confirm-back">
+        <Button variant="ghost" size="sm" className="-ml-2 w-fit" onClick={onBack} disabled={device.locked} data-testid="confirm-back">
           <ArrowLeft aria-hidden /> Episodios
         </Button>
         <SheetTitle asChild>
@@ -658,7 +663,8 @@ function ConfirmEpisode({
         </SheetTitle>
         <SheetDescription>Todo es editable. Lo que Apple no da queda vacío.</SheetDescription>
       </SheetHeader>
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5" data-testid="episode-confirm">
+      {/* Locked while written: nothing in it may write it again or open another page first. */}
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5" data-testid="episode-confirm" inert={device.locked}>
         <div className="flex gap-4">
           <div className="w-24 shrink-0 space-y-2">
             <CoverArt seed={episode.id} title={draft.values.title || "Sin título"} kind="episode" cover={draft.useCover && draft.cover ? { source: "external", url: draft.cover } : null} />
@@ -761,13 +767,18 @@ function ConfirmEpisode({
           </p>
         )}
       </div>
+      {device.state && (
+        <div className="px-5 pt-3">
+          <DeviceSaveNotice state={device.state} />
+        </div>
+      )}
       <SheetFooter className="pb-safe flex-row gap-2 border-t border-border px-5 py-4">
-        <Button variant="ghost" onClick={onManual} data-testid="confirm-manual">
+        <Button variant="ghost" onClick={onManual} disabled={device.locked} data-testid="confirm-manual">
           <PenLine aria-hidden /> Manual
         </Button>
-        <Button className="flex-1" onClick={save} disabled={saving || !!exact} aria-disabled={saving || !!exact} data-testid="confirm-save">
-          {saving ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : null}
-          {matches.length && !exact ? "Añadir igualmente" : "Añadir episodio"}
+        <Button className="flex-1" onClick={save} disabled={device.waiting || !!exact} aria-disabled={device.waiting || !!exact} aria-busy={device.waiting} data-testid="confirm-save">
+          {device.waiting ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : null}
+          {device.waiting ? SAVING_LABEL : device.state === "failed" ? "Reintentar" : matches.length && !exact ? "Añadir igualmente" : "Añadir episodio"}
         </Button>
       </SheetFooter>
     </div>

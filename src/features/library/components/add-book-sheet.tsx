@@ -21,6 +21,7 @@ import { toBookInput } from "../metadata/to-input"
 import type { BookResult, MetadataErrorCode } from "../metadata/types"
 import { libraryActions } from "../store/use-library"
 import { AssistantSheet, OFFLINE_TEXT, searchErrorText } from "./assistant-ui"
+import { DeviceSaveNotice, SAVING_LABEL, useDeviceSave } from "./device-save"
 import { refusalText } from "./knowledge-notes"
 import { CoverArt, itemHref, RatingInput } from "./library-ui"
 
@@ -313,8 +314,7 @@ function Confirm({ result, state, onBack, onManual, onCreated }: { result: BookR
   const [separate, setSeparate] = useState(false)
   const [errors, setErrors] = useState<DraftErrors>({})
   const [failure, setFailure] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const busy = useRef(false)
+  const device = useDeviceSave(onCreated)
   const heading = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => heading.current?.focus(), [])
@@ -338,29 +338,25 @@ function Confirm({ result, state, onBack, onManual, onCreated }: { result: BookR
   }, [result.workId, result.editionId])
 
   const candidate = draftResult(draft)
-  const matches = findBookMatches(state, { ...candidate, workId: separate ? null : candidate.workId })
+  // The book just written is not a duplicate of itself while its device copy is awaited.
+  const matches = findBookMatches(state, { ...candidate, workId: separate ? null : candidate.workId }).filter((m) => m.id !== device.written)
   const exact = matches.find((m) => m.level === "exact")
   const owned = (m: Match | undefined) => (m ? state.items[m.id] : undefined)
   const edit = (field: DraftField) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => (setErrors((x) => ({ ...x, [field]: undefined })), setDraft((d) => editField(d, field, e.target.value)))
   const otherEditions = (editions ?? []).filter((e) => e.editionId)
 
   function save() {
-    if (busy.current) return
+    // Already written: only the device copy is awaited or retried, never a second create.
+    if (device.started()) return device.retry()
     setFailure(null)
     const errs = draftErrors(draft)
     setErrors(errs)
     const first = Object.keys(errs)[0]
     if (first) return document.getElementById(f(first))?.focus()
     if (exact) return setFailure("Ya está en tu Biblioteca. Ábrelo o añádelo como otra edición.")
-    busy.current = true
-    setSaving(true)
     const r = libraryActions.createItem("book", toBookInput(draftResult(draft), { status, rating, favorite, topics, keepDescription: draft.keepDescription, separateEdition: separate }))
-    if (!r.ok) {
-      busy.current = false
-      setSaving(false)
-      return setFailure(refusalText(r.error))
-    }
-    onCreated(r.id)
+    if (!r.ok) return setFailure(refusalText(r.error))
+    device.begin(r.id)
   }
 
   const field = (k: DraftField, extra: React.ComponentProps<typeof Input> = {}) => (
@@ -378,7 +374,7 @@ function Confirm({ result, state, onBack, onManual, onCreated }: { result: BookR
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="border-b border-border px-5 pt-4 pb-3">
-        <Button variant="ghost" size="sm" className="-ml-2 w-fit" onClick={onBack} data-testid="confirm-back">
+        <Button variant="ghost" size="sm" className="-ml-2 w-fit" onClick={onBack} disabled={device.locked} data-testid="confirm-back">
           <ArrowLeft aria-hidden /> Resultados
         </Button>
         <SheetTitle asChild>
@@ -388,7 +384,8 @@ function Confirm({ result, state, onBack, onManual, onCreated }: { result: BookR
         </SheetTitle>
         <SheetDescription>Todo es editable. Lo que el proveedor no sabe queda vacío.</SheetDescription>
       </SheetHeader>
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5" data-testid="book-confirm">
+      {/* Locked while written: nothing in it may write it again or open another page first. */}
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5" data-testid="book-confirm" inert={device.locked}>
         <div className="flex gap-4">
           <div className="w-24 shrink-0 space-y-2">
             <CoverArt seed={draft.source.workId ?? draft.values.title} title={draft.values.title || "Sin título"} byline={draft.values.creators} kind="book" cover={draft.useCover && draft.cover ? { source: "external", url: draft.cover } : null} />
@@ -533,13 +530,18 @@ function Confirm({ result, state, onBack, onManual, onCreated }: { result: BookR
           </p>
         )}
       </div>
+      {device.state && (
+        <div className="px-5 pt-3">
+          <DeviceSaveNotice state={device.state} />
+        </div>
+      )}
       <SheetFooter className="pb-safe flex-row gap-2 border-t border-border px-5 py-4">
-        <Button variant="ghost" onClick={onManual} data-testid="confirm-manual">
+        <Button variant="ghost" onClick={onManual} disabled={device.locked} data-testid="confirm-manual">
           <PenLine aria-hidden /> Manual
         </Button>
-        <Button className="flex-1" onClick={save} disabled={saving || !!exact} aria-disabled={saving || !!exact} data-testid="confirm-save">
-          {saving ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : null}
-          {separate ? "Añadir como otra edición" : matches.length ? "Añadir igualmente" : "Añadir a la Biblioteca"}
+        <Button className="flex-1" onClick={save} disabled={device.waiting || !!exact} aria-disabled={device.waiting || !!exact} aria-busy={device.waiting} data-testid="confirm-save">
+          {device.waiting ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : null}
+          {device.waiting ? SAVING_LABEL : device.state === "failed" ? "Reintentar" : separate ? "Añadir como otra edición" : matches.length ? "Añadir igualmente" : "Añadir a la Biblioteca"}
         </Button>
       </SheetFooter>
     </div>
