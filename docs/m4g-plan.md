@@ -1844,3 +1844,102 @@ Chromium con el viewport de cada proyecto y la CPU 4 veces más lenta (CDP `Emul
 | 7 | **Plan de publicación conjunta de M4g** (sujeto a otra autorización) | Validación CI en `ci/m4g`; copia de seguridad verificada (sin migración, por prudencia); prueba manual guiada en móvil y ordenador; procedimiento D48 (`main` por avance directo, Vercel, CI de `main`, smoke en producción); comprobación en producción de portadas, metadatos, demo sin proveedores y `/dev/*` con 404; plan de vuelta atrás (revert, sin tocar la base) | 30–40 de preparación (más CI y publicación cuando se autorice) |
 
 **Estimación total de M4g.5:** unos **350–485 minutos** de trabajo (incluida la corrección 0), más unos 35 minutos de CI remota si se autoriza. No incluye el tiempo del propietario en el iPhone ni la publicación.
+
+## 24. Integración local de M4-H1 en M4g (01/11/2026)
+
+La corrección 0 de §23 ya está en producción como hotfix M4-H1 (`docs/hotfix-m4-h1.md`, D105). Aquí se integra en M4g y se extiende a los asistentes (D106). Todo es local: sin push, sin CI remota, sin cambios en la nube ni en Vercel.
+
+### 24.1 Rama y commits
+- **Rama local `m4g/h1`**, en el worktree `the-one-percent-m4g-h1`, creada desde `ci/m4g` (`8b18e5b`).
+- **Commits, en orden** (avance directo desde `8b18e5b`):
+  1. `77f0b61`: la documentación local de M4g.4 (`2b9feb6` del `main` local, que sigue intacto).
+  2. `341490c`: cherry-pick de `fb0d651` (corrección del hotfix).
+  3. `c5996fc`: cherry-pick de `b8388f7` (corte estricto sin red); sin conflictos.
+  4. La adaptación de los asistentes, las pruebas y esta documentación.
+- **Conflictos al traer `fb0d651`:**
+  - `docs/decisions.md`: las dos ramas añadían al final. Se conservan las dos secciones, M4g (D90–D104) y después M4-H1 (D105).
+  - `store/types.ts`: se conserva el `resolveText(…, target?)` de M4g.3/M4g.4 y se añade `saved()`.
+- **Fusiones automáticas revisadas:**
+  - `engine.ts`: `whenSaved`, `writing` y el estado `saving`, junto a las opciones `existing` y `show` de M4g;
+  - `content-form.tsx`: el borrador del asistente (`draft`) junto a la espera del hotfix;
+  - `account-library.ts`: `resolveText` con `target` y `saved()`.
+- **Comprobación:** `git range-diff` muestra el hotfix idéntico, y las únicas líneas eliminadas respecto a `77f0b61` son las que el propio hotfix sustituye.
+
+### 24.2 Garantía aplicada a cada alta
+| Flujo | Antes | Ahora |
+|---|---|---|
+| Alta manual (libro, episodio o programa, también desde «Introducir manualmente») | Hotfix (formulario) | Sin cambios: espera a `saved()` |
+| Libro desde Open Library (confirmación) | Navegaba en el mismo tick | Espera a `saved()` |
+| «Seguir el programa» (Apple) | Navegaba en el mismo tick | Espera a `saved()`; también al abrir uno que ya tenías |
+| Episodio desde Apple, con programa nuevo | Navegaba en el mismo tick | Espera a `saved()`. Una sola escritura guarda los dos en el orden de la cola: programa antes que episodio |
+
+**Común (`useDeviceSave`, `device-save.tsx`):**
+- **Mientras guarda**, el botón dice «Guardando en este dispositivo…», desactivado y con `aria-busy`.
+- **A los 3 s**, aparece un aviso que sigue esperando y nunca da por guardado lo que no lo está.
+- **Si falla**:
+  - no navega y conserva lo elegido;
+  - «Reintentar» solo vuelve a escribir la copia y nunca crea otro libro, programa o episodio;
+  - la guarda es síncrona, así que un doble toque tampoco duplica nada.
+- **Mientras hay algo escrito, el asistente queda bloqueado** (`inert`): «Manual», «Volver», «Abrir el existente» y la lista. Así no hay una segunda alta por la entrada manual ni navegación antes de tiempo.
+- **Lo recién escrito no se muestra como duplicado de sí mismo.** Antes, el detector de M4g.3/M4g.4 lo habría marcado como «ya está» y desactivado «Reintentar».
+- **Persistencia local frente a sincronización:** «guardado» significa la copia de IndexedDB, nada más. El envío al servidor sigue siendo el de la cola, sin cambios.
+- **Sin cambios** en el motor, el protocolo, el esquema, las migraciones, las dependencias, el service worker ni los endpoints.
+
+**Fuera de alcance, sin cambios:** borrar y volver (`item-detail.tsx`) sigue sin esperar (riesgo 3 del hotfix, para M4g.5).
+
+### 24.3 Pruebas
+**`e2e/offline-save.spec.ts`:**
+- **Las tres pruebas del hotfix** llegan al formulario manual a través de los asistentes, que es la entrada de M4g. Todas sus aserciones se mantienen.
+- **Cuatro pruebas nuevas** con respuestas fijas de Open Library y Apple. Lo imprevisto falla; la búsqueda se hace con red y el guardado sin red.
+
+| Prueba | Qué fija |
+|---|---|
+| Libro de Open Library, con la escritura retenida | «Guardando…», aviso a los 3 s, doble toque, «Manual» desactivado, sin duplicado de sí mismo, cola vacía hasta soltar. Después: la ficha; salir enseguida (otra carga completa sin red) y recargar; con red, 1 fila con `external_id` de la obra y 328 páginas, y 1 operación |
+| «Seguir el programa», con la escritura retenida | Lo mismo con el programa: la cola tiene `library.show.create`; tras recargar sin red sigue y el servidor no tiene nada; con red, 1 programa y 1 operación |
+| Episodio de Apple con programa nuevo, CPU ×6 y una nota | Cola `show.create` → `item.create` → `note.create`; recarga; con red, programa, episodio y nota enlazados, con sus referencias de Apple, y 1 operación de cada tipo |
+| Almacenamiento lleno en la confirmación del episodio | Error, «Reintentar» activo, sin duplicado, sin navegar, cola vacía; un segundo fallo no cambia nada; al restaurar, la cola tiene exactamente un programa y un episodio; con red, 1 de cada |
+
+**`add-podcast.spec.ts` («chosen online, saved without connection», la antigua línea 305, ahora la 308):**
+- usa el mismo corte estricto (`e2e/support/offline.ts`, movido sin cambios desde `offline-save.spec.ts`);
+- sus aserciones no cambian.
+
+**Antes y después, en Windows:**
+
+| Código | Resultado |
+|---|---|
+| Asistentes sin adaptar (`git stash` temporal) | Las 4 pruebas nuevas **fallan 8/8** y los 8 contextos de error muestran «No está en este dispositivo». Las del hotfix pasan, porque el formulario ya espera. La 308 pasó: depende de la carrera, por eso hacían falta las pruebas con barrera |
+| Asistentes adaptados | **16/16** a la primera |
+
+### 24.4 Validación local (Windows, un worker, Supabase local)
+| Suite | Resultado |
+|---|---|
+| `npm run check` (tipos, lint y unitarias) | **726/726** (723 de M4g.4 y 3 del hotfix) |
+| Integración | **153/153** |
+| `test:browser` | **6/6** |
+| E2E dirigidas (`add-book`, `add-podcast`, `covers`, `offline-save`, `offline`, `library-account`, `library`, `knowledge-live`, `knowledge`, `screen-error`, `navigation`, `upgrade`, `a11y`) | **218 superadas y 8 omitidas previstas, 0 fallidas, 0 inestables** |
+| Build de producción | Correcta |
+| Smoke local | **22/22** |
+| E2E completa, una pasada (396 pruebas en 24 ficheros) | **Incompleta por memoria.** Las primeras 383 dieron 356 superadas, 27 omitidas (contrato D87) y 0 fallidas. Las 13 últimas (escritorio: `reviews.spec.ts:144`, 3 de `screen-error` y 9 de `upgrade`) cayeron cuando Claude Code detuvo la ejecución por falta de memoria del sistema («Target crashed», «worker process exited», código `0xC0000142`). `screen-error` y `upgrade` ya habían pasado en las dirigidas. **Sin resultado en este equipo: `reviews.spec.ts:144` [desktop]** |
+
+**Recuento para la CI:**
+- 396 pruebas por pasada en 24 specs (382 de M4g.4, 6 del hotfix y 8 nuevas), con 27 omitidas por pasada;
+- dos pasadas: 792 enumeradas, **738 superadas y 54 omitidas**.
+
+### 24.5 Riesgos pendientes
+1. **Recarga o cierre manual** en los milisegundos del guardado (igual que en el hotfix).
+2. **Borrar y volver** no espera (M4g.5).
+3. **Notas escritas justo antes de pulsar un enlace sin red:** la ventana de autoguardado de 800 ms existe desde M4.
+4. **Línea de estado** de ediciones fundidas en un alta aún no enviada: puede adelantarse unos milisegundos.
+5. **Cerrar el asistente durante la espera** no navega; lo creado sigue en memoria y su escritura continúa. Si esa escritura fallara, lo indicaría la línea de estado de la Biblioteca, no el asistente.
+6. **Pendiente:**
+   - la E2E completa en Linux (CI) y `reviews.spec.ts:144` [desktop] en local;
+   - un iPhone real.
+
+### 24.6 Validación remota propuesta (requiere autorización)
+1. Publicar `m4g/h1` en `ci/m4g` por avance directo desde `8b18e5b`, sin force push. `ci/**` no despliega.
+2. **Exigir:**
+   - unitarias 726/726, integración 153/153 y `test:browser` 6/6;
+   - E2E en dos pasadas con 396 enumeradas por pasada, 738 superadas y 54 omitidas, sin fallos ni inestables;
+   - smoke 22/22;
+   - `offline-save` y `add-podcast` en los dos proyectos.
+3. Si sale en verde, M4g.5 y la publicación conjunta de M4g siguen requiriendo autorización aparte.
