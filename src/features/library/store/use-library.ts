@@ -35,4 +35,5 @@ export const libraryActions: LibraryActions = {
   undo: (...a) => active().undo(...a),
   syncStateOf: (...a) => active().syncStateOf(...a),
   resolveText: (...a) => active().resolveText(...a),
+  saved: () => active().saved(),
 }

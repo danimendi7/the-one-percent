@@ -152,6 +152,14 @@
 | --- | --- | --- | --- |
 | D89 | Orden de arranque del motor | Mientras `start()` lee la copia guardada, cualquier `sync()` (por ejemplo, el del canal realtime al conectarse) **espera a ese arranque**, que ya incluye su ciclo completo, en lugar de abrir un ciclo con la cola vacía. Si la carga falla, el motor queda marcado como cargado igualmente, para no bloquear las sincronizaciones posteriores. No cambia el protocolo | Fallo real encontrado por la CI de Linux en `ci/m4` (run 41183910815, puerta permanente `screen-error`): un cambio pendiente esperaba al ciclo siguiente porque el ciclo prematuro no lo enviaba. M4c alargó esa ventana al abrir también la base de la Biblioteca |
 
+## Hotfix M4-H1 · Altas sin conexión (01/11/2026)
+
+Numerada después de D104 (M4g) para que no choque al trasladarla.
+
+| # | Tema | Decisión | Motivo |
+| --- | --- | --- | --- |
+| D105 | Guardado en el dispositivo antes de navegar | Una escritura solo cuenta como **guardada en este dispositivo** cuando la transacción de IndexedDB que guarda la cola ha terminado (`SyncEngine.whenSaved()`, `LibraryActions.saved()`).<br>**Formulario**: espera esa confirmación antes de cerrarse y abrir la ficha:<br>• muestra «Guardando en este dispositivo…»;<br>• a los 3 s avisa y sigue esperando;<br>• si falla, no navega, conserva los datos y ofrece «Reintentar», que vuelve a escribir la copia sin crear otro elemento.<br>**Línea de estado**: dice `saving` hasta entonces.<br>Corrección independiente de M4g, sobre `f66b3b9` (`hotfix/m4-offline-save`), sin migración ni cambios de protocolo ni del service worker. Detalle: `docs/hotfix-m4-h1.md` | Pérdida real de datos en producción desde M4, encontrada por la CI de M4g.4 (run 41296762714): sin red, abrir la ficha recarga la app y la escritura en curso moría con la página. Decisión del propietario: hotfix independiente, solo en local hasta nueva autorización |
+
 ## M4 · Propuestas aún abiertas (30/10/2026)
 
 El detalle está en `docs/m4-knowledge-os-plan.md` (§15 y §16.10). Las aprobadas ya figuran arriba como D59–D69; la tabla siguiente es el registro original de la propuesta.

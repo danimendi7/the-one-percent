@@ -488,3 +488,68 @@ describe("tabs, accounts without the migration, older copies", () => {
     expect(up.goneOps).toEqual(["g"])
   })
 })
+
+describe("M4-H1 · a write is on the device before anything opens another page", () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0))
+  const storedOps = (w: World) => (w.storage.data?.queue ?? []).map((q) => q.op.type)
+
+  it("whenSaved waits for the write in progress; until it lands the row says «saving», never «saved»", async () => {
+    const w = world()
+    const { engine, t } = await device(w)
+    t.online = false
+    const real = w.storage.save
+    let release: (() => void) | null = null
+    w.storage.save = async (d) => {
+      await new Promise<void>((r) => (release = r))
+      return real(d)
+    }
+    const id = engine.libraryCreate("item", { title: "Sin red" }, { kind: "book" })
+    expect(engine.librarySyncStateOf("item", id)).toBe("saving")
+    let saved: boolean | null = null
+    void engine.whenSaved().then((v) => (saved = v))
+    for (let i = 0; i < 10 && !release; i++) await flush()
+    expect(saved).toBeNull()
+    expect(storedOps(w)).toEqual([])
+    w.storage.save = real
+    release!()
+    await expect.poll(() => saved).toBe(true)
+    expect(storedOps(w)).toEqual(["library.item.create"])
+    expect(engine.librarySyncStateOf("item", id)).toBe("local")
+  })
+
+  it("storage refusing the write: false and «error»; calling again retries and stores the create once", async () => {
+    const w = world()
+    const { engine, t } = await device(w)
+    t.online = false
+    const real = w.storage.save
+    let full = true
+    w.storage.save = async (d) => {
+      if (full) throw new DOMException("quota", "QuotaExceededError")
+      return real(d)
+    }
+    const id = engine.libraryCreate("item", { title: "Disco lleno" }, { kind: "book" })
+    expect(await engine.whenSaved()).toBe(false)
+    expect(engine.librarySyncStateOf("item", id)).toBe("error")
+    expect(await engine.whenSaved()).toBe(false)
+    full = false
+    expect(await engine.whenSaved()).toBe(true)
+    expect(storedOps(w)).toEqual(["library.item.create"])
+    expect(engine.librarySyncStateOf("item", id)).toBe("local")
+  })
+
+  it("a show and then its episode: once saved, the device copy holds both, the show first", async () => {
+    const w = world()
+    const { engine, t } = await device(w)
+    t.online = false
+    const show = engine.libraryCreate("show", { title: "Programa" })
+    expect(await engine.whenSaved()).toBe(true)
+    engine.libraryCreate("item", { title: "Episodio", show_id: show }, { kind: "episode" })
+    expect(await engine.whenSaved()).toBe(true)
+    expect(storedOps(w)).toEqual(["library.show.create", "library.item.create"])
+    // Back online, both reach the server once, in that order.
+    t.online = true
+    await settle(engine)
+    expect(storedOps(w)).toEqual([])
+    expect(lib(engine).items[Object.keys(lib(engine).items)[0]]).toMatchObject({ title: "Episodio", episode: { showId: show } })
+  })
+})

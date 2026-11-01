@@ -145,6 +145,9 @@ export function accountLibrary(engine: SyncEngine): LibraryBackend {
     resolveText(noticeId, choice) {
       return engine.resolveLibraryText(noticeId, choice)
     },
+    saved() {
+      return engine.whenSaved()
+    },
   } as LibraryActions
 
   return { getSnapshot, actions }
