@@ -2,6 +2,7 @@ import type { Page, Route } from "@playwright/test"
 import AxeBuilder from "@axe-core/playwright"
 import { expect, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
+import { setConnection, strictOffline } from "./support/offline"
 import { db } from "../tests/integration/setup"
 
 /**
@@ -294,7 +295,9 @@ test.describe("add a podcast episode with search (account)", () => {
 test.describe("add a podcast offline through the queue (account, service worker)", () => {
   test.use({ mode: "account", serviceWorkers: "allow" })
   let account: Account
-  test.beforeEach(async ({ page }, info) => {
+  test.beforeEach(async ({ page, context }, info) => {
+    // M4-H1: a strict cut, so «nothing on the server yet» cannot be broken by a request that escapes.
+    await strictOffline(context)
     account = await newAccount(`addpod-sw-${info.project.name}`)
     await signIn(page, account)
   })
@@ -302,7 +305,7 @@ test.describe("add a podcast offline through the queue (account, service worker)
     await removeAccount(account)
   })
 
-  test("chosen online, saved without connection: show and episode wait in order and reach the server once", async ({ page, context }) => {
+  test("chosen online, saved without connection: show and episode wait in order and reach the server once", async ({ page }) => {
     await providers(page, apple)
     await page.goto("/knowledge/library/podcasts")
     await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ }).first()).toBeVisible({ timeout: 15_000 })
@@ -322,13 +325,13 @@ test.describe("add a podcast offline through the queue (account, service worker)
     await page.getByTestId("episode-row").first().click()
     await expect(page.getByTestId("confirm-date")).toHaveValue("2026-10-29")
 
-    await context.setOffline(true)
+    await setConnection(page, false)
     await page.getByTestId("confirm-save").click()
     await expect(page.getByRole("heading", { level: 1, name: "331. La Ruina (con Petite Lorena)" })).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId("item-save")).not.toHaveText("Sincronizado")
     expect(await shows(account.id)).toEqual([])
 
-    await context.setOffline(false)
+    await setConnection(page, true)
     await expect(page.getByTestId("item-save")).toHaveText("Sincronizado", { timeout: 20_000 })
     const saved = await shows(account.id)
     expect(saved).toHaveLength(1)
