@@ -258,24 +258,34 @@ describe("M · the same work added offline on two devices (M4g.3)", () => {
     expect(b.engine.getSnapshot().library.items[bookA]).toBeDefined()
     expect(b.engine.getSnapshot().library.items[bookB]).toBeUndefined()
 
+    // Durable until decided: closing and reopening the device keeps the duplicate's notice and both notes.
+    b.engine.stop()
+    const again = await device(small, { storage: b.storage, store: b.store })
+    const reopened = again.engine
+    expect(reopened.getSnapshot().notices.map((n) => n.code).sort()).toEqual(["duplicate_external", "item_deleted", "item_deleted"])
+    expect(reopened.getSnapshot().notices.filter((n) => n.code === "item_deleted").map(bodyOf).sort()).toEqual(["Cita escrita en B", "Otra idea de B"])
+
     // «Guardar en el libro existente»: the quote, with its page, now belongs to A's book.
-    const quote = kept.find((n) => bodyOf(n) === "Cita escrita en B")!
-    expect(b.engine.resolveLibraryText(quote.id, "existing", bookB)).toBe(false)
-    expect(b.engine.resolveLibraryText(quote.id, "existing", bookA)).toBe(true)
+    const keptAgain = reopened.getSnapshot().notices.filter((n) => n.code === "item_deleted")
+    const quote = keptAgain.find((n) => bodyOf(n) === "Cita escrita en B")!
+    expect(reopened.resolveLibraryText(quote.id, "existing", bookB)).toBe(false)
+    expect(reopened.resolveLibraryText(quote.id, "existing", bookA)).toBe(true)
+    // A second tap finds nothing left to decide: the note cannot be written twice.
+    expect(reopened.resolveLibraryText(quote.id, "existing", bookA)).toBe(false)
     // The other one as a free idea: also nothing lost.
-    const idea = kept.find((n) => n !== quote)!
-    expect(b.engine.resolveLibraryText(idea.id, "free")).toBe(true)
-    await settle(b.engine)
+    const idea = keptAgain.find((n) => n !== quote)!
+    expect(reopened.resolveLibraryText(idea.id, "free")).toBe(true)
+    await settle(reopened)
     const onA = await db((c) => c.query("select body, page, item_id from public.knowledge_notes where user_id = $1 and body = 'Cita escrita en B' and deleted_at is null", [small.id]))
     expect(onA.rows).toEqual([{ body: "Cita escrita en B", page: 12, item_id: bookA }])
     const free = await db((c) => c.query("select item_id from public.knowledge_notes where user_id = $1 and body = 'Otra idea de B' and deleted_at is null", [small.id]))
     expect(free.rows).toEqual([{ item_id: null }])
 
     // The duplicate's own notice only informs; dismissing it leaves no pending texts.
-    const dup = b.engine.getSnapshot().notices.find((n) => n.code === "duplicate_external")!
-    expect(b.engine.resolveLibraryText(dup.id, "theirs")).toBe(true)
-    await settle(b.engine)
-    expect(b.engine.getSnapshot().notices).toEqual([])
+    const dup = reopened.getSnapshot().notices.find((n) => n.code === "duplicate_external")!
+    expect(reopened.resolveLibraryText(dup.id, "theirs")).toBe(true)
+    await settle(reopened)
+    expect(reopened.getSnapshot().notices).toEqual([])
     await settle(a.engine)
     expect(Object.values(notesOf(a.engine)).filter((n) => n.itemId === bookA).map((n) => n.body).sort()).toEqual(["Cita escrita en B", "Idea escrita en A"])
   })
