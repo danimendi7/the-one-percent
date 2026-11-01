@@ -58,10 +58,17 @@ Se ejecuta con cuenta y service worker, en móvil y escritorio.
 | Programa → episodio → nota con CPU ×6 | La carrera real, sin barrera:<br>• cada ficha se abre con su contenido guardado;<br>• la cola guardada queda `show.create`, `item.create`, `note.create`, en ese orden;<br>• recarga sin red;<br>• con red, el episodio queda en su programa y la nota en el episodio, con 1 operación de cada tipo |
 | Almacenamiento lleno | `IDBObjectStore.put` lanza `QuotaExceededError`:<br>• aparece el error, no se navega, se conservan los datos y la cola sigue vacía;<br>• un segundo «Reintentar» que también falla no cambia nada.<br>Con el almacenamiento restaurado:<br>• se abre la ficha y la cola tiene una sola alta;<br>• recarga, y con red 1 fila y 1 operación |
 
-**Sin conexión, por partida doble.** `context.setOffline` sola dejaba escapar, durante la recarga completa, la primera petición del documento nuevo a Supabase, y Playwright ni siquiera la registraba.
-- Se vio en 3 de 6 repeticiones: el servidor tenía la operación (hora del servidor 12:45:50.482) sin ninguna `apply_ops` visible.
-- La prueba aborta además todo lo que va al puerto de Supabase local. Con eso, 10 de 10 en el diagnóstico y 30 de 30 en la repetición final.
-- Un dispositivo realmente sin red no tiene ese hueco. No es un defecto de la app.
+**Sin conexión, por triplicado.** Alrededor de la recarga completa, una petición de la página a Supabase llegaba a veces al servidor sin que Playwright la registrara.
+
+| Protección | Resultado |
+|---|---|
+| Solo `context.setOffline` | En Windows, 3 de 6 y, en el control posterior, 4 de 10 con la operación en el servidor, sin ninguna `apply_ops` visible (hora del servidor 12:45:50.482) |
+| Además, abortar por enrutado todo lo que va al puerto de Supabase local | 30/30 en Windows, pero en Linux 3 de 8 todavía. Run 41312439556: inestables en la línea 136, con todas las `apply_ops` de las trazas fallidas con `ERR_INTERNET_DISCONNECTED` y el puerto correcto (`127.0.0.1:55321`) |
+| **Además, un guardián en la página** | Un `addInitScript`, en cada documento y antes del código de la app, hace fallar `fetch` hacia Supabase local, como un navegador sin red, mientras la prueba está sin conexión (marca en `localStorage`).<br>Solo con el guardián, sin enrutado: **10/10**. Con las tres protecciones: **30/30** |
+
+- La petición que escapaba es, por tanto, un `fetch` de la página, y el guardián la intercepta.
+- Ningún control se relaja: las aserciones son las mismas, y la de «0 filas en el servidor sin conexión» se mantiene.
+- Un dispositivo realmente sin red no tiene ese hueco. No es un defecto de la app: el alta estaba guardada en el dispositivo y, al volver la red, llegaba una sola vez.
 
 **Unitarias** (`library-engine.test.ts`, «M4-H1»):
 - `whenSaved` espera a la escritura en curso y el elemento dice `saving` hasta que termina;
@@ -73,7 +80,7 @@ Se ejecuta con cuenta y service worker, en móvil y escritorio.
 |---|---|
 | `f66b3b9` (producción, sin corregir), primera versión de la prueba | **6/6 fallidas**; los dos escenarios de carrera acaban en «No está en este dispositivo» |
 | `f66b3b9`, versión final de la prueba (worktree temporal) | **6/6 fallidas**; los 6 contextos de error muestran «No está en este dispositivo» |
-| Hotfix | 6/6 en la primera ejecución.<br>×3 con solo `setOffline`: 12/18; los 6 fallos son la fuga descrita arriba, con el alta en el servidor antes de tiempo, nunca perdida.<br>Con el corte doble, ×5: **30/30** |
+| Hotfix | 6/6 en la primera ejecución.<br>×3 con solo `setOffline`: 12/18; los 6 fallos son la fuga descrita arriba, con el alta en el servidor antes de tiempo, nunca perdida.<br>Con el corte doble, ×5: 30/30. Con el corte triple, ×5: **30/30** |
 
 ### Validación local del hotfix (Windows, un worker, Supabase local)
 | Suite | Resultado |

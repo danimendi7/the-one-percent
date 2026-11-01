@@ -1,4 +1,4 @@
-import type { BrowserContext, Page } from "@playwright/test"
+import type { Page } from "@playwright/test"
 import { expect, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
 import { db, localStatus } from "../tests/integration/setup"
@@ -81,15 +81,19 @@ async function failStorage(page: Page) {
 }
 
 /**
- * No connection, made sure twice. `setOffline` alone leaked: in the full reload that opening a page
- * offline causes, the new document's first request to Supabase sometimes went out (unreported by
- * Playwright), so the server had the write while the test was «offline» (3 of 6 runs; none of 10
- * with this). Every request to the local Supabase is aborted too; a device with no network has no gap.
+ * No connection, made sure three times. Around the full reload that opening a page offline causes,
+ * a request to Supabase sometimes reached the server unseen by Playwright: with `setOffline` alone
+ * (3 of 6 runs on Windows) and still with every Supabase request routed to an abort (3 of 8 runs on
+ * Linux, run 41312439556). So the page refuses it too: an init script, in every document before the
+ * app's code, makes `fetch` to the local Supabase fail as a browser without network does while the
+ * test is offline. A device with no network has no such gap.
  */
+const OFFLINE_KEY = "e2e:offline"
 let cut = false
-async function setConnection(context: BrowserContext, online: boolean) {
+async function setConnection(page: Page, online: boolean) {
   cut = !online
-  await context.setOffline(!online)
+  await page.evaluate(([key, off]) => (off ? localStorage.setItem(key, "1") : localStorage.removeItem(key)), [OFFLINE_KEY, !online] as const)
+  await page.context().setOffline(!online)
 }
 
 const heading = (page: Page, name: string) => page.getByRole("heading", { level: 1, name })
@@ -100,6 +104,17 @@ test.beforeEach(async ({ page, context }, info) => {
   cut = false
   const supabase = new URL(localStatus().API_URL).port
   await context.route((u) => u.port === supabase, (r) => (cut ? r.abort("internetdisconnected") : r.fallback()))
+  await context.addInitScript(
+    ([key, port]) => {
+      const real = window.fetch.bind(window)
+      window.fetch = (input, init) => {
+        const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.href)
+        if (url.port === port && localStorage.getItem(key) === "1") return Promise.reject(new TypeError("Failed to fetch"))
+        return real(input, init)
+      }
+    },
+    [OFFLINE_KEY, supabase] as const
+  )
   account = await newAccount(`offsave-${info.project.name}`)
   await signIn(page, account)
 })
@@ -107,11 +122,11 @@ test.afterEach(async () => {
   await removeAccount(account)
 })
 
-test("a book saved offline opens its page only once it is on the device; a slow write says so; a double tap adds one; reload and reconnect send it once", async ({ page, context }) => {
+test("a book saved offline opens its page only once it is on the device; a slow write says so; a double tap adds one; reload and reconnect send it once", async ({ page }) => {
   await page.goto("/knowledge/library/books")
   await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ }).first()).toBeVisible({ timeout: 15_000 })
   await prepared(page)
-  await setConnection(context, false)
+  await setConnection(page, false)
   await page.getByTestId("add-book").click()
   await page.getByTestId("form-title").fill("Libro guardado sin red")
 
@@ -135,7 +150,7 @@ test("a book saved offline opens its page only once it is on the device; a slow 
   await expect(heading(page, "Libro guardado sin red")).toBeVisible({ timeout: 20_000 })
   expect(await countRows("select count(*)::int n from public.library_items where user_id = $1", [account.id])).toBe(0)
 
-  await setConnection(context, true)
+  await setConnection(page, true)
   await expect(page.getByTestId("item-save")).toHaveText("Sincronizado", { timeout: 20_000 })
   expect(await countRows("select count(*)::int n from public.library_items where user_id = $1 and title = 'Libro guardado sin red' and deleted_at is null", [account.id])).toBe(1)
   expect(await ops(account, "library.item.create")).toBe(1)
@@ -147,7 +162,7 @@ test("a show, its episode and a note created offline on a 6× slower CPU: each p
   await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ }).first()).toBeVisible({ timeout: 15_000 })
   await prepared(page)
   const cdp = await context.newCDPSession(page)
-  await setConnection(context, false)
+  await setConnection(page, false)
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 })
 
   await page.getByTestId("add-menu").click()
@@ -174,7 +189,7 @@ test("a show, its episode and a note created offline on a 6× slower CPU: each p
   await expect(page.getByText("Idea apuntada sin red")).toBeVisible()
   expect(await countRows("select count(*)::int n from public.podcast_shows where user_id = $1", [account.id])).toBe(0)
 
-  await setConnection(context, true)
+  await setConnection(page, true)
   await expect(page.getByTestId("item-save")).toHaveText("Sincronizado", { timeout: 20_000 })
   const linked = await db(async (c) =>
     (
@@ -188,11 +203,11 @@ test("a show, its episode and a note created offline on a 6× slower CPU: each p
   expect([await ops(account, "library.show.create"), await ops(account, "library.item.create"), await ops(account, "library.note.create")]).toEqual([1, 1, 1])
 })
 
-test("storage refusing the write: the form says so, keeps what was typed, opens nothing, and «Reintentar» stores it once", async ({ page, context }) => {
+test("storage refusing the write: the form says so, keeps what was typed, opens nothing, and «Reintentar» stores it once", async ({ page }) => {
   await page.goto("/knowledge/library/books")
   await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ }).first()).toBeVisible({ timeout: 15_000 })
   await prepared(page)
-  await setConnection(context, false)
+  await setConnection(page, false)
   await page.getByTestId("add-book").click()
   await page.getByTestId("form-title").fill("Libro con el disco lleno")
 
@@ -214,7 +229,7 @@ test("storage refusing the write: the form says so, keeps what was typed, opens 
 
   await page.reload()
   await expect(heading(page, "Libro con el disco lleno")).toBeVisible({ timeout: 20_000 })
-  await setConnection(context, true)
+  await setConnection(page, true)
   await expect(page.getByTestId("item-save")).toHaveText("Sincronizado", { timeout: 20_000 })
   expect(await countRows("select count(*)::int n from public.library_items where user_id = $1 and deleted_at is null", [account.id])).toBe(1)
   expect(await ops(account, "library.item.create")).toBe(1)
