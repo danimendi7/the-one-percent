@@ -24,6 +24,8 @@
 19. M4g.3: auditoría de integridad y validación remota en `ci/m4g`
 20. M4g.4: alta asistida de podcasts y episodios (hecho en local)
 21. Plan de endurecimiento posterior a M4g.4 (sin implementar)
+22. M4g.4: auditoría y validación remota (fallida: pérdida de altas sin conexión, defecto de M4)
+23. M4g.5: propuesta de endurecimiento (sin implementar)
 
 ---
 
@@ -1727,3 +1729,118 @@ Chromium con el viewport de cada proyecto y la CPU 4 veces más lenta (CDP `Emul
    - prueba manual en móvil y ordenador con su guía;
    - procedimiento D48 de publicación en `main` con tu autorización;
    - comprobaciones en producción (portadas, metadatos, demo sin proveedores, `/dev/*` con 404).
+
+## 22. M4g.4 · Auditoría y validación remota en `ci/m4g` (01/11/2026)
+
+### 22.1 Auditoría previa
+- **Commits:**
+  - HEAD `8b18e5b`, árbol limpio, avance directo desde `ci/m4g` (`7794172`); `main` = `f66b3b9`;
+  - 3 commits del proyecto con la identidad `noreply`: `445c5c6` (documentación de M4g.3), `54b0c8a` y `8b18e5b`.
+- **Contenido del cambio:**
+  - sin cambios en `supabase/`, `package.json`, el lockfile, `.github`, `public/` (service worker), `vercel.json` ni `next.config.ts`;
+  - sin secretos ni correos;
+  - sin ficheros temporales (`episode-diagnostics.tsx` es la página de diagnóstico de desarrollo, no un temporal).
+- **Las 12 capturas `*-m4g4-*.png`, revisadas una a una:** programas públicos, episodios sintéticos y cuenta sintética; ningún correo ni nombre.
+- **Contrato:**
+  - **382 pruebas por pasada en 23 specs** (`--grep-invert @screens`);
+  - `add-podcast.spec.ts` no tiene omisiones, así que siguen 27 por pasada;
+  - `ci/**` sigue sin despliegues en Vercel.
+- **Runner:** Supabase efímero con la puerta de aislamiento de siempre. El saldo de minutos no se puede leer con la herramienta de solo lectura; los últimos runs duraron unos 34 minutos.
+
+### 22.2 Auditoría de integridad
+**A. Programas y episodios**
+- **Reutilización del programa:** la ficha preselecciona el existente por `collectionId` (`existingShow`) y solo crea uno si falta. Un reintento tras un fallo reutiliza el que acaba de crear. La E2E lo confirma: sigue habiendo 1 programa tras dos episodios.
+- **Orden sin conexión:** la cola añade las altas al final (`enqueueLibrary`) y solo funde ediciones de un mismo elemento en su sitio, así que el alta del programa va siempre antes que la del episodio, también entre lotes.
+  - La E2E con service worker lo confirma: 1 `library.show.create` y 1 `library.item.create`, y el episodio en su programa.
+  - Si el programa se borrara sin conexión antes de enviarse, el episodio llegaría con `show_not_found` y tendría la recuperación nueva.
+- **Sin huérfanos y sin duplicados por doble clic:** un guardián de doble envío y la comprobación en la E2E.
+
+**B. Conflictos entre dispositivos**
+- **N2:** el episodio del segundo dispositivo se conserva y se puede añadir al programa existente, o guardar sin programa (N3).
+- **N1:** las notas del mismo episodio se conservan con su minuto.
+- **Durabilidad:** los avisos se guardan en la copia del dispositivo y sobreviven a cerrar y reabrir (N2, M).
+- **Doble toque:** devuelve `false` (N2 para `show`, M para `existing`).
+- **Nada se descarta solo:** las notas solo desaparecen por una decisión del usuario.
+- **Limitación previa a M4g.4, no crítica:** un **vínculo** de Cerebro creado sin conexión sobre un contenido rechazado queda como aviso propio. No se borra en silencio, pero tampoco se recrea solo: hay que volver a conectarlo a mano.
+
+**C. Fechas y rendimiento**
+- **Fechas:** la zona del perfil se aplica en programas, episodios y ficha. El día «último» de la lista de programas se corrigió en M4g.4 y está comprobado en la E2E.
+- **Histórico de Apple:** «Los 200 más recientes de N. Si no está, búscalo abajo.», más la búsqueda de anteriores.
+- **Lista:** las filas no llevan imagen; se dibujan 30 a la vez con filas memorizadas; tecla más lenta de 48–56 ms en emulación móvil con CPU ×4.
+- **`/dev/podcasts`:** 404 en el build de producción (comprobado).
+
+**D. Seguridad y compatibilidad**
+- Demo sin peticiones a `/api/metadata` (E2E).
+- Endpoints de M4g.1 sin cambios (verificación real de la sesión).
+- Ninguna llamada real a Apple en la CI: todo se responde desde la página y lo imprevisto falla.
+
+### 22.3 Ejecución
+- **Push normal:** `7794172..8b18e5b → ci/m4g`. `main` y `ci/m4` no se tocaron.
+- **Run** [41296762714](https://github.com/danimendi7/the-one-percent/actions/runs/41296762714) sobre `8b18e5b13469b19d956d9859a4035092415d2810`: **FALLO**, de 10:16 a 10:52 UTC.
+
+| Suite | Resultado |
+|---|---|
+| Tipos y lint | Correctos |
+| Unitarias | **723/723** |
+| Integración | **153/153** (N1–N3 incluidas) |
+| `test:browser` | **6/6** |
+| E2E (2 pasadas, 382 × 2 = 764) | **707 superadas, 54 omitidas previstas, 2 fallidas y 1 inestable**. Todo lo que no pasó es **una sola prueba**: `add-podcast.spec.ts:305` («offline through the queue», con service worker), en los dos proyectos |
+| Smoke | No se ejecutó (el job se detiene tras la puerta E2E) |
+
+- **Evidencia:** el contexto de error del artefacto muestra, tras guardar sin conexión, la ficha con **«No está en este dispositivo»** y el estado «Sin conexión».
+- **Sin reintentos ni pushes adicionales.**
+- **Estado tras el fallo:**
+  - sin Preview de Vercel;
+  - `main` = `f66b3b9` y producción en `f66b3b931aac`;
+  - la nube, 27/27 con 11 migraciones;
+  - aislamiento correcto;
+  - logs sin secretos, datos personales ni llamadas a Apple;
+  - 4 avisos `newAccount` del patrón de siempre.
+
+### 22.4 Diagnóstico: pérdida de un alta hecha sin conexión (defecto que ya existe en M4)
+- **Causa (verificada):**
+  1. Un alta guarda la cola en IndexedDB **de forma asíncrona** (`engine.submit` → `void this.persist()`).
+  2. Justo después, el formulario o el asistente navegan a la ficha (`router.push`).
+  3. **Sin conexión**, Next no puede pedir la ruta y hace una **recarga completa** (la sirve la carcasa del SW).
+  4. Si la recarga llega antes de que la transacción de IndexedDB se confirme, el alta **no queda en el dispositivo**: la ficha dice «No está» y **nunca llega al servidor**.
+- **Reproducido en local** (experimento temporal, no confirmado, con la CPU ×6):
+  - con el asistente de podcasts: 3/3 intentos con 0 programas y 0 episodios en el servidor 25 s después de recuperar la red;
+  - **con el alta manual de libros de M4**: 2/2 intentos con 0 libros en el servidor.
+  - Sin ralentizar la CPU, la escritura suele ganar la carrera, y por eso la prueba pasó en Windows.
+- **Alcance:**
+  - afecta a **producción** (`f66b3b9`): cualquier alta de libro, episodio o programa hecha **sin conexión** desde un dispositivo lento puede perderse al abrirse sola la ficha;
+  - con conexión no ocurre, porque la navegación es en el cliente, sin recarga;
+  - las notas y capturas no navegan al guardarse.
+  - Es el mismo tipo de riesgo para cualquier escritura seguida de una navegación automática sin conexión.
+- **Por qué no se detectó antes:** ninguna prueba creaba contenido **sin conexión** y navegaba después. `offline.spec.ts` crea con red y captura notas sin red en una página ya cargada. La prueba nueva de M4g.4 es la primera en ejercitarlo, y la CI de Linux, más lenta, lo destapó.
+- **Evidencia conservada** (fuera del repositorio): el artefacto y los logs del run, los registros del experimento y el fichero de la prueba temporal.
+
+### 22.5 Corrección propuesta (no implementada; requiere autorización)
+1. **Motor**: `submit` guarda la promesa de la última escritura. Nuevo `whenSaved(): Promise<boolean>`, que espera a que la cola con esa operación esté en IndexedDB y dice si se guardó (`persisted`).
+2. **Acciones de Biblioteca**: `libraryActions.saved()`; en la demo resuelve al momento (`localStorage` es síncrono).
+3. **Interfaz**: el formulario manual, `AddBookSheet`, `AddPodcastSheet` («Añadir» y «Seguir el programa») y cualquier otra navegación que siga a una escritura:
+   - esperan a `saved()` antes de navegar, con un estado breve «Guardando en este dispositivo…» y un límite de unos 3 s;
+   - si la copia no se pudo guardar, **no navegan**: muestran el error y conservan el formulario.
+4. **Pruebas**:
+   - la prueba de M4g.4 se mantiene, más una variante del **alta manual de libros**, las dos con la CPU ×6 para que el caso sea determinista;
+   - prueba de motor de `whenSaved`;
+   - `test:browser` con IndexedDB real.
+5. **Producción**: como el defecto está en `f66b3b9`, conviene decidir si la corrección va en M4g.5 (y se publica con M4g) o como **corrección urgente** sobre `main` antes, con su propia validación y autorización.
+
+**Estimación:** 60–90 minutos y una CI.
+
+
+## 23. M4g.5 · Propuesta de endurecimiento (sin implementar; requiere autorización)
+
+| # | Trabajo | Detalle | Minutos |
+|---|---|---|---|
+| 0 | **Corrección de la pérdida de altas sin conexión** (§22.5) — **prioritaria** | Persistencia confirmada antes de navegar, en el formulario manual y en los dos asistentes; pruebas deterministas con la CPU ×6. Decidir si va con M4g o como corrección urgente sobre `main` | 60–90 |
+| 1 | **Borradores temporales** (D102) | `sessionStorage` con clave `top:draft:{book\|podcast}:{userId}`: lo escrito, la ficha (campos y campos tocados), el resultado elegido, la edición o el programa y la marca de tiempo. Se restaura al reabrir el asistente en la misma pestaña («Recuperar lo que escribías» / «Empezar de cero»). Se borra al guardar bien, al descartar explícitamente, al cerrar sesión y al cambiar de usuario; caduca a las 24 h; nunca va al servidor, a IndexedDB ni al service worker. Lectura y escritura con `try/catch` (navegación privada). Pruebas: unitarias del almacén, E2E de recarga a mitad en libros y podcasts, guardado que limpia, otra cuenta en la misma pestaña que no ve el borrador y caducidad | 100–130 |
+| 2 | **Atribución de ediciones separadas** (D101) | Sin cambiar `external_id`: en la ficha, «Datos: Open Library» cuando `source_url` es de `openlibrary.org` y no hay referencia externa (derivado al mostrar, nada guardado). Prueba unitaria y E2E | 25–35 |
+| 3 | **Búsqueda en el iPhone** | Revisión del asistente con capturas en un viewport de iPhone y el teclado simulado; ajustes de espacio de la cabecera de episodios (ocupa mucho en 375 px); la prueba real la hace el propietario con la guía (fila 5) | 40–60 |
+| 4 | **Medición real con `/dev/podcasts`** | Procedimiento: `next dev` en la red local (como §21.3 de M4), abrir `/dev/podcasts` en el iPhone, «Medir el primer dibujo», «Medir el filtrado» y escribir a mano; apuntar las cifras en el plan sin datos personales. Si el filtrado supera 100 ms en el iPhone, propuesta de lista sin descripciones (contrato de M4g.1) | 20–30 (más el tiempo del propietario) |
+| 5 | **Guía de VoiceOver y teclado del iPhone** | Pasos para los dos asistentes: anuncios de estado (`aria-live`), orden del foco, elegir con doble toque, avisos de duplicado, entrada manual y teclado sin tapar el campo ni el botón principal. Registro del resultado por paso | 30–40 |
+| 6 | **Privacidad e integridad de la sincronización** | Repaso final: nada personal hacia los proveedores, caché del navegador (portadas `private`, metadatos `no-store`), avisos durables, `getUser()` en las rutas, `/dev/*` con 404 y búsqueda de secretos en el repositorio; más una prueba de integración que ate los casos M y N con vínculos de Cerebro (la limitación de §22.2-B queda documentada o, si se aprueba, con una recuperación) | 45–60 |
+| 7 | **Plan de publicación conjunta de M4g** (sujeto a otra autorización) | Validación CI en `ci/m4g`; copia de seguridad verificada (sin migración, por prudencia); prueba manual guiada en móvil y ordenador; procedimiento D48 (`main` por avance directo, Vercel, CI de `main`, smoke en producción); comprobación en producción de portadas, metadatos, demo sin proveedores y `/dev/*` con 404; plan de vuelta atrás (revert, sin tocar la base) | 30–40 de preparación (más CI y publicación cuando se autorice) |
+
+**Estimación total de M4g.5:** unos **350–485 minutos** de trabajo (incluida la corrección 0), más unos 35 minutos de CI remota si se autoriza. No incluye el tiempo del propietario en el iPhone ni la publicación.
