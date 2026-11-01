@@ -22,6 +22,8 @@
 17. M4g.3: plan de implementación del alta asistida de libros (sin implementar)
 18. M4g.3: alta asistida de libros (hecho en local)
 19. M4g.3: auditoría de integridad y validación remota en `ci/m4g`
+20. M4g.4: alta asistida de podcasts y episodios (hecho en local)
+21. Plan de endurecimiento posterior a M4g.4 (sin implementar)
 
 ---
 
@@ -1586,3 +1588,142 @@ Autorizado solo en local. Sin migraciones, dependencias, cambios en el servidor,
    - alta con las operaciones de M4.
 5. **Contratos de M4g.1 que se usarán sin cambios:** `podcasts/search`, `podcasts/episodes` (`scope`, `total` y `complete`), `toShowInput`, `toEpisodeInput`, `findShowMatches`, `findEpisodeMatches` y `existingShow`.
 6. **Pendientes que no bloquean:** VoiceOver y el teclado en el iPhone real; la E2E completa en local sigue fuera del alcance de la memoria de Windows.
+
+## 20. M4g.4 · Alta asistida de podcasts y episodios (01/11/2026, hecho en local)
+
+Autorizado solo en local (D103), con M4g.3 cerrada (D100). No hay migraciones, dependencias nuevas ni cambios en el servidor, el service worker o la CSP. Decisión de diseño: D104.
+
+### 20.1 Flujo terminado
+1. **Entrada con cuenta.** «Episodio» y «Programa de podcast» (menú «Añadir» de Podcasts) abren `AddPodcastSheet`; también «Añadir episodio» en la ficha de un programa que vino de Apple, que abre directamente en sus episodios. En la **demo** y en los **programas escritos a mano** sigue el formulario manual, sin pedir nada a Apple.
+2. **Programas** (`podcasts/search`):
+   - por nombre o creador;
+   - espera 350 ms y cancela la búsqueda anterior;
+   - solo muestra las respuestas a lo que está escrito;
+   - con teclado: flechas e Intro.
+   - Cada resultado muestra portada 1:1 (tipográfica al instante, D97), nombre, creador, número de episodios, último lanzamiento (en la zona del perfil) y géneros.
+   - Apple no da descripción del programa en la búsqueda: los géneros hacen de descripción breve, y no se inventa nada.
+   - Los duplicados de Apple ya llegan agrupados desde el servidor (M4g.1).
+   - Insignias «En tu Biblioteca» (mismo `collectionId`) y «¿Ya lo tienes?» (posible, por nombre y creador).
+3. **Episodios** (`podcasts/episodes`):
+   - el texto dice **«Los 200 más recientes de N. Si no está, búscalo abajo.»**: nunca se presenta como el catálogo completo;
+   - se dibujan 30 a la vez, con «Mostrar 30 más (n restantes)»; las filas no llevan imagen (la portada del programa está arriba);
+   - el filtro local por título y descripción usa un valor diferido y filas memorizadas, así que escribir no bloquea;
+   - con dos o más letras aparece **«Buscar episodios anteriores en Apple»** (búsqueda de Apple filtrada por programa);
+   - cada fila: título, día (zona del perfil), duración y descripción breve, o «Sin fecha ni duración»;
+   - insignia «En tu Biblioteca» para el mismo `trackId`;
+   - **«Seguir el programa»** guarda solo el programa (o lo abre si ya está).
+4. **Ficha «Revisa y añade»** (`episode-draft.ts`):
+   - **programa**: el existente, o «(nuevo)», otro de la Biblioteca o «Sin programa»; si hay un programa escrito a mano con el mismo nombre, se avisa con «Usar «…»»;
+   - título, invitados, fecha (el **día del instante en la zona del perfil**: el instante no se cambia ni se guarda), duración, nº de episodio, descripción (con «Guardar la descripción»), imagen («Usar esta imagen»; la del episodio o, si no tiene, la del programa) y enlace oficial;
+   - estado, valoración de 1 a 10 y favorito;
+   - lo que Apple no da queda vacío; lo que tocas no se vuelve a escribir.
+5. **Guardar**:
+   - si el programa falta, `createShow`; después `createItem("episode")`. Son las operaciones de M4, en este orden en la misma cola: sin cola paralela y sin episodios huérfanos;
+   - un doble clic guarda una sola vez;
+   - si el episodio falla después de crear el programa, el programa queda seleccionado y el siguiente intento lo reutiliza, sin duplicarlo;
+   - después se abre la ficha del episodio con su estado de sincronización.
+6. **Entrada manual**:
+   - «Episodio a mano» y «Programa a mano» en la búsqueda;
+   - «Añadir episodio manualmente» en los episodios, con lo escrito en el filtro y el programa si ya está;
+   - «Manual» en la ficha.
+
+### 20.2 Reutilización respecto a M4g.3
+- **`assistant-ui.tsx` (nuevo)**: `AssistantSheet` (hoja inferior o lateral, aviso de descarte y posición sobre el teclado del iPhone) y `searchErrorText`. `AddBookSheet` pasa a usarlos, sin cambiar su comportamiento: su E2E sigue verde.
+- **Sin cambios, de M4g.1 y M4g.2**: `createSearchController`, `metadataClient`, `CoverArt`, `existingShow`, `findShowMatches`, `findEpisodeMatches`, `filterEpisodes` y `toShowInput`.
+- **Nuevos**: `episode-draft.ts` (puro y con pruebas), `showResultOf` (un programa de la Biblioteca como resultado de Apple, para abrir sus episodios) y el patrón de prueba de `add-book.spec.ts`.
+
+### 20.3 Duplicados y conflictos
+| Caso | Comportamiento |
+|---|---|
+| Mismo programa (`collectionId`) | Se reutiliza siempre; «En tu Biblioteca»; nunca se crea otro (E2E: 1 programa tras dos episodios) |
+| Programa probable (nombre y creador; p. ej., uno escrito a mano) | Solo aviso, con «Usar «…»» en la ficha |
+| Mismo episodio (`trackId`) | «Este episodio ya está en tu Biblioteca» con «Abrir el existente»; guardar desactivado. **No se ofrece «otra copia»**: sería el mismo episodio |
+| Mismo título en otro programa | No es un duplicado (unitaria y E2E) |
+| Mismo episodio en dos dispositivos sin conexión | El segundo se rechaza (`duplicate_external`); sus notas se conservan y se pueden guardar en el existente con su minuto (integración N1) |
+| **El mismo programa en dos dispositivos sin conexión**, con un episodio en cada uno | El segundo programa se rechaza (`duplicate_external`) y **su episodio también** (`show_not_found`, trigger del servidor). Antes de M4g.4 ese episodio solo quedaba como un aviso genérico. Ahora el aviso explica qué pasó y ofrece **«Añadir a «programa existente»»**: el episodio se vuelve a escribir entero y **con el mismo id** (nueva opción `show` del motor, aditiva). También **«Guardar sin programa»** (nunca se pierde) y «Descartar el episodio». Sus notas esperan («Su episodio está pendiente de decidir») y después ofrecen «Guardar en «episodio»» (integración N2 y N3) |
+| Rechazos en general | Nada se borra ni se fusiona solo. Los avisos se guardan en la copia del dispositivo y **sobreviven a cerrar y reabrir** (N2 lo comprueba). Un doble toque nunca escribe dos veces |
+
+### 20.4 Sin conexión, demo y errores
+- **Demo**: formularios manuales; ninguna petición a `/api/metadata` (E2E).
+- **Asistente sin conexión**: lo dice, no hace peticiones y la entrada manual conserva el texto (E2E).
+- **Programa y episodio por la cola sin conexión** (E2E con service worker): se eligen con red, se guardan sin ella, la ficha se abre con la carcasa del SW y queda «no sincronizado». Al volver la red llegan **una vez y en orden**: 1 `library.show.create` y 1 `library.item.create` en el registro del servidor.
+- **Límite de Apple (429), Apple caído (502) y sesión caducada al pedir los episodios**: mensajes distintos, «Reintentar» (salvo con la sesión caducada) y la entrada manual con el texto escrito (E2E).
+- **Episodio antiguo fuera de los 200**: «Ninguno de estos 200 coincide» → «Buscar episodios anteriores en Apple» → se guarda (E2E).
+- **Episodio sin fecha, duración, descripción ni enlace**: campos vacíos y guardado con nulos (E2E).
+
+### 20.5 Rendimiento observado (emulación, **no medido en iPhone**)
+Chromium con el viewport de cada proyecto y la CPU 4 veces más lenta (CDP `Emulation.setCPUThrottlingRate`), 200 episodios simulados.
+
+| Medida | Antes de la optimización | Después |
+|---|---|---|
+| Clic en el programa → primera fila (incluye la respuesta simulada y Playwright) | 350 ms (móvil) / 309 ms (escritorio) | 442 ms (móvil) / 332 ms (escritorio) |
+| «Mostrar más» (30 filas más) | 250 / 278 ms | 185 / 288 ms |
+| Teclas al filtrar (Event Timing, de la entrada al siguiente pintado; entradas ≥ 16 ms) | máximo **120** / 184 ms | máximo **48** / 136 ms, y en una segunda ejecución **56** / 152 ms |
+
+- **Optimización aplicada**: el conjunto de episodios «En tu Biblioteca» se calcula una vez y cada fila está memorizada, así que una tecla ya no vuelve a dibujar las 30–60 filas.
+- **Variación**: las cifras cambian de una ejecución a otra. Todas las teclas quedan por debajo de los 200 ms que se consideran buena respuesta (INP).
+- **iPhone real**: diagnóstico preparado en **`/dev/podcasts`**, solo con `next dev` (404 en producción), con 200 episodios generados allí, sin peticiones ni datos de la cuenta. Mide el primer dibujo, el filtrado tecla a tecla y, donde Safari lo permita, las teclas escritas a mano. Hay que abrirlo desde el iPhone en la red local (§21.3). **Pendiente**: lo ejecuta el propietario.
+
+### 20.6 Revisión visual (capturas `docs/screenshots/{mobile,desktop}-m4g4-*.png`)
+- **Estados**: programas, episodios, búsqueda de anteriores, ficha, error de Apple y entrada manual, en móvil (375) y escritorio (1440). Cuenta sintética y datos simulados.
+- **Corregido tras la revisión**: «último: 28 oct 2026» en la lista de programas usaba el día en UTC, cuando el mismo instante en la lista de episodios es el 29 en Madrid. Ahora los dos usan la zona del perfil, con una comprobación en la E2E.
+
+### 20.7 Pruebas y resultados (01/11/2026)
+| Suite | Resultado |
+|---|---|
+| `npm run check` (tipos, lint y unitarias) | **723/723**: 717 anteriores y 6 nuevas de `episode-draft`, más una comprobación nueva en `matching.test.ts` |
+| `npm run test:integration` | **153/153**: 150 anteriores y N1, N2 y N3 |
+| `npm run test:browser` | **6/6** |
+| `e2e/add-podcast.spec.ts` | **16/16** (8 pruebas × móvil y escritorio), 0 omitidas |
+| E2E dirigida (1 worker, Windows): `add-podcast`, `add-book`, `library`, `library-account`, `knowledge-live`, `offline`, `screen-error`, `a11y`, `covers`, `navigation` y `knowledge` | **194: 186 superadas y 8 omitidas previstas, 0 fallidas**. Sin avisos de `newAccount` |
+| `npm run smoke` (local) | **22/22** |
+| Build | Correcto; `/dev/podcasts` y `/dev/knowledge` responden **404** en producción |
+| **E2E completa** (382 × 2) | **No ejecutada en local** (memoria de Windows). Pendiente de la CI |
+
+**Las 8 pruebas de `add-podcast.spec.ts`:**
+1. Programa → 200 recientes con su texto → 30 + 30 filas → filtro → día local (23:30 UTC del 28 = 29 en Madrid) → duración editada conservada → doble clic → **1 programa y 1 episodio** con todos los campos.
+2. Programa reutilizado (sigue habiendo 1); mismo episodio bloqueado; mismo título en otro programa, sin aviso.
+3. Episodio anterior a los 200 por la búsqueda de Apple; episodio sin datos guardado con nulos.
+4. 429, 502 y sesión caducada al pedir los episodios: mensajes, y la entrada manual con el texto.
+5. Asistente sin conexión: ninguna petición y entrada manual con el texto.
+6. Teclado, foco, axe en los tres pasos y sin desplazamiento horizontal.
+7. Con service worker: programa y episodio guardados sin conexión, llegan una vez y en orden.
+8. Demo: formulario manual y ninguna petición a `/api/metadata`.
+
+### 20.8 Riesgos
+1. **Rendimiento en el iPhone**: medido solo en emulación. Falta `/dev/podcasts` en el dispositivo.
+2. **VoiceOver y el teclado del iPhone** sin probar en un dispositivo real.
+3. **Apple**: la búsqueda de programas no trae descripción (se muestran los géneros), y la de episodios anteriores depende de que Apple los indexe.
+4. **Borradores**: como en libros, una recarga con el asistente abierto pierde lo no guardado (D102, en el endurecimiento).
+5. **E2E completa** no ejecutada en local (memoria de Windows). Queda para la CI.
+
+### 20.9 Validación de M4g.4 en `ci/m4g` (cuando se autorice)
+- **Recuentos esperados**:
+  - unitarias **723**, integración **153** (N1–N3), `test:browser` **6**, smoke **22**;
+  - E2E con **382 pruebas por pasada** (366 + 16 de `add-podcast.spec.ts`), **23 specs**, **0 omisiones nuevas**: **710 superadas y 54 omitidas** en dos pasadas (355 + 27 por pasada).
+- **Comprobaciones**:
+  - `add-podcast.spec.ts` incluye una prueba con service worker («offline through the queue»), que la CI ejecuta como las de `offline.spec.ts`;
+  - las capturas y medidas `@screens` quedan fuera;
+  - sin llamadas reales a Apple, sin Preview y `main` sin cambios.
+
+## 21. Plan de endurecimiento posterior a M4g.4 (sin implementar; requiere autorización)
+
+1. **Borradores temporales (D102)**:
+   - `sessionStorage` por asistente y usuario (`top:draft:book:<user>`, `top:draft:episode:<user>`) con lo escrito, la ficha y el resultado elegido;
+   - se restaura al reabrir el asistente en la misma pestaña tras una recarga («Recuperar lo que escribías»);
+   - se borra al guardar, al descartar y al cerrar sesión; caduca a las 24 h; nunca va al servidor ni al SW;
+   - pruebas de recarga a mitad, de cierre de sesión y de otra cuenta en la misma pestaña.
+2. **Atribución de ediciones separadas (D101)**:
+   - sin mezclar identificadores ni migrar: mostrar «Datos: Open Library» en la ficha cuando `source_url` es de `openlibrary.org` y no hay referencia externa, derivado al mostrarse y sin guardar nada;
+   - documentar la limitación;
+   - una columna propia de atribución, si algún día hiciera falta, sería una migración aditiva aparte.
+3. **Rendimiento móvil**:
+   - ejecutar `/dev/podcasts` (y `/dev/knowledge`) en el iPhone y apuntar las cifras reales;
+   - si la lista de 200 pesa (≈214 KB), una lista sin descripciones con el detalle al elegir (cambio de contrato de M4g.1, con sus pruebas).
+4. **VoiceOver**: una guía de prueba manual de los dos asistentes (anuncios de estado, orden del foco, elegir con doble toque, avisos de duplicado, teclado sin tapar los campos), que ejecuta el propietario y queda registrada sin datos personales.
+5. **Validación integral de M4g antes de producción**:
+   - CI completa en `ci/m4g`;
+   - copia de seguridad verificada (aunque no haya migración);
+   - prueba manual en móvil y ordenador con su guía;
+   - procedimiento D48 de publicación en `main` con tu autorización;
+   - comprobaciones en producción (portadas, metadatos, demo sin proveedores, `/dev/*` con 404).
