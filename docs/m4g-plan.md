@@ -21,6 +21,7 @@
 16. M4g.2: validación remota en `ci/m4g`
 17. M4g.3: plan de implementación del alta asistida de libros (sin implementar)
 18. M4g.3: alta asistida de libros (hecho en local)
+19. M4g.3: auditoría de integridad y validación remota en `ci/m4g`
 
 ---
 
@@ -1486,3 +1487,102 @@ Autorizado solo en local. Sin migraciones, dependencias, cambios en el servidor,
 7. **Pruebas**: el mismo esquema que `add-book.spec.ts` (respuestas desde la página), más la lista de 200 episodios, la búsqueda de anteriores, la reutilización del programa y su accesibilidad.
 8. **Tamaño**: los ≈214 KB de la lista de 200 episodios (§12.6) se miden en el iPhone. Si pesa, la lista va sin descripciones y el detalle se pide al elegir.
 9. **Estimación**: 200–260 minutos, sin migraciones.
+
+## 19. M4g.3 · Auditoría de integridad y validación remota en `ci/m4g` (01/11/2026)
+
+### 19.1 Verificación previa
+- **Commits:**
+  - HEAD `313ad83`, árbol limpio, avance directo desde `ci/m4g` (`5c4309a`);
+  - contiene `8e60cc4`, `ab0d62c` y `313ad83`;
+  - `origin/main` = `f66b3b9`.
+- **Contenido del cambio:**
+  - sin cambios en `supabase/`, `package.json`, el lockfile, `.github`, `public/` (service worker), `vercel.json` ni `next.config.ts`;
+  - sin secretos ni correos;
+  - ningún fichero temporal entre los 31 del diff.
+- **Las 12 capturas, revisadas una a una:**
+  - cuenta sintética, resultados simulados y títulos de catálogo público; ningún correo ni nombre;
+  - el fondo de la app sale desenfocado por el panel;
+  - en `mobile-m4g3-search-empty.png` el panel quedó a mitad de su animación de apertura: es solo estético.
+- **Contrato:**
+  - 366 pruebas listadas por pasada (`--grep-invert @screens`), 22 specs;
+  - `add-book.spec.ts` no tiene omisiones, así que `E2E_SKIPS_PER_PASS` sigue en 27;
+  - las capturas `@screens` quedan fuera de la E2E.
+- **Vercel:** `ci/**` sigue con los despliegues desactivados.
+
+### 19.2 Auditoría especial de integridad
+**A. Duplicados**
+- **Otra edición:** se guarda con `external = null` (`toBookInput(…, { separateEdition: true })`). Nunca reutiliza la referencia de la obra: lo comprueban la E2E (fila con `external_id` nulo) y `ops.ts`, que rechazaría la misma referencia.
+- **Datos guardados en ese caso:** ISBN, editorial y el resto de la edición, más el enlace a la ficha de la edición en Open Library (`source_url`).
+- **Limitación de coherencia (sin pérdida de datos):** la base exige un proveedor para guardar `external_attribution`, así que una edición separada **no conserva la atribución** como campo; solo el enlace de origen la delata.
+  - Alternativa para decidir más adelante: guardar como referencia la clave de la **edición** (`OL…M`) en lugar de la de la obra, solo en este caso. Mantendría la atribución, pero mezcla significados en `external_id` (D90). No se ha cambiado.
+- **Título y autor:** coincidencia `possible`, que solo avisa. La E2E comprueba que el botón de guardar sigue activo.
+
+**B. Recuperación de notas**
+- **Durabilidad:**
+  - los avisos del libro rechazado (`duplicate_external`) y de sus notas (`item_deleted`) son textos de Biblioteca (`isLibraryText`);
+  - se guardan en la copia del dispositivo (`pendingNotes`) en cuanto llega la respuesta, antes de seguir (`await persist()`);
+  - **nueva comprobación en la prueba M** (`7794172`): se cierra y se reabre el dispositivo antes de decidir, y el aviso y las dos notas siguen enteras.
+- **Nada se elimina automáticamente:** un aviso solo desaparece por una decisión del usuario.
+- **Ni duplicado ni pérdida:**
+  - «Guardar en…» y «Guardar como idea suelta» quitan el aviso y encolan la nota en el mismo paso síncrono, así que la copia guardada nunca tiene una cosa sin la otra;
+  - un segundo toque devuelve `false` (comprobado en la prueba M);
+  - en el servidor queda **una** fila con el texto y la página.
+- **Libro de destino aún no sincronizado en el dispositivo:**
+  - el motor solo acepta `existing` sobre un libro confirmado por el servidor; si no, devuelve `false` y el aviso sigue (comprobado: con el id del libro rechazado se niega);
+  - el botón solo aparece cuando el libro existente está en la copia. En el caso real (lo creó otro dispositivo) llega con la descarga, así que ya está confirmado.
+
+**C. Borradores**
+| Situación | Qué pasa |
+|---|---|
+| La sesión caduca al buscar | Aviso; el texto se conserva; «Introducir manualmente» lo lleva al formulario (E2E) |
+| La sesión caduca tras elegir un resultado | Aviso en la ficha; **se puede guardar** con lo que hay, porque el alta es local y se sincroniza al volver la sesión (E2E) |
+| Falla el guardado (rechazo local) | Mensaje en la ficha; nada se borra; se puede corregir y repetir |
+| Proveedor caído o límite | Mensaje; texto conservado; «Reintentar» y entrada manual (E2E) |
+| Cerrar el asistente o el formulario con algo escrito (Esc, X o deslizar) | Pregunta «¿Descartar lo escrito?» (E2E en escritorio) |
+| **No cubierto: recargar, navegar fuera o que el sistema cierre la app** con el asistente abierto | **Se pierde lo escrito sin guardar**, igual que en el formulario manual de M4: los borradores no se guardan en el dispositivo. Lo guardado nunca se pierde. Una mejora posible: borrador en `sessionStorage`, que hoy no se ha hecho |
+
+### 19.3 Ejecución
+- **Push normal:** `313ad83` más el commit de auditoría `7794172` (prueba M con reapertura y doble toque); `5c4309a..7794172 → ci/m4g`. `main` y `ci/m4` no se tocaron.
+- **Run** [41287915453](https://github.com/danimendi7/the-one-percent/actions/runs/41287915453) sobre `7794172b2cda96800f0c7b76c4898ccbe9fa7aeb` (push): **éxito**, de 09:13 a 09:47 UTC (34 min).
+
+| Suite | Resultado (artefactos y puertas) |
+|---|---|
+| Tipos y lint | Correctos |
+| Unitarias | **717/717**; las de `book-draft`, 9/9 |
+| Aislamiento | Supabase efímero en `127.0.0.1:55321`, sin credenciales de la nube ni secretos |
+| Integración | **150/150**; la prueba M (dos dispositivos, reapertura, doble toque) superada |
+| `test:browser` | **6/6** |
+| E2E (2 pasadas) | **678 superadas y 54 omitidas**: 366 × 2 = 732 ejecutadas, 339 superadas y 27 omitidas por pasada. 0 fallidas, 0 inestables, 0 interrumpidas, 0 errores globales y 0 reintentos. Las 22 specs presentes; `add-book.spec.ts`, 32/32 |
+| Smoke | **22/22** |
+| Revisión de secretos de la CI | 9 ficheros, 0 eliminados |
+
+- **Omitidas:** las 54 son **las mismas, por título**, que en el run 41241302825. Comparadas por número de línea parecían distintas porque se añadieron líneas en 4 specs.
+- **Sin llamadas reales a proveedores:**
+  - la E2E responde a `/api/metadata` y `/api/covers` desde la página, y cualquier petición imprevista falla;
+  - los logs no mencionan `openlibrary.org`, `archive.org`, `mzstatic.com` ni `itunes.apple.com`.
+- **`newAccount`:** 3 avisos «slow», todos en la etapa `status` (2,8–3,1 s), el patrón informativo de siempre. Ningún error de autenticación.
+- **Logs y artefactos:** sin secretos, correos ni la referencia del proyecto de la nube.
+- **Estado final:**
+  - ningún estado ni despliegue de Vercel para `7794172`, así que no hubo Preview; producción sirve `f66b3b931aac`;
+  - `origin/main` = `ci/m4` = `f66b3b9`;
+  - Supabase Cloud: 27/27 en solo lectura.
+- **Funcionalidades** (E2E en Linux, 2 pasadas):
+  - búsqueda por título, autor e ISBN (válido e inválido);
+  - portadas con respaldo tipográfico (`covers.spec.ts`, 32/32);
+  - obra y edición; campos manuales conservados; ISBN-10 e ISBN-13;
+  - doble clic; conservación ante errores;
+  - duplicados por referencia y probables; resolución entre dispositivos y notas (integración M);
+  - demo sin proveedores; entrada manual sin conexión; sesión caducada;
+  - Biblioteca, Cerebro y M2/M3 sin regresiones; axe en móvil y escritorio.
+
+### 19.4 Condiciones de entrada para M4g.4 (sin implementar)
+1. **M4g.3 validada en `ci/m4g`** (este run) y aceptada por el propietario.
+2. **Decisión sobre la atribución de las ediciones separadas** (§19.2-A): mantenerla como está, o usar la clave de la edición.
+3. **Medida en el iPhone** de la lista de 200 episodios (≈214 KB) antes de decidir si se piden las descripciones por separado.
+4. **Las mismas reglas que M4g.3:**
+   - respuestas de los proveedores desde la página en la E2E y ningún origen de pruebas en el servidor;
+   - sin omisiones nuevas (o el cambio de `E2E_SKIPS_PER_PASS` a propósito y documentado);
+   - demo manual;
+   - alta con las operaciones de M4.
+5. **Contratos de M4g.1 que se usarán sin cambios:** `podcasts/search`, `podcasts/episodes` (`scope`, `total` y `complete`), `toShowInput`, `toEpisodeInput`, `findShowMatches`, `findEpisodeMatches` y `existingShow`.
+6. **Pendientes que no bloquean:** VoiceOver y el teclado en el iPhone real; la E2E completa en local sigue fuera del alcance de la memoria de Windows.
