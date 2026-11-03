@@ -219,6 +219,52 @@ test.describe("library · account mode", () => {
     await b.ctx.close()
   })
 
+  test("a kept text is never decided by time: its toast (10 s) closes on its own, and after more than 12 s untouched the text is still pending, also after a reload, until the user decides (D108)", async ({ browser, page }, info) => {
+    test.slow()
+    await signIn(page, account)
+    const id = await addBook(page, "Libro con texto pendiente E2E")
+    await capture(page, "Nota que se borrará mientras espera")
+    await expect(page.getByTestId("capture-save")).toHaveText("Sincronizado", { timeout: 15_000 })
+
+    const b = await secondDevice(browser, info)
+    await openLibrary(b.page, `/knowledge/library/item?id=${id}`)
+    await b.ctx.setOffline(true)
+    await editNote(b.page, "Nota que se borrará mientras espera", "Texto que nadie ha decidido")
+
+    await page.reload()
+    await synced(page)
+    await card(page, "Nota que se borrará mientras espera").getByRole("button", { name: "Más acciones de la nota" }).click()
+    await page.getByRole("menuitem", { name: "Eliminar" }).click()
+    await expect.poll(async () => (await note("Nota que se borrará mientras espera"))?.deleted_at, { timeout: 15_000 }).not.toBeNull()
+    await b.ctx.setOffline(false)
+
+    const conflict = b.page.getByTestId("library-conflict").locator("visible=true")
+    await expect(conflict).toBeVisible({ timeout: 20_000 })
+    await expect(conflict.getByTestId("conflict-mine")).toHaveText("Texto que nadie ha decidido")
+    // The toast that announced it (nominal duration 10 s) closes by itself: nobody touches anything…
+    const toastOf = b.page.locator("[data-sonner-toast]")
+    await expect(toastOf.first()).toBeVisible()
+    await expect(toastOf).toHaveCount(0, { timeout: 20_000 })
+    // …and after more than 12 s untouched (past the 12 s of the longest toast before D108), the text
+    // has not been resolved on its own: it is still kept and offered for a decision.
+    await b.page.waitForTimeout(3_000)
+    await expect(conflict).toBeVisible()
+    await expect(conflict.getByTestId("conflict-mine")).toHaveText("Texto que nadie ha decidido")
+    expect(await note("Texto que nadie ha decidido")).toBeNull()
+
+    // Kept on the device: a reload (the app opened again) still offers it.
+    await b.page.reload()
+    await expect(b.page.getByTestId("library-conflict").locator("visible=true")).toBeVisible({ timeout: 20_000 })
+    await expect(b.page.getByTestId("library-conflict").locator("visible=true").getByTestId("conflict-mine")).toHaveText("Texto que nadie ha decidido")
+
+    // Only the user's choice decides, once.
+    await b.page.getByTestId("library-conflict").locator("visible=true").getByRole("button", { name: "Restaurar con mi texto" }).click()
+    await expect.poll(async () => (await note("Texto que nadie ha decidido"))?.deleted_at, { timeout: 15_000 }).toBeNull()
+    await expect(b.page.getByTestId("library-conflict").locator("visible=true")).toHaveCount(0)
+    expect(await countRows("select count(*)::int n from public.knowledge_notes where user_id = $1 and body = 'Texto que nadie ha decidido'", [account.id])).toBe(1)
+    await b.ctx.close()
+  })
+
   test("a book is not deleted while its notes have unsent edits; once sent it is, and «Deshacer» brings back the book and its notes", async ({ page, context, consoleErrors }) => {
     await signIn(page, account)
     const id = await addBook(page, "Libro con pendientes E2E")
