@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { Button } from "@/components/ui/button"
 import { libraryActions } from "../store/use-library"
 
 /** After this long still saving on the device, the assistant says so (it keeps waiting). */
@@ -56,11 +57,35 @@ export function useDeviceSave(onSaved: (value: string) => void) {
 
 export const SAVING_LABEL = "Guardando en este dispositivo…"
 
-export function DeviceSaveNotice({ state }: { state: DeviceSaveState }) {
+/**
+ * M4g.5 · what a deleted page shows until the deletion is on the device: leaving earlier could lose it
+ * offline, and the deleted content would come back without warning.
+ */
+export function RemovalPending({ state, onRetry }: { state: DeviceSaveState; onRetry: () => void }) {
+  return (
+    <div className="mx-auto max-w-md space-y-3 py-10">
+      {state === "failed" ? null : (
+        <p role="status" className="text-sm text-text-secondary" data-testid="removal-saving">
+          {SAVING_LABEL}
+        </p>
+      )}
+      <DeviceSaveNotice state={state} failedText="No se ha podido guardar el borrado en este dispositivo (puede que falte espacio). Si cierras la app, volverá a aparecer: pulsa «Reintentar»." />
+      {state === "failed" ? (
+        <Button onClick={onRetry} data-testid="removal-retry">
+          Reintentar
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+const FAILED_TEXT = "No se ha podido guardar en este dispositivo (puede que falte espacio). Lo elegido sigue aquí: no cierres ni recargues la app y pulsa «Reintentar»."
+
+export function DeviceSaveNotice({ state, failedText = FAILED_TEXT }: { state: DeviceSaveState; failedText?: string }) {
   if (state === "failed")
     return (
       <p role="alert" className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning" data-testid="form-error">
-        No se ha podido guardar en este dispositivo (puede que falte espacio). Lo elegido sigue aquí: no cierres ni recargues la app y pulsa «Reintentar».
+        {failedText}
       </p>
     )
   if (state === "slow")
