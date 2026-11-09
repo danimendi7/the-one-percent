@@ -1,11 +1,24 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { libraryActions } from "../store/use-library"
+import { settleDeviceSave } from "./device-save-flow"
 
 /** After this long still saving on the device, the assistant says so (it keeps waiting). */
 const SLOW_SAVE_MS = 3000
+
+/** Someone left during the wait and the device refused: the notice stays until it is really saved. */
+export function warnNotOnDevice() {
+  toast.error("Un cambio no se ha podido guardar en este dispositivo (puede que falte espacio). Si cierras la app, se perderá.", {
+    duration: Infinity,
+    action: {
+      label: "Reintentar",
+      onClick: () => void libraryActions.saved().then((ok) => (ok ? toast.success("Guardado en este dispositivo") : warnNotOnDevice())),
+    },
+  })
+}
 
 export type DeviceSaveState = "saving" | "slow" | "failed" | null
 
@@ -35,10 +48,11 @@ export function useDeviceSave(onSaved: (value: string) => void) {
     setWritten(value)
     setState("saving")
     const slow = setTimeout(() => setState((s) => (s === "saving" ? "slow" : s)), SLOW_SAVE_MS)
-    const ok = await libraryActions.saved()
+    const outcome = await settleDeviceSave(libraryActions.saved, () => alive.current)
     clearTimeout(slow)
-    if (!alive.current) return
-    if (!ok) return setState("failed")
+    if (outcome === "warn") return warnNotOnDevice()
+    if (outcome === "done") return
+    if (outcome === "retry") return setState("failed")
     done.current(value)
   }
 
