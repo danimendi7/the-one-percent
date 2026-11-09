@@ -21,7 +21,7 @@ import { KIND_LABEL, reviewHref, shortPeriod, StatusBadge } from "./components/r
 
 export function ReviewsSkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Cargando revisiones">
+    <div className="space-y-4" role="status" aria-busy="true" aria-label="Cargando revisiones">
       <div className="panel h-44 animate-pulse rounded-2xl motion-reduce:animate-none" />
       <div className="panel h-72 animate-pulse rounded-2xl motion-reduce:animate-none" />
     </div>

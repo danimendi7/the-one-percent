@@ -26,7 +26,7 @@ import { KIND_LABEL, SaveIndicator, StatusBadge } from "./review-ui"
 
 export function ReviewEditorSkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Cargando la revisión">
+    <div className="space-y-4" role="status" aria-busy="true" aria-label="Cargando la revisión">
       <div className="h-24 animate-pulse rounded-2xl bg-surface/60 motion-reduce:animate-none" />
       <div className="panel h-96 animate-pulse rounded-2xl motion-reduce:animate-none" />
     </div>

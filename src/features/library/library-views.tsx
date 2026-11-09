@@ -32,7 +32,7 @@ import { LibraryConflicts, LibrarySyncBanner } from "./components/library-sync"
 
 export function LibrarySkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Cargando la biblioteca">
+    <div className="space-y-4" role="status" aria-busy="true" aria-label="Cargando la biblioteca">
       <div className="panel h-28 animate-pulse rounded-2xl motion-reduce:animate-none" />
       <div className="grid grid-cols-3 gap-3 md:grid-cols-6">
         {Array.from({ length: 6 }, (_, i) => (
