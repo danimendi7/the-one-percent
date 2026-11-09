@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { STATUSES, STATUS_LABEL, type ContentStatus, type KnowledgeState } from "@/features/knowledge/domain/types"
+import { clearAssistantDraft, draftStorage } from "../metadata/assistant-draft"
 import { metadataClient } from "../metadata/client"
 import { existingShow, findEpisodeMatches, findShowMatches } from "../metadata/duplicates"
 import { createEpisodeDraft, durationLabel, editEpisodeField, episodeDraftErrors, episodeDraftInput, localDayOf, type EpisodeDraft, type EpisodeErrors, type EpisodeField } from "../metadata/episode-draft"
@@ -18,6 +19,7 @@ import { createSearchController, type SearchState } from "../metadata/search-con
 import { toShowInput } from "../metadata/to-input"
 import type { EpisodeList, EpisodeResult, MetadataErrorCode, ShowResult } from "../metadata/types"
 import { libraryActions } from "../store/use-library"
+import { RecoverDraft, useAssistantDraft } from "./assistant-draft-ui"
 import { AssistantSheet, OFFLINE_TEXT, searchErrorText } from "./assistant-ui"
 import { DeviceSaveNotice, SAVING_LABEL, useDeviceSave } from "./device-save"
 import { refusalText } from "./knowledge-notes"
@@ -39,6 +41,11 @@ export const EPISODE_PAGE = 30
 
 const dayLabel = (day: string | null) => (day ? new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`)) : "")
 
+/** What a reload must not lose (M4g.5, D102). */
+type ConfirmDraft = { draft: EpisodeDraft; program: string; status: ContentStatus; rating: number | null; favorite: boolean }
+type AssistantDraft = { text: string; show: ShowResult | null; episode: EpisodeResult | null; confirm: ConfirmDraft | null }
+const worthKeeping = (d: AssistantDraft) => d.text.trim() !== "" || d.episode !== null
+
 export type ManualTarget = { kind: "episode"; title?: string; showId?: string | null } | { kind: "show"; title?: string }
 
 export function AddPodcastSheet({
@@ -46,6 +53,7 @@ export function AddPodcastSheet({
   onOpenChange,
   state,
   timeZone,
+  userId,
   initialShow,
   onManual,
   onCreated,
@@ -54,6 +62,8 @@ export function AddPodcastSheet({
   onOpenChange: (v: boolean) => void
   state: KnowledgeState
   timeZone: string
+  /** Whose draft this is (D102). */
+  userId: string | null
   /** Opened from a show's page: start at its episodes. */
   initialShow?: ShowResult | null
   onManual: (t: ManualTarget) => void
@@ -61,41 +71,55 @@ export function AddPodcastSheet({
   onCreated: (href: string) => void
 }) {
   return (
-    <AssistantSheet open={open} onOpenChange={onOpenChange} testId="add-podcast-sheet">
+    <AssistantSheet open={open} onOpenChange={onOpenChange} testId="add-podcast-sheet" onDiscard={() => userId && clearAssistantDraft(draftStorage(), "podcast", userId)}>
       {({ setDirty, close }) => (
-        <Assistant state={state} timeZone={timeZone} initialShow={initialShow ?? null} onDirty={setDirty} onManual={(t) => (close(), onManual(t))} onCreated={(h) => (close(), onCreated(h))} />
+        <Assistant state={state} timeZone={timeZone} userId={userId} initialShow={initialShow ?? null} onDirty={setDirty} onManual={(t) => (close(), onManual(t))} onCreated={(h) => (close(), onCreated(h))} />
       )}
     </AssistantSheet>
   )
 }
 
-function Assistant({
-  state,
-  timeZone,
-  initialShow,
-  onDirty,
-  onManual,
-  onCreated,
-}: {
+type AssistantProps = {
   state: KnowledgeState
   timeZone: string
   initialShow: ShowResult | null
   onDirty: (v: boolean) => void
   onManual: (t: ManualTarget) => void
   onCreated: (href: string) => void
-}) {
-  const [text, setText] = useState("")
+}
+
+function Assistant({ userId, ...props }: AssistantProps & { userId: string | null }) {
+  const drafts = useAssistantDraft<AssistantDraft>("podcast", userId, worthKeeping)
+  if (drafts.offer) return <RecoverDraft title="Añadir podcast" what={drafts.offer.episode?.title ?? drafts.offer.show?.title ?? drafts.offer.text.trim()} onRecover={drafts.recover} onStartOver={drafts.startOver} />
+  return <AssistantBody {...props} initial={drafts.restored} persist={drafts.persist} onCreated={(href) => (drafts.clear(), props.onCreated(href))} />
+}
+
+function AssistantBody({
+  state,
+  timeZone,
+  initialShow,
+  initial,
+  persist,
+  onDirty,
+  onManual,
+  onCreated,
+}: AssistantProps & { initial: AssistantDraft | null; persist: (d: AssistantDraft) => void }) {
+  const [text, setText] = useState(initial?.text ?? "")
   const [search, setSearch] = useState<SearchState<ShowResult[]>>({ status: "idle" })
-  const [show, setShow] = useState<ShowResult | null>(initialShow)
-  const [episode, setEpisode] = useState<EpisodeResult | null>(null)
+  const [show, setShow] = useState<ShowResult | null>(initial?.show ?? initialShow)
+  const [episode, setEpisode] = useState<EpisodeResult | null>(initial?.episode ?? null)
+  const [confirm, setConfirm] = useState<ConfirmDraft | null>(initial?.confirm ?? null)
   const controller = useRef<ReturnType<typeof createSearchController<ShowResult[]>> | null>(null)
+  const recoveredText = useRef(initial?.text ?? "")
 
   useEffect(() => {
     const c = createSearchController<ShowResult[]>({ run: (q, signal) => client.searchShows(q, signal), onChange: setSearch })
     controller.current = c
+    if (recoveredText.current.trim()) c.search(recoveredText.current)
     return () => c.dispose()
   }, [])
   useEffect(() => onDirty(text.trim() !== "" || episode !== null), [text, episode, onDirty])
+  useEffect(() => persist({ text, show, episode, confirm: episode ? confirm : null }), [text, show, episode, confirm, persist])
 
   const localShowId = show ? (existingShow(state, show.id)?.id ?? null) : null
 
@@ -107,7 +131,9 @@ function Assistant({
         episode={episode}
         state={state}
         timeZone={timeZone}
-        onBack={() => setEpisode(null)}
+        initial={confirm}
+        onChange={setConfirm}
+        onBack={() => (setEpisode(null), setConfirm(null))}
         onManual={() => onManual({ kind: "episode", title: episode.title, showId: localShowId })}
         onCreated={onCreated}
       />
@@ -118,7 +144,7 @@ function Assistant({
         show={show}
         state={state}
         timeZone={timeZone}
-        canGoBack={!initialShow}
+        canGoBack={!initialShow || show.id !== initialShow.id}
         onBack={() => setShow(null)}
         onChoose={setEpisode}
         onManual={(title) => onManual({ kind: "episode", title, showId: localShowId })}
@@ -573,6 +599,8 @@ function ConfirmEpisode({
   episode,
   state,
   timeZone,
+  initial,
+  onChange,
   onBack,
   onManual,
   onCreated,
@@ -581,6 +609,8 @@ function ConfirmEpisode({
   episode: EpisodeResult
   state: KnowledgeState
   timeZone: string
+  initial: ConfirmDraft | null
+  onChange: (d: ConfirmDraft) => void
   onBack: () => void
   onManual: () => void
   onCreated: (href: string) => void
@@ -588,16 +618,21 @@ function ConfirmEpisode({
   const id = useId()
   const f = (k: string) => `${id}-${k}`
   const owned = existingShow(state, show.id)
-  const [draft, setDraft] = useState<EpisodeDraft>(() => createEpisodeDraft(episode, timeZone, show.cover))
-  const [program, setProgram] = useState<string>(owned?.id ?? NEW_SHOW)
-  const [status, setStatus] = useState<ContentStatus>("planned")
-  const [rating, setRating] = useState<number | null>(null)
-  const [favorite, setFavorite] = useState(false)
+  const [draft, setDraft] = useState<EpisodeDraft>(() => initial?.draft ?? createEpisodeDraft(episode, timeZone, show.cover))
+  // A recovered program may have been removed since: then the usual choice.
+  const [program, setProgram] = useState<string>(() => {
+    const p = initial?.program
+    return p === NO_SHOW || (p && p !== NEW_SHOW && Object.hasOwn(state.shows, p)) ? p : (owned?.id ?? NEW_SHOW)
+  })
+  const [status, setStatus] = useState<ContentStatus>(initial?.status ?? "planned")
+  const [rating, setRating] = useState<number | null>(initial?.rating ?? null)
+  const [favorite, setFavorite] = useState(initial?.favorite ?? false)
   const [errors, setErrors] = useState<EpisodeErrors>({})
   const [failure, setFailure] = useState<string | null>(null)
   const device = useDeviceSave((episodeId) => onCreated(itemHref(episodeId)))
   const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => heading.current?.focus(), [])
+  useEffect(() => onChange({ draft, program, status, rating, favorite }), [draft, program, status, rating, favorite, onChange])
 
   const localShowId = program === NEW_SHOW ? (owned?.id ?? null) : program === NO_SHOW ? null : program
   // The episode just written is not a duplicate of itself while its device copy is awaited.

@@ -39,11 +39,14 @@ export function AssistantSheet({
   open,
   onOpenChange,
   testId,
+  onDiscard,
   children,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   testId: string
+  /** The user chose to throw away what was written. */
+  onDiscard?: () => void
   children: (api: { setDirty: (v: boolean) => void; close: () => void }) => React.ReactNode
 }) {
   const desktop = useMediaQuery("(min-width: 768px)")
@@ -59,7 +62,7 @@ export function AssistantSheet({
         style={inset ? { bottom: inset.bottom, maxHeight: Math.round(inset.height * 0.92) } : undefined}
         data-testid={testId}
       >
-        {asking && <DiscardPrompt onKeep={() => setAsking(false)} onDiscard={close} />}
+        {asking && <DiscardPrompt onKeep={() => setAsking(false)} onDiscard={() => (onDiscard?.(), close())} />}
         {open && children({ setDirty, close })}
       </SheetContent>
     </Sheet>

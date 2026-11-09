@@ -17,6 +17,7 @@ import { noteLabel, PLATFORM_LABEL, STATUSES, STATUS_LABEL, type ContentItem, ty
 import { DEMO_NOTICE } from "@/features/knowledge/demo"
 import { libraryActions, useLibrary } from "./store/use-library"
 import type { LibrarySnapshot } from "./store/types"
+import { dataAttribution } from "./metadata/attribution"
 import { NoteCard, QuickCapture, refusalText } from "./components/knowledge-notes"
 import { BackLink, BOOKS_HREF, CoverArt, itemHref, LIBRARY_HREF, PODCASTS_HREF, ProgressLine, RatingInput, showHref, StatusPill, SyncLine } from "./components/library-ui"
 import { LibraryConflicts, LibrarySyncBanner } from "./components/library-sync"
@@ -183,6 +184,7 @@ export function ItemDetail({ id }: { id: string }) {
     removal.begin(back.href)
   }
   const e = item.kind === "episode" ? item.episode : null
+  const attribution = dataAttribution(item)
   return (
     <Chrome snap={snap} back={back}>
       <article className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-8">
@@ -219,6 +221,11 @@ export function ItemDetail({ id }: { id: string }) {
                 <ExternalLink aria-hidden /> Abrir {e?.platform ? `en ${PLATFORM_LABEL[e.platform]}` : "el enlace original"}
               </a>
             </Button>
+          )}
+          {attribution && (
+            <p className="text-xs text-text-tertiary" data-testid="data-attribution">
+              {attribution}
+            </p>
           )}
           <QuickCapture itemId={id} kind={item.kind} snap={snap} />
           <section aria-label="Estado y valoración" className="panel space-y-4 rounded-2xl p-4">
