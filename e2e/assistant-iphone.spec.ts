@@ -63,7 +63,8 @@ async function providers(page: Page) {
   const answers: Record<string, unknown> = {
     "podcasts/search": [show],
     "podcasts/episodes": { show, episodes, scope: "recent", total: 356, complete: false },
-    "books/search": [book],
+    // Enough results to fill the sheet: it is as tall as its content, so one row would not measure the room.
+    "books/search": Array.from({ length: 6 }, (_, i) => ({ ...book, workId: `OL2077049${i}W`, editionId: `OL2810890${i}M`, title: `${book.title} ${i + 1}` })),
     "books/detail": book,
     "books/editions": [book],
   }
