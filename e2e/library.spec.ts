@@ -140,6 +140,12 @@ test.describe("library (demo)", () => {
     await expect(page.getByTestId("note")).toHaveCount(3)
   })
 
+  for (const path of ["/dev/podcasts", "/dev/knowledge"])
+    test(`${path} does not exist in a production build (M4g.5)`, async ({ page }) => {
+      const res = await page.goto(path)
+      expect(res?.status()).toBe(404)
+    })
+
   test("leaving after a refused deletion leaves a notice that stays until it is really saved (M4g.5)", async ({ page }) => {
     await page.goto(OUTLIVE)
     await expect(page.getByRole("heading", { level: 1, name: "Outlive" })).toBeVisible()

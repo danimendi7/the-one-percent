@@ -38,5 +38,14 @@ Estado al cierre de la Fase A de M2.5 (solo local). ✅ hecho · ⏳ fase indica
 - ✅ Copias cifradas fuera del repo; la cadena de conexión y la frase de paso solo se pasan en tiempo de ejecución. El simulacro de restauración solo escribe en el stack local, tras una copia automática del estado previo.
 - ⏳ Tras crear tu cuenta en cloud: desactivar nuevos registros, revisar los Advisors y configurar SMTP propio cuando haya dominio.
 
+## Biblioteca: repaso de privacidad e integridad (M4g.5, A7, 2026-11-09)
+- ✅ A los proveedores solo viaja lo buscado (título, autor, ISBN o id de la obra), desde el servidor: `credentials: "omit"`, un `User-Agent` sin datos personales y sin cookies. Las rutas no registran las búsquedas.
+- ✅ Respuestas de `/api/metadata` con `private, no-store` y portadas con caché solo del navegador (`private`, sin cookies): `routes.test.ts`.
+- ✅ Las rutas verifican la sesión con `getUser()`, nunca solo con la cookie: `metadata-auth.int.test.ts`.
+- ✅ `/dev/podcasts` y `/dev/knowledge` responden 404 en el build de producción: `e2e/library.spec.ts`.
+- ✅ Repositorio sin secretos: búsqueda sobre los archivos versionados de tokens de Supabase, GitHub, Resend, Google y OpenAI, JWT, claves privadas y cadenas de conexión con contraseña. Solo aparecen las credenciales públicas de la Supabase local y valores de prueba; de `.env*` solo se versiona `.env.example`, sin valores.
+- ✅ Los textos de un contenido rechazado por duplicado se conservan al reabrir hasta que se decide: casos M y N de `library-sync.int.test.ts`.
+- ⚠️ **Limitación aceptada** (`m4g-plan` §22.2-B): un vínculo de Cerebro creado sin conexión sobre un contenido que el servidor rechaza se avisa una vez y no se conserva al reabrir; hay que volver a conectarlo a mano. No deja vínculos huérfanos ni afecta a los textos. Los mismos casos M y N lo comprueban.
+
 ## Dependencias
 - ✅ `npm audit`: 0 vulnerabilidades.

@@ -14,8 +14,8 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | A3 | M4g.5: borrar y volver espera a `saved()`; aviso si un guardado se rechaza tras salir | E2E: borrar y volver sin red conserva el borrado tras recargar; unitarias de la decisión de aviso (el aviso en sí no tiene E2E) | Sí | high | A1 | hecha | #3 |
 | A4 | M4g.5 §23-1: borradores temporales de asistentes (D102) | Unitarias de caducidad y limpieza; E2E: reabrir recupera lo escrito | Sí | high | A1 | hecha | #3 |
 | A5 | M4g.5 §23-2: atribución de ediciones separadas (D101) | Unitaria de la derivación; E2E: la ficha muestra la fuente | Sí | medium | A1 | hecha | #3 |
-| A6 | M4g.5 §8: buscar y actualizar datos de lo ya guardado | Unitarias del comparador; E2E: solo rellena vacíos; un único `update` por aplicación | Sí | xhigh | A1 | en curso | #4 |
-| A7 | M4g.5 §23-6: repaso de privacidad e integridad y prueba de integración | Test de integración de los casos M y N con vínculos; `/dev/*` con 404; sin secretos en el repo | Sí | xhigh | A1 | pendiente | — |
+| A6 | M4g.5 §8: buscar y actualizar datos de lo ya guardado | Unitarias del comparador; E2E: solo rellena vacíos; un único `update` por aplicación | Sí | xhigh | A1 | hecha | #4 |
+| A7 | M4g.5 §23-6: repaso de privacidad e integridad y prueba de integración | Test de integración de los casos M y N con vínculos; `/dev/*` con 404; sin secretos en el repo | Sí | xhigh | A1 | en curso | #5 |
 | A8 | M4g.5 §23-3/4/5: ajustes de iPhone y guía de VoiceOver, teclado y sin red | Capturas a 375 px sin solapes; `docs/guia-dispositivo.md` | Sí | medium | A1 | pendiente | — |
 | A9 | Cierre de M4g.5 en matriz y documentación | Matriz actualizada con evidencia | Sí | medium | A3–A8 | pendiente | — |
 | B1 | Dominio de relaciones entre variables con tamaño de muestra y limitaciones | Unitarias: sin resultado por debajo del mínimo; incluye periodo, n y variables | Sí | high | A1 | pendiente | — |
