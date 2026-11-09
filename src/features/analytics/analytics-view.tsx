@@ -49,6 +49,7 @@ import { parseFilter, periodRange, scopeHabits, serializeFilter, type AnalyticsF
 import { DrillSheet, type DrillRequest } from "./drill-sheet"
 import { FocusAnalytics } from "@/features/focus/components/focus-analytics"
 import { MindAnalytics } from "@/features/mind/components/mind-analytics"
+import { ComparisonsPanel } from "./comparisons-panel"
 import { RelationsPanel } from "./relations-panel"
 
 const DIMENSION_OPTIONS: { value: DimensionId | "all"; label: string }[] = [
@@ -267,6 +268,8 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
       {focus}
 
       {mind}
+
+      <ComparisonsPanel state={model.state} today={model.today} />
 
       {relationsPanel}
 

@@ -2,6 +2,20 @@ import AxeBuilder from "@axe-core/playwright"
 import { expect, test } from "./fixtures"
 
 test.describe("analytics drilldown and filters (demo data, fixed clock)", () => {
+  test("«Comparativas» sets the last closed week and month against the one before", async ({ page, consoleErrors }) => {
+    await page.goto("/analytics")
+    const panel = page.getByRole("region", { name: "Comparativas" })
+    // The fixed clock is Wednesday 21 Oct 2026: the open week is left out.
+    await expect(panel.getByTestId("comparison-after")).toHaveText("12 oct – 18 oct")
+    await expect(panel.getByTestId("comparison-before")).toHaveText("5 oct – 11 oct")
+    await expect(panel.getByTestId("comparison-completion")).toContainText(/\d+%.*\d+%.*pts|—/)
+
+    await panel.getByRole("radio", { name: "Mes" }).click()
+    await expect(panel.getByTestId("comparison-after")).toHaveText("septiembre de 2026")
+    await expect(panel.getByTestId("comparison-before")).toHaveText("agosto de 2026")
+    expect(consoleErrors).toEqual([])
+  })
+
   test("«Relaciones» names period, variables and sample size, and never speaks of causes", async ({ page, consoleErrors }) => {
     await page.goto("/analytics?periodo=90")
     const panel = page.getByRole("region", { name: "Relaciones" })
