@@ -21,7 +21,9 @@ import { cleanNote, normalizeConfig, validateConfig, validValue } from "@/featur
 import { addDays } from "@/features/habits/domain/dates"
 import { CHECKIN_FIELDS, DEFAULT_CHECKIN_CONFIG, type CheckinConfig } from "@/features/mind/domain/types"
 import { toCheckin, WIRE_FIELD } from "../domain/checkin-wire"
-import type { WireCheckin, WireReview } from "../domain/types"
+import type { WireCheckin, WireRecallAttempt, WireRecallCard, WireReview } from "../domain/types"
+import { validateCardText } from "@/features/recall/domain/ops"
+import { toRecallAttempt, toRecallCard } from "../domain/recall-wire"
 import { toReview } from "../domain/review-wire"
 import { periodFromStart, previousPeriod } from "@/features/reviews/domain/periods"
 import { contentKeys, validateContent } from "@/features/reviews/domain/content"
@@ -55,6 +57,10 @@ export class FakeServer {
   reviewsSupported = true
   /** false: behave like a server without the daily reviews migration (C5). */
   dailyReviewsSupported = true
+  /** false: behave like a server without the Active Recall migration (D2). */
+  recallSupported = true
+  private recallCards = new Map<string, Row<WireRecallCard>>()
+  private recallAttemptRows = new Map<string, Row<WireRecallAttempt>>()
   /** Latest change of any data a snapshot is computed from (private.review_data_cursor). */
   private dataSeq = 0
   /** Count of times each op_id was actually applied (never > 1). */
@@ -149,6 +155,10 @@ export class FakeServer {
       focusSessions: [...this.sessions.values()].filter((r) => !r.data.deleted).map((r) => r.data.session),
       checkins: Object.fromEntries([...this.checkins].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toCheckin({ ...r.data, server_seq: r.seq })])),
       checkinConfig: normalizeConfig(this.checkinConfig ?? DEFAULT_CHECKIN_CONFIG),
+      recall: {
+        cards: Object.fromEntries([...this.recallCards].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toRecallCard({ ...r.data, server_seq: r.seq })])),
+        attempts: Object.fromEntries([...this.recallAttemptRows].map(([k, r]) => [k, toRecallAttempt({ ...r.data, server_seq: r.seq })])),
+      },
       reviews: Object.fromEntries([...this.reviews].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toReview({ ...r.data, server_seq: r.seq })])),
     }
   }
@@ -321,6 +331,11 @@ export class FakeServer {
         if (!this.reviewsSupported) return reject("unknown_op_type")
         if (op.kind === "day" && !this.dailyReviewsSupported) return reject("invalid_period")
         return this.applyReview(op)
+      case "recall.create":
+      case "recall.answer":
+      case "recall.suspend":
+      case "recall.delete":
+        return this.recallSupported ? this.applyRecall(op) : reject("unknown_op_type")
       default:
         // Like a server without the library migration (M4b): the library is tested against real PostgreSQL.
         return reject("unknown_op_type")
@@ -414,6 +429,47 @@ export class FakeServer {
       row
     )
     return done("applied")
+  }
+
+  /** Mirrors private.recall_op (supabase/migrations/*_recall.sql). */
+  private applyRecall(op: Extract<Op, { type: "recall.create" | "recall.answer" | "recall.suspend" | "recall.delete" }>): OpResult {
+    const done = (status: OpResult["status"], code?: string): OpResult => ({ op_id: op.op_id, status, ...(code ? { code } : {}) })
+    const write = (next: WireRecallCard) => this.recallCards.set(next.id, { data: next, seq: this.nextReview() })
+    if (op.type === "recall.create") {
+      if (this.recallCards.has(op.card.id)) return done("applied")
+      const text = validateCardText(op.card.question, op.card.answer)
+      if (!text.ok || op.local_date > this.today) return done("rejected", "invalid_value")
+      write({ id: op.card.id, source_type: op.card.source_type, source_id: op.card.source_id, question: text.question, answer: text.answer, state: "new", reps: 0, lapses: 0, ease_factor: 2.5, interval_days: 0, due_on: op.local_date, algorithm_version: op.algorithm_version, suspended_on: null, first_answered_on: null, last_answered_at: null, created_at: op.at, deleted: false, server_seq: 0 })
+      return done("applied")
+    }
+    const row = this.recallCards.get(op.card_id)
+    if (op.type === "recall.delete") {
+      if (row && !row.data.deleted) write({ ...row.data, question: "", answer: "", source_type: null, source_id: null, deleted: true })
+      return done("applied")
+    }
+    if (!row) return done("rejected", "card_not_found")
+    if (row.data.deleted) return done("superseded", "card_deleted")
+    if (op.type === "recall.suspend") {
+      write({ ...row.data, suspended_on: op.suspended_on })
+      return done("applied")
+    }
+    this.recallAttemptRows.set(op.attempt_id, {
+      seq: this.nextReview(),
+      data: { id: op.attempt_id, card_id: op.card_id, grade: op.grade, responded_at: op.responded_at, local_date: op.local_date, due_on_before: op.due_on_before, due_on_after: op.schedule.due_on, interval_days: op.schedule.interval_days, algorithm_version: op.algorithm_version, server_seq: 0 },
+    })
+    const latest = row.data.last_answered_at === null || Date.parse(op.responded_at) >= Date.parse(row.data.last_answered_at)
+    const first = row.data.first_answered_on === null || op.local_date < row.data.first_answered_on ? op.local_date : row.data.first_answered_on
+    write(latest ? { ...row.data, ...op.schedule, last_answered_at: op.responded_at, first_answered_on: first } : { ...row.data, first_answered_on: first })
+    return done("applied")
+  }
+
+  /** Server-side view of the recall tables (tests). */
+  recallCard(id: string): WireRecallCard | null {
+    return this.recallCards.get(id)?.data ?? null
+  }
+
+  recallAttempts(): WireRecallAttempt[] {
+    return [...this.recallAttemptRows.values()].map((r) => r.data)
   }
 
   /** Server-side view of a review (tests). */
@@ -603,6 +659,14 @@ export class FakeServer {
             reviews: pick(this.reviews)
               .filter((r) => r.data.kind !== "day" && (!full || !r.data.deleted))
               .map((r) => ({ ...r.data, server_seq: r.seq })),
+          }
+        : {}),
+      ...(this.recallSupported
+        ? {
+            recall_cards: pick(this.recallCards)
+              .filter((r) => !full || !r.data.deleted)
+              .map((r) => ({ ...r.data, server_seq: r.seq })),
+            recall_attempts: pick(this.recallAttemptRows).map((r) => ({ ...r.data, server_seq: r.seq })),
           }
         : {}),
       ...(this.reviewsSupported && this.dailyReviewsSupported

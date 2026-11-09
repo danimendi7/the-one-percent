@@ -75,6 +75,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         checkins: e.checkins,
         reviews: e.reviews,
         dailyReviews: e.dailyReviews,
+        recall: e.recall,
       }
     }
     return snapshot
@@ -147,6 +148,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       .on("postgres_changes", { event: "*", schema: "public", table: "focus_sessions", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "daily_checkins", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "recall_cards", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "library_items", filter: `user_id=eq.${user.id}` }, onLibraryChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "knowledge_notes", filter: `user_id=eq.${user.id}` }, onLibraryChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "podcast_shows", filter: `user_id=eq.${user.id}` }, onLibraryChange)

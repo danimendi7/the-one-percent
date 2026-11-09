@@ -134,6 +134,7 @@ export interface EngineSnapshot {
   /** The server has the reviews migration (M3.4). */
   reviews: boolean
   dailyReviews: boolean
+  recall: boolean
   /** Review closes waiting to run (or needing a new decision). */
   closeIntents: CloseIntent[]
   /** Reviews (`kind:periodStart`) with writes still in the queue. */
@@ -296,6 +297,7 @@ export class SyncEngine {
         checkins: !!this.cache.features?.checkins,
         reviews: !!this.cache.features?.reviews,
         dailyReviews: !!this.cache.features?.dailyReviews,
+        recall: !!this.cache.features?.recall,
         closeIntents: this.closeIntents,
         pendingReviews: [...new Set(this.queue.map((q) => reviewOf(q.op)).filter((k): k is string => k !== null))],
         library: applyLibraryOps(this.libConfirmed, this.queue.map((q) => q.op)),
@@ -961,6 +963,7 @@ export class SyncEngine {
   /** Review writes wait on the device while the server lacks the reviews migration (never rejected there). */
   private sendable(op: Op): boolean {
     if (op.type.startsWith("library.")) return !!this.cache.features?.library
+    if (op.type.startsWith("recall.")) return !!this.cache.features?.recall
     if (op.type === "review.save" || op.type === "review.close" || op.type === "review.delete") return this.serverTakes(op.kind)
     return true
   }

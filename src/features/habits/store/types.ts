@@ -45,6 +45,8 @@ export interface HabitsSnapshot {
   reviews?: boolean
   /** False: the server lacks the daily reviews migration (C5). Their drafts stay on the device. */
   dailyReviews?: boolean
+  /** False: the server lacks the Active Recall migration (D2). Cards stay on the device. */
+  recall?: boolean
   account?: { userId: string; email: string | null }
 }
 

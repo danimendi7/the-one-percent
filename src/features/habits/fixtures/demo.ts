@@ -230,6 +230,7 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
       checkins: {},
       checkinConfig: DEFAULT_CHECKIN_CONFIG,
       reviews: {},
+      recall: { cards: {}, attempts: {} },
     },
     today
     ),

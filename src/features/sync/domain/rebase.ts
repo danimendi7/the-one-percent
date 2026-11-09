@@ -1,3 +1,5 @@
+import { addCard, recordAnswer, removeCard, setSuspended } from "@/features/recall/domain/ops"
+import { fromWireSchedule } from "./recall-wire"
 import type { LocalDate } from "@/features/habits/domain/dates"
 import {
   archiveHabit,
@@ -162,6 +164,18 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return { ...state, reviews: applyCloseOp(state.reviews, op.kind, op.period_start, op.snapshot) }
     case "review.delete":
       return { ...state, reviews: applyDelete(state.reviews, op.kind, op.period_start) }
+    // ── Active Recall (D2) ──
+    case "recall.create":
+      return { ...state, recall: addCard(state.recall, { id: op.card.id, question: op.card.question, answer: op.card.answer, sourceType: op.card.source_type, sourceId: op.card.source_id, today: op.local_date, at: op.at }) }
+    case "recall.answer":
+      return {
+        ...state,
+        recall: recordAnswer(state.recall, { cardId: op.card_id, attemptId: op.attempt_id, grade: op.grade, respondedAt: op.responded_at, localDate: op.local_date, dueOnBefore: op.due_on_before, algorithmVersion: op.algorithm_version, schedule: fromWireSchedule(op.schedule) }),
+      }
+    case "recall.suspend":
+      return { ...state, recall: setSuspended(state.recall, op.card_id, op.suspended_on) }
+    case "recall.delete":
+      return { ...state, recall: removeCard(state.recall, op.card_id) }
     default:
       // An operation this version does not know (written by a newer one): no optimistic effect, still sent.
       return state
