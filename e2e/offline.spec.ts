@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test"
 import { expect, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
+import { SHELL_PAGES } from "./support/shell"
 
 /**
  * M4f · the service worker (public/sw.js, P17 option A), turned on only here. A device that
@@ -10,7 +11,6 @@ import { countRows, newAccount, removeAccount, signIn, type Account } from "./su
  */
 test.use({ serviceWorkers: "allow" })
 
-const SHELL_PAGES = 20
 const offlineNoise = (e: string) => /ERR_INTERNET_DISCONNECTED|net::ERR_FAILED|Failed to fetch|NetworkError|ERR_NAME_NOT_RESOLVED/.test(e)
 
 /**

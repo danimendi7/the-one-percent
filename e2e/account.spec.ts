@@ -1,7 +1,7 @@
 import type { BrowserContext, Page } from "@playwright/test"
 import { expect, isMobile, test } from "./fixtures"
 import { adminClient, db } from "../tests/integration/setup"
-import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
+import { countRows, liveWellPastMidnight, newAccount, removeAccount, signIn, type Account } from "./support/account"
 
 test.use({ mode: "account" })
 
@@ -352,6 +352,7 @@ test.describe("account mode", () => {
   test("a device whose clock is hours behind still wins a sequential edit", async ({ browser, page }, info) => {
     test.skip(isMobile(info.project.name), "covered once")
     test.slow()
+    await liveWellPastMidnight(account)
     await signIn(page, account)
     await createHabit(page, "Estirar", account.id)
     await todayButton(page, "Estirar").click()

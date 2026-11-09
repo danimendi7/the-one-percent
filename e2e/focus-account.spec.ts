@@ -1,7 +1,7 @@
 import type { BrowserContext, Page } from "@playwright/test"
 import { db } from "../tests/integration/setup"
 import { expect, isMobile, test } from "./fixtures"
-import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
+import { countRows, newAccount, removeAccount, signIn, type Account, liveWellPastMidnight } from "./support/account"
 
 /** M3.2c · Deep Work in account mode against the LOCAL Supabase stack: real rows, sync, no fictitious data. */
 test.use({ mode: "account" })
@@ -57,6 +57,7 @@ test.describe("focus · account mode", () => {
   })
 
   test("started offline, app closed, reopened online: applied once; finishing feeds the linked habit exactly once", async ({ page, context }) => {
+    await liveWellPastMidnight(account)
     await signIn(page, account)
     await createFedHabit(page)
     await page.goto("/focus")

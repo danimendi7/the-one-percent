@@ -58,6 +58,8 @@ _Ninguno por ahora._
 
 **Limitación conocida:** la prueba de humo contra un preview da 10 de 22. Las 12 restantes pasan todos sus pasos y fallan solo en la aserción final de la consola, porque la CSP de la app bloquea la barra de comentarios que Vercel inyecta en los previews (`vercel.live/_next-live/feedback/feedback.js`). En la CI, sobre el build local, pasan las 22. Medido en las PR #3, #4 y #5.
 
+**Limitación conocida:** el «hoy» de la app se calcula con el reloj del dispositivo (`localToday` en `engine.ts`), aunque el motor conoce su desfase con el servidor. Un dispositivo con la hora varias horas mal ve el día anterior o el siguiente cerca de la medianoche. Lo destapó la PR #15; no causa pérdida de datos porque el servidor valida las fechas. Por revisar en F2.
+
 **Pendiente autorizable (Dani):** proveedor de IA generativa; servicio de envío programado de push si tuviera coste; publicación en `main` y producción; prueba real en iPhone; desactivar la barra de comentarios de Vercel en los previews (ajuste del proyecto en la nube), que dejaría en verde esa prueba de humo.
 
 ## Cambios de alcance
