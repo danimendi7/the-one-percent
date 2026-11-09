@@ -35,8 +35,8 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Knowledge OS | Altas asistidas, metadatos, portadas, duplicados (M4g.1–4) | IV | `/api/metadata/*`, `/api/covers`, `add-book`, `add-podcast`, `covers`, CI | — | — |
 | Knowledge OS | Persistencia antes de navegar (M4-H1, D106) | IV | `offline-save.spec.ts`, CI | Borrar y volver (A3, PR #3) | Alta |
 | Knowledge OS | Avisos que no deciden un texto (D108) | IV | Commit `0530bdd`, CI | — | — |
-| Knowledge OS | Borradores temporales de asistentes (M4g.5 §23-1, D102) | ND | Sin `top:draft` en `src` | A4 | Alta |
-| Knowledge OS | Atribución de ediciones separadas (M4g.5 §23-2, D101) | ND | Sin derivación en la ficha | A5 | Media |
+| Knowledge OS | Borradores temporales de asistentes (M4g.5 §23-1, D102) | SP | `metadata/assistant-draft.ts` y sus unitarias; E2E escritos, pendientes de la CI de la PR #3 | CI (A4) | Alta |
+| Knowledge OS | Atribución de ediciones separadas (M4g.5 §23-2, D101) | SP | `metadata/attribution.ts` y sus unitarias; E2E escrito, pendiente de la CI de la PR #3 | CI (A5) | Media |
 | Knowledge OS | Actualizar datos de lo ya guardado (M4g.5 §8) | ND | Sin `metadata-update` | A6 | Alta |
 | Knowledge OS | Cerebro: ideas, búsqueda, relaciones | IV | `brain-view.tsx`, `knowledge/domain`, `knowledge.spec.ts`, CI | — | — |
 | Knowledge OS | Active Recall | ND | Sin código | D1–D3 | Alta |
