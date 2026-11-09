@@ -16,6 +16,16 @@ export type Horizon = "short" | "medium" | "long"
 export type GoalPriority = "primary" | "secondary"
 export type GoalState = "active" | "achieved" | "abandoned"
 
+export type GoalLogKind = "obstacle" | "adjustment"
+
+/** One note on how the process is going: what got in the way, or what was changed because of it. */
+export interface GoalLogEntry {
+  id: string
+  kind: GoalLogKind
+  text: string
+  on: LocalDate
+}
+
 export interface GoalHabitLink {
   habitId: string
   /** 1–3: how much this habit counts in the effort figure. */
@@ -71,6 +81,8 @@ export interface Goal {
   archivedOn?: LocalDate | null
   /** Day it was put in review. Still measured and still active: a flag to rethink it, not a closure. */
   reviewSince?: LocalDate | null
+  /** Obstacles met and process adjustments made, oldest first. Absent on goals saved before it existed. */
+  processLog?: GoalLogEntry[]
   habits: GoalHabitLink[]
   checkpoints: Checkpoint[]
   version?: number

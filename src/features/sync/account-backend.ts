@@ -2,7 +2,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { setEntry, type HabitInput } from "@/features/habits/domain/ops"
-import { setCheckpointDone, setMeasurement, validateGoal } from "@/features/goals/domain/ops"
+import { addGoalLogEntry, cleanLogText, setCheckpointDone, setMeasurement, validateGoal } from "@/features/goals/domain/ops"
 import { cleanText, editSession, finishSession, pauseSession, resumeSession, startSession } from "@/features/focus/domain/ops"
 import { ACTUAL_OUTPUT_MAX, PLANNED_OUTPUT_MAX, PROJECT_MAX } from "@/features/focus/domain/types"
 import { goalToWire } from "./domain/goal-wire"
@@ -278,6 +278,13 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       },
       archiveGoal(id) {
         submit({ type: "goal.archive", op_id: uuidv4(), goal_id: id, archived_on: view().today })
+      },
+      addGoalLog(goalId, kind, text) {
+        const entry = { id: uuidv4(), kind, text: cleanLogText(text), on: view().today }
+        if (addGoalLogEntry(view().state, goalId, entry) !== view().state) submit({ type: "goal.log_add", op_id: uuidv4(), goal_id: goalId, entry })
+      },
+      removeGoalLog(goalId, entryId) {
+        submit({ type: "goal.log_remove", op_id: uuidv4(), goal_id: goalId, entry_id: entryId })
       },
       setGoalReview(id, review) {
         submit({ type: "goal.set_review", op_id: uuidv4(), goal_id: id, review_since: review ? view().today : null })

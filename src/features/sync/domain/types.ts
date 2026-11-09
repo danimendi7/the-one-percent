@@ -1,6 +1,6 @@
 import type { LocalDate } from "@/features/habits/domain/dates"
 import type { DimensionId, HabitsState, HabitType, ScheduleRule, TargetDirection } from "@/features/habits/domain/types"
-import type { Aggregation, GoalDirection, GoalKind, GoalPriority, GoalState, Horizon, NumericSource } from "@/features/goals/domain/types"
+import type { Aggregation, GoalDirection, GoalKind, GoalLogEntry, GoalPriority, GoalState, Horizon, NumericSource } from "@/features/goals/domain/types"
 import type { CheckinField, CheckinPhase } from "@/features/mind/domain/types"
 import type { Decision, Evaluation, ReviewKind, ReviewStatus } from "@/features/reviews/domain/types"
 import type { ReviewSnapshot } from "@/features/reviews/domain/snapshot"
@@ -76,6 +76,8 @@ export type Op =
   | { type: "goal.archive"; op_id: string; goal_id: string; archived_on: LocalDate }
   | { type: "goal.restore"; op_id: string; goal_id: string }
   | { type: "goal.set_review"; op_id: string; goal_id: string; review_since: LocalDate | null }
+  | { type: "goal.log_add"; op_id: string; goal_id: string; entry: GoalLogEntry }
+  | { type: "goal.log_remove"; op_id: string; goal_id: string; entry_id: string }
   | { type: "goal.checkpoint.set"; op_id: string; goal_id: string; checkpoint_id: string; done_on: LocalDate | null }
   | {
       type: "goal.measure"
@@ -309,6 +311,7 @@ export interface WireGoal extends WireGoalFields {
   archived_on: LocalDate | null
   /** Absent in payloads stored before the column existed. */
   review_since?: LocalDate | null
+  process_log?: GoalLogEntry[]
   version: number
   created_at: string
   updated_at: string

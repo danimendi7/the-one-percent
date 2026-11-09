@@ -25,7 +25,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Goals & Systems | Objetivos, métricas, hitos, fechas, hábitos vinculados | IV | `features/goals`, `goals.int.test.ts`, E2E, CI | — | — |
 | Goals & Systems | Progreso real frente a esperado | IV | `domain/progress.ts` y su test, CI | — | — |
 | Goals & Systems | Estados archivado y en revisión | IV | `goalStatusView`, `supabase/migrations/20261109090000_goal_review.sql`, `e2e/goals.spec.ts`, `tests/integration/goals.int.test.ts`, CI | — | — |
-| Goals & Systems | Obstáculos y ajustes de procesos | ND | Sin código en `features/goals` | Registro de ajustes (C2) | Media |
+| Goals & Systems | Obstáculos y ajustes de procesos | IV | `goal-log.tsx`, `supabase/migrations/20261109100000_goal_process_log.sql`, `e2e/goals.spec.ts`, `tests/integration/goals.int.test.ts`, CI | — | — |
 | Goals & Systems | Vínculo con libros | ND | Sin referencias a la biblioteca | Objetivo de lectura (C3) | Baja |
 | Deep Work | Temporizador, proyectos, duración prevista y real, calidad | IV | `focus_sessions`, `rating`, `focus.int.test.ts`, E2E, CI | — | — |
 | Deep Work | Estadísticas por día, semana y proyecto | IV | `domain/metrics.ts`, `focus-analytics.tsx`, CI | — | — |

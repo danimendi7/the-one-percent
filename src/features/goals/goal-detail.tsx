@@ -21,6 +21,7 @@ import type { GoalEvaluation } from "./domain/progress"
 import { MAX_PRIMARY } from "./domain/types"
 import { GoalChart } from "./components/goal-chart"
 import { GoalFormSheet } from "./components/goal-form-sheet"
+import { GoalLog } from "./components/goal-log"
 import {
   DataLevelNote,
   dueText,
@@ -262,6 +263,7 @@ function Detail({ gm, e }: { gm: GoalsModel; e: GoalEvaluation }) {
           {g.kind !== "habits" && <GoalChart e={e} onEdit={manual && editable ? (date) => setMeasure({ date }) : undefined} />}
 
           {g.checkpoints.length > 0 && <Milestones e={e} today={today} editable={editable} />}
+          <GoalLog goal={g} editable={editable} />
         </div>
 
         <div className="space-y-4 lg:col-span-5">

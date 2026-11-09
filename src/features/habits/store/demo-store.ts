@@ -24,7 +24,9 @@ import { withDemoFocus } from "@/features/focus/fixtures"
 import { withDemoCheckins } from "@/features/mind/fixtures"
 import { setCheckin, setCheckinConfig } from "@/features/mind/domain/ops"
 import {
+  addGoalLogEntry,
   archiveGoal,
+  removeGoalLogEntry,
   createGoal,
   restoreGoal,
   setCheckpointDone,
@@ -219,6 +221,13 @@ export const demoBackend: Backend = {
     archiveGoal(id) {
       const s = getSnapshot()
       commit(archiveGoal(s.state, id, s.today))
+    },
+    addGoalLog(goalId, kind, text) {
+      const s = getSnapshot()
+      commit(addGoalLogEntry(s.state, goalId, { id: uuidv4(), kind, text, on: s.today }))
+    },
+    removeGoalLog(goalId, entryId) {
+      commit(removeGoalLogEntry(getSnapshot().state, goalId, entryId))
     },
     setGoalReview(id, review) {
       const s = getSnapshot()

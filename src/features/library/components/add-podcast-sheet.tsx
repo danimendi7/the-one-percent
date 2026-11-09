@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { memo, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react"
+import { memo, useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, ArrowLeft, ExternalLink, Loader2, PenLine, Search } from "lucide-react"
 import { SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -119,7 +119,8 @@ function AssistantBody({
     return () => c.dispose()
   }, [])
   useEffect(() => onDirty(text.trim() !== "" || episode !== null), [text, episode, onDirty])
-  useEffect(() => persist({ text, show, episode, confirm: episode ? confirm : null }), [text, show, episode, confirm, persist])
+  // Layout effects: the draft is written in the same task that shows the change, so a reload cannot beat it (D102).
+  useLayoutEffect(() => persist({ text, show, episode, confirm: episode ? confirm : null }), [text, show, episode, confirm, persist])
 
   const localShowId = show ? (existingShow(state, show.id)?.id ?? null) : null
 
@@ -633,7 +634,7 @@ function ConfirmEpisode({
   const device = useDeviceSave((episodeId) => onCreated(itemHref(episodeId)))
   const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => heading.current?.focus(), [])
-  useEffect(() => onChange({ draft, program, status, rating, favorite }), [draft, program, status, rating, favorite, onChange])
+  useLayoutEffect(() => onChange({ draft, program, status, rating, favorite }), [draft, program, status, rating, favorite, onChange])
 
   const localShowId = program === NEW_SHOW ? (owned?.id ?? null) : program === NO_SHOW ? null : program
   // The episode just written is not a duplicate of itself while its device copy is awaited.

@@ -10,7 +10,9 @@ import {
 } from "@/features/habits/domain/ops"
 import type { Habit, HabitsState } from "@/features/habits/domain/types"
 import {
+  addGoalLogEntry,
   archiveGoal,
+  removeGoalLogEntry,
   createGoal,
   restoreGoal,
   setCheckpointDone,
@@ -100,6 +102,10 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return archiveGoal(state, op.goal_id, op.archived_on)
     case "goal.restore":
       return restoreGoal(state, op.goal_id)
+    case "goal.log_add":
+      return addGoalLogEntry(state, op.goal_id, op.entry)
+    case "goal.log_remove":
+      return removeGoalLogEntry(state, op.goal_id, op.entry_id)
     case "goal.set_review":
       return setGoalReview(state, op.goal_id, op.review_since)
     case "goal.checkpoint.set":

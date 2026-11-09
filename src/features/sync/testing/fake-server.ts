@@ -267,6 +267,8 @@ export class FakeServer {
       case "goal.archive":
       case "goal.restore":
       case "goal.set_review":
+      case "goal.log_add":
+      case "goal.log_remove":
       case "goal.checkpoint.set": {
         const id = op.type === "goal.create" ? op.goal.id : op.goal_id
         const existing = this.goals.get(id)

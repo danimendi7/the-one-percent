@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useId, useMemo, useRef, useState } from "react"
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, ArrowLeft, Check, CloudOff, ExternalLink, Loader2, PenLine, Search } from "lucide-react"
 import { SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -111,7 +111,8 @@ function AssistantBody({ state, initial, persist, onDirty, onManual, onCreated }
   }, [by])
 
   useEffect(() => onDirty(text.trim() !== "" || chosen !== null), [text, chosen, onDirty])
-  useEffect(() => persist({ text, by, chosen, confirm: chosen ? confirm : null }), [text, by, chosen, confirm, persist])
+  // Layout effects: the draft is written in the same task that shows the change, so a reload cannot beat it (D102).
+  useLayoutEffect(() => persist({ text, by, chosen, confirm: chosen ? confirm : null }), [text, by, chosen, confirm, persist])
 
   const manual = () => {
     const isbn = detectIsbn(text) ?? (invalidIsbn(text) ? compactIsbn(text) : null)
@@ -360,7 +361,7 @@ function Confirm({ result, state, initial, onChange, onBack, onManual, onCreated
     return () => ac.abort()
   }, [result.workId, start])
 
-  useEffect(() => onChange({ draft, detailDone: detail === "done", status, rating, favorite, topics, separate }), [draft, detail, status, rating, favorite, topics, separate, onChange])
+  useLayoutEffect(() => onChange({ draft, detailDone: detail === "done", status, rating, favorite, topics, separate }), [draft, detail, status, rating, favorite, topics, separate, onChange])
 
   const candidate = draftResult(draft)
   // The book just written is not a duplicate of itself while its device copy is awaited.
