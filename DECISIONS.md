@@ -4,6 +4,12 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-09 | La PR #7 agrupa B1–B5 y el cierre documental A9 | Una PR por tarea | Comparten la misma pantalla y sus archivos; cada pasada de CI cuesta unos 25 min de un cupo limitado |
+| 2026-11-09 | Relaciones con correlación de Spearman, mínimo de 14 días con ambos datos y sin afirmar patrón por debajo de 0,3 | Pearson; mínimo de 7 días | Las escalas 1–5 solo tienen orden y Pearson se deja llevar por valores extremos; con menos días un coeficiente varía demasiado. Es fácil de ajustar: son constantes |
+| 2026-11-09 | Las comparativas solo usan semanas y meses cerrados, y piden 3 días con check-in por semana y 7 por mes | Comparar la semana en curso con la anterior | Poner unos pocos días frente a siete da cambios que no existen. Coincide con los periodos de las revisiones |
+| 2026-11-09 | La proyección es la recta de las últimas 8 semanas cerradas, con 6 como mínimo, y un margen igual a la dispersión | Media simple; más semanas | Da margen honesto con pocos datos y sin parámetros que justificar. Solo mira la semana siguiente |
+| 2026-11-09 | Enfoque cuenta 0 los días sin sesión solo desde la primera sesión, y antes es «sin dato» | Contar siempre 0 | Una temporada sin usar Enfoque no significa cero concentración y falsearía las relaciones |
+| 2026-11-09 | Relaciones y proyecciones no se congelan en las revisiones, y `METRICS_VERSION` no sube | Subir a v5 | Las revisiones no incluyen estas cifras: no hay nada que proteger |
 | 2026-11-09 | Los asistentes usan un tamaño de botón nuevo (`touch-sm`, 44 px en móvil y 36 en escritorio) y `sm` no cambia | Subir `sm` a 44 px en toda la app | `sm` se usa en otras pantallas que A8 no revisa; el repaso general es de F2 |
 | 2026-11-09 | La descripción del primer paso de los asistentes queda solo para VoiceOver en móvil | Mantenerla visible | Repite lo que dice el campo y con el teclado abierto ocupaba 40 px de la lista; el lector de pantalla la sigue leyendo |
 | 2026-11-09 | Las pruebas de dos dispositivos de A6 se ejecutan también en móvil, sin `test.skip` | Subir de 27 a 29 las omisiones esperadas por la CI | Ese número está en `.github/workflows/ci.yml`, que Skynet no modifica, y ejecutarlas da más cobertura sin relajar ninguna comprobación |

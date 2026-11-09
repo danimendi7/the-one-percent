@@ -4,7 +4,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 
 **Estados:** IV = implementada y validada · P = implementada parcialmente · SP = implementada sin pruebas suficientes · ND = planificada pero no desarrollada · NV = no verificable con la información disponible.
 
-**Validación:** «CI» es la suite E2E e integración en verde sobre `3227ace` (run 42628421621, PR #5; una pasada con 0 flaky). Ninguna fila incluye prueba en dispositivo real.
+**Validación:** «CI» es la suite E2E e integración en verde sobre `d5d4b36` (run 42638530217, PR #6; una pasada con 0 flaky). Ninguna fila incluye prueba en dispositivo real.
 
 | Módulo | Funcionalidad | Estado actual | Evidencia | Trabajo pendiente | Prioridad |
 | --- | --- | --- | --- | --- | --- |
@@ -17,11 +17,11 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Habit Engine | Rachas y cumplimiento a 30 días | IV | `habit-metrics.tsx`, `metrics.ts`, CI | — | — |
 | Habit Engine | Historial de auditoría de cambios | P | Se escribe en `audit_logs`; sin lectura en `src` | Vista de historial (C6) | Media |
 | Habit Engine | Sincronización y offline | IV | `features/sync` (14 tests), `sync.int.test.ts`, `offline.spec.ts`, CI | — | — |
-| Life Analytics | Descriptivo: series, heatmap, comparativas | IV | `analytics-view.tsx`, `catalog.ts`, `e2e/analytics.spec.ts`, CI | Comparativa mensual explícita (B3) | Media |
-| Life Analytics | Diagnóstico: cruces multivariables | P | Solo `mind_energy_focus` y `mind_sleep_completion` | Motor de relaciones (B1, B2) | Alta |
-| Life Analytics | Predictivo | P | Solo `goal_projection` | Proyecciones prudentes (B4) | Baja |
+| Life Analytics | Descriptivo: series, heatmap, comparativas | SP | `analytics-view.tsx`, `catalog.ts`, `domain/comparisons.ts`, `e2e/analytics.spec.ts`; comparativas pendientes de la CI de su PR | CI (B3) | Media |
+| Life Analytics | Diagnóstico: cruces multivariables | SP | `domain/relations.ts`, `relations-panel.tsx`, `e2e/analytics.spec.ts`; pendientes de la CI de su PR | CI (B1, B2) | Alta |
+| Life Analytics | Predictivo | SP | `goal_projection`, `domain/projections.ts`, `forecast-panel.tsx`; pendiente de la CI de su PR | CI (B4) | Baja |
 | Life Analytics | Prescriptivo | ND | Sin código | Experimentos por reglas (E3) | Media |
-| Life Analytics | Dimensión de aprendizaje | ND | Sin métricas de biblioteca en `catalog.ts` | Métricas de aprendizaje (B5) | Media |
+| Life Analytics | Dimensión de aprendizaje | SP | `domain/learning.ts`, `learning-panel.tsx`; pendiente de la CI de su PR | CI (B5) | Media |
 | Goals & Systems | Objetivos, métricas, hitos, fechas, hábitos vinculados | IV | `features/goals`, `goals.int.test.ts`, E2E, CI | — | — |
 | Goals & Systems | Progreso real frente a esperado | IV | `domain/progress.ts` y su test, CI | — | — |
 | Goals & Systems | Estados archivado y en revisión | ND | `state`: `active`, `achieved`, `abandoned` | Estados nuevos (C1) | Media |
@@ -39,6 +39,8 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Knowledge OS | Atribución de ediciones separadas (M4g.5 §23-2, D101) | IV | `metadata/attribution.ts`, `add-book.spec.ts`, CI | — | — |
 | Knowledge OS | Actualizar datos de lo ya guardado (M4g.5 §8) | IV | `metadata/diff.ts`, `metadata-update.tsx`, `e2e/metadata-update.spec.ts`, CI | — | — |
 | Knowledge OS | Repaso de privacidad e integridad (M4g.5 §23-6) | IV | `docs/security-checklist.md`, casos M y N con vínculos en `library-sync.int.test.ts`, CI | — | — |
+| Knowledge OS | Asistentes en el iPhone: espacio y 44 px (M4g.5 §23-3) | SP | `e2e/assistant-iphone.spec.ts`, CI, capturas `iphone-teclado-*`; teclado simulado | Prueba real en iPhone con `docs/guia-dispositivo.md` (Dani) | Media |
+| Knowledge OS | Medición en iPhone y guía de VoiceOver y sin red (M4g.5 §23-4/5) | NV | `docs/guia-dispositivo.md` escrita; nadie la ha ejecutado | Ejecutar la guía y apuntar el resultado (Dani) | Media |
 | Knowledge OS | Cerebro: ideas, búsqueda, relaciones | IV | `brain-view.tsx`, `knowledge/domain`, `knowledge.spec.ts`, CI | — | — |
 | Knowledge OS | Active Recall | ND | Sin código | D1–D3 | Alta |
 | Knowledge OS | Daily Discovery / Tema de hoy | P | Pantalla demo, no guarda nada | D4, D5 | Alta |
