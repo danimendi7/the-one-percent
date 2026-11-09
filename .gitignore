@@ -50,3 +50,6 @@ next-env.d.ts
 /e2e-results/
 /blob-report/
 /playwright/.cache/
+/logs/
+.env.local
+.env*.local
