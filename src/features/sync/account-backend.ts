@@ -73,6 +73,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         focus: e.focus,
         checkins: e.checkins,
         reviews: e.reviews,
+        dailyReviews: e.dailyReviews,
       }
     }
     return snapshot

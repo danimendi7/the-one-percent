@@ -421,6 +421,8 @@ export interface PullPayload {
   daily_checkins?: WireCheckin[]
   /** M3.4. Absent from servers without the reviews migration: reviews stay on the device. */
   reviews?: WireReview[]
+  /** Daily reviews (C5), apart from `reviews` so that clients published before them never receive one. */
+  daily_reviews?: WireReview[]
   /** M4b. The library travels through pull_library; this only says the server stores it and its newest change. */
   library?: { head: number }
   cursor: number
@@ -434,7 +436,7 @@ export interface ServerCache {
   cursor: number
   serverToday: LocalDate
   /** Server capabilities seen in the last pull (a deploy may precede its migration). */
-  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; library?: boolean }
+  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; dailyReviews?: boolean; library?: boolean }
 }
 
 export type SyncStatus = "synced" | "syncing" | "pending" | "offline" | "error"

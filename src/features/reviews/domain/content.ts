@@ -24,8 +24,9 @@ const uuid = z.uuid()
 
 const text = (max: number) => z.string().trim().min(1).max(max)
 
+/** A daily review is kept short on purpose: its two questions, without a free note. */
 export function contentKeys(kind: ReviewKind): readonly ContentKey[] {
-  return [...QUESTION_KEYS[kind], "note"]
+  return kind === "day" ? QUESTION_KEYS.day : [...QUESTION_KEYS[kind], "note"]
 }
 
 export function contentSchema(kind: ReviewKind) {
@@ -86,6 +87,9 @@ export type Validation = { ok: true } | { ok: false; field: ReviewField; message
 
 /** Validates a review's user content (not the snapshot). */
 export function validateContent(review: Pick<Review, "kind" | "content" | "decisions" | "evaluations">): Validation {
+  // Decisions are made and rated week to week and month to month; a day only records adjustments.
+  if (review.kind === "day" && review.decisions.length > 0) return { ok: false, field: "decisions", message: "a daily review has no decisions" }
+  if (review.kind === "day" && review.evaluations.length > 0) return { ok: false, field: "evaluations", message: "a daily review has no evaluations" }
   const content = contentSchema(review.kind).safeParse(normalizeContent(review.content))
   if (!content.success) {
     const key = String(content.error.issues[0]?.path[0] ?? "note") as ContentKey
@@ -100,7 +104,8 @@ export function validateContent(review: Pick<Review, "kind" | "content" | "decis
 
 /** Every section that conflicts on its own (decision 5). */
 export function reviewFields(kind: ReviewKind): ReviewField[] {
-  return [...contentKeys(kind).map((k) => `content.${k}` as const), "decisions", "evaluations"]
+  const answers = contentKeys(kind).map((k) => `content.${k}` as const)
+  return kind === "day" ? answers : [...answers, "decisions", "evaluations"]
 }
 
 export interface SectionProgress {

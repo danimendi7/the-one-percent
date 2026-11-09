@@ -14,14 +14,15 @@ import {
   pastPeriods,
   previousReviewOf,
   progressLabel,
+  reviewProgress,
   reviewSteps,
   reviewsOfKind,
 } from "./overview"
-import { reviewKey, type Decision, type Review, type ReviewMap } from "./types"
+import { reviewKey, type Decision, type Review, type ReviewKind, type ReviewMap } from "./types"
 
 const TODAY = "2026-10-29" // Thursday
 const d = (n: number, p: Partial<Decision> = {}): Decision => ({ id: `d0000000-0000-4000-8000-00000000000${n}`, text: `Decisión ${n}`, kind: "keep", expected: null, link: null, ...p })
-const draft = (kind: "week" | "month", start: string, p: Partial<Review> = {}): Review => ({ ...emptyDraft(kind, start, "2026-10-29T10:00:00.000Z"), ...p })
+const draft = (kind: ReviewKind, start: string, p: Partial<Review> = {}): Review => ({ ...emptyDraft(kind, start, "2026-10-29T10:00:00.000Z"), ...p })
 const map = (...rs: Review[]): ReviewMap => Object.fromEntries(rs.map((r) => [reviewKey(r.kind, r.periodStart), r]))
 
 describe("the review due now", () => {
@@ -134,5 +135,38 @@ describe("demo reviews", () => {
     expect(previousReviewOf(state.reviews, due.period)?.decisions).toHaveLength(2)
     // Every closed demo review holds real figures of the demo records.
     for (const r of weeks) expect(r.snapshot?.habits.current.applicable).toBeGreaterThan(0)
+  })
+})
+
+describe("the daily review (C5)", () => {
+  it("is due today, whatever was reviewed before", () => {
+    expect(dueReview({}, "day", TODAY)).toMatchObject({ period: { kind: "day", from: TODAY, to: TODAY }, phase: "ready" })
+    expect(dueReview(map(draft("day", "2026-10-28")), "day", TODAY).phase).toBe("ready")
+    expect(dueReview(map(draft("day", TODAY)), "day", TODAY).phase).toBe("draft")
+  })
+
+  it("walks figures, reflection and close: no decisions to make or evaluate", () => {
+    expect(reviewSteps(null, "day")).toEqual(["figures", "reflection", "close"])
+    expect(reviewSteps({ decisions: [d(1)] }, "day")).toEqual(["figures", "reflection", "close"])
+    expect(reviewSteps({ decisions: [d(1)] }, "week")).toEqual(["figures", "reflection", "evaluations", "decisions", "close"])
+  })
+
+  it("counts its two questions and never mentions decisions", () => {
+    expect(reviewProgress("day", undefined, null)).toBe("0 de 2 preguntas")
+    expect(reviewProgress("day", draft("day", TODAY, { content: { observations: "Bien" } }), null)).toBe("1 de 2 preguntas")
+    expect(reviewProgress("week", undefined, null)).toBe("0 de 3 preguntas · 0 decisiones")
+  })
+
+  it("lists past days, newest first, without today", () => {
+    expect(pastPeriods("day", TODAY, "2026-10-26").map((p) => p.from)).toEqual([TODAY, "2026-10-28", "2026-10-27", "2026-10-26"])
+  })
+
+  it("groups the history by month and stays out of the decision log", () => {
+    const rs = map(draft("day", "2026-10-02"), draft("day", "2026-09-30"), draft("week", "2026-10-19", { decisions: [d(1)] }))
+    expect(historyGroups(rs, "day").map((g) => [g.label, g.reviews.length])).toEqual([
+      ["Octubre de 2026", 1],
+      ["Septiembre de 2026", 1],
+    ])
+    expect(decisionLog(rs).map((e) => e.kind)).toEqual(["week"])
   })
 })

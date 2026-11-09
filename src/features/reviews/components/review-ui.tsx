@@ -9,6 +9,7 @@ import type { ReviewPhase } from "../domain/overview"
 import type { ReviewKind } from "../domain/types"
 
 export const KIND_LABEL: Record<ReviewKind, { title: string; noun: string; previous: string; next: string }> = {
+  day: { title: "Revisión diaria", noun: "día", previous: "día anterior", next: "mañana" },
   week: { title: "Revisión semanal", noun: "semana", previous: "semana anterior", next: "la próxima semana" },
   month: { title: "Revisión mensual", noun: "mes", previous: "mes anterior", next: "el próximo mes" },
 }
@@ -17,8 +18,14 @@ export function reviewHref(kind: ReviewKind, start: LocalDate): string {
   return `/reviews/${kind}/${start}`
 }
 
-/** «19–25 oct» / «octubre» (compact, for rows). */
+/** The Revisiones page, on the tab of this kind. */
+export function reviewsHomeHref(kind: ReviewKind): string {
+  return kind === "month" ? "/reviews?tipo=mensual" : kind === "day" ? "/reviews?tipo=diaria" : "/reviews"
+}
+
+/** «mié, 21» / «19–25 oct» / «octubre» (compact, for rows). */
 export function shortPeriod(p: Period): string {
+  if (p.kind === "day") return formatDate(p.from, { weekday: "short", day: "numeric" })
   if (p.kind === "month") return formatDate(p.from, { month: "long" })
   const sameMonth = p.from.slice(0, 7) === p.to.slice(0, 7)
   const from = formatDate(p.from, sameMonth ? { day: "numeric" } : { day: "numeric", month: "short" })

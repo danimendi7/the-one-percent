@@ -7,6 +7,7 @@
  */
 import { useSyncExternalStore } from "react"
 import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions, ReviewActions } from "./types"
+import type { ReviewKind } from "@/features/reviews/domain/types"
 
 export type { HabitsSnapshot, DataSource, SyncInfo } from "./types"
 
@@ -59,9 +60,11 @@ export function focusEnabled(): boolean {
   return !!backend?.actions.startFocus && backend.getSnapshot()?.focus !== false
 }
 
-/** True when the active data source can close reviews (an account needs the M3.4 migration; drafts stay on the device until then). */
-export function reviewsEnabled(): boolean {
-  return !!backend?.actions.saveReview && backend.getSnapshot()?.reviews !== false
+/** True when the active data source can close reviews (an account needs the M3.4 migration, and C5 for daily ones; drafts stay on the device until then). */
+export function reviewsEnabled(kind?: ReviewKind): boolean {
+  if (!backend?.actions.saveReview) return false
+  const snap = backend.getSnapshot()
+  return snap?.reviews !== false && (kind !== "day" || snap?.dailyReviews !== false)
 }
 
 /** True when the active data source stores check-ins (an account needs the M3.3 migration). */

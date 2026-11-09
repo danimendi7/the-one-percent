@@ -53,6 +53,8 @@ export class FakeServer {
   private reviews = new Map<string, Row<WireReview>>()
   /** false: behave like a server without the reviews migration (M3.4). */
   reviewsSupported = true
+  /** false: behave like a server without the daily reviews migration (C5). */
+  dailyReviewsSupported = true
   /** Latest change of any data a snapshot is computed from (private.review_data_cursor). */
   private dataSeq = 0
   /** Count of times each op_id was actually applied (never > 1). */
@@ -317,6 +319,7 @@ export class FakeServer {
       case "review.close":
       case "review.delete":
         if (!this.reviewsSupported) return reject("unknown_op_type")
+        if (op.kind === "day" && !this.dailyReviewsSupported) return reject("invalid_period")
         return this.applyReview(op)
       default:
         // Like a server without the library migration (M4b): the library is tested against real PostgreSQL.
@@ -598,7 +601,14 @@ export class FakeServer {
       ...(this.reviewsSupported
         ? {
             reviews: pick(this.reviews)
-              .filter((r) => !full || !r.data.deleted)
+              .filter((r) => r.data.kind !== "day" && (!full || !r.data.deleted))
+              .map((r) => ({ ...r.data, server_seq: r.seq })),
+          }
+        : {}),
+      ...(this.reviewsSupported && this.dailyReviewsSupported
+        ? {
+            daily_reviews: pick(this.reviews)
+              .filter((r) => r.data.kind === "day" && (!full || !r.data.deleted))
               .map((r) => ({ ...r.data, server_seq: r.seq })),
           }
         : {}),

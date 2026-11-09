@@ -15,6 +15,8 @@ export interface ReviewsModel {
   source: HabitsSnapshot["source"]
   /** False: an account whose server lacks the reviews migration. Drafts stay on the device and cannot close. */
   serverSaves: boolean
+  /** The same for daily reviews, which need their own migration (C5). */
+  dailySaves: boolean
   api: ReviewActions
 }
 
@@ -22,8 +24,12 @@ export function useReviewsModel(): ReviewsModel | null {
   const snap = useHabits()
   return useMemo(() => {
     if (!snap) return null
-    return { snap, state: snap.state, today: snap.today, source: snap.source, serverSaves: snap.source === "demo" || reviewsEnabled(), api: habitActions }
+    return { snap, state: snap.state, today: snap.today, source: snap.source, serverSaves: snap.source === "demo" || reviewsEnabled(), dailySaves: snap.source === "demo" || reviewsEnabled("day"), api: habitActions }
   }, [snap])
+}
+
+export function savesKind(m: ReviewsModel, kind: ReviewKind): boolean {
+  return kind === "day" ? m.dailySaves : m.serverSaves
 }
 
 /** Kept texts of one review (D47 generalized): sections that wait for «Aplicar la mía» / «Mantener la otra». */
@@ -49,7 +55,7 @@ export function syncStateOf(m: ReviewsModel, kind: ReviewKind, periodStart: Loca
  * The save line of a review (aria-live). Honest by construction: «Sincronizado» only when the
  * server has every write of this review; a write only in IndexedDB says so.
  */
-export function saveLine(m: ReviewsModel, state: ReviewSyncState, typing: boolean): { text: string; tone: "ok" | "pending" | "warn" } {
+export function saveLine(m: ReviewsModel, kind: ReviewKind, state: ReviewSyncState, typing: boolean): { text: string; tone: "ok" | "pending" | "warn" } {
   if (typing) return { text: "Guardando…", tone: "pending" }
   if (m.source === "demo") return { text: "Guardado en este navegador · demo", tone: "ok" }
   if (!m.snap.persisted) return { text: "No se pudo guardar en este dispositivo", tone: "warn" }
@@ -59,7 +65,7 @@ export function saveLine(m: ReviewsModel, state: ReviewSyncState, typing: boolea
     case "pending":
       return { text: "Guardado en este dispositivo · sincronizando…", tone: "pending" }
     case "local":
-      return m.serverSaves
+      return savesKind(m, kind)
         ? { text: "Guardado en este dispositivo · se enviará al recuperar la conexión", tone: "pending" }
         : { text: "Guardado solo en este dispositivo · tu cuenta aún no guarda revisiones", tone: "warn" }
     case "conflict":

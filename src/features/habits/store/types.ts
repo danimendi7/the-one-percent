@@ -42,6 +42,8 @@ export interface HabitsSnapshot {
   checkins?: boolean
   /** False while the account's server lacks the reviews migration (M3.4): drafts stay on the device and cannot close. */
   reviews?: boolean
+  /** False: the server lacks the daily reviews migration (C5). Their drafts stay on the device. */
+  dailyReviews?: boolean
   account?: { userId: string; email: string | null }
 }
 

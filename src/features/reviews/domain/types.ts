@@ -7,20 +7,24 @@ import type { ReviewSnapshot } from "./snapshot"
  * While it is a draft its figures are live; closing freezes them in `snapshot` once and for all
  * (decision 1), and a closed review is immutable (decision 4).
  */
-export type ReviewKind = "week" | "month"
+export type ReviewKind = "day" | "week" | "month"
 export type ReviewStatus = "draft" | "closed"
 
 /** Short questions (decision 3). Every answer is optional: a review can close with none. */
 export const QUESTION_KEYS = {
+  day: ["observations", "adjustments"],
   week: ["wins", "struggles", "lessons"],
   month: ["pattern", "attention", "stop"],
 } as const satisfies Record<ReviewKind, readonly string[]>
 
+export type DayQuestion = (typeof QUESTION_KEYS.day)[number]
 export type WeekQuestion = (typeof QUESTION_KEYS.week)[number]
 export type MonthQuestion = (typeof QUESTION_KEYS.month)[number]
-export type ContentKey = WeekQuestion | MonthQuestion | "note"
+export type ContentKey = DayQuestion | WeekQuestion | MonthQuestion | "note"
 
 export const QUESTION_LABEL: Record<ContentKey, string> = {
+  observations: "¿Qué has observado?",
+  adjustments: "¿Qué vas a ajustar?",
   wins: "¿Qué salió bien?",
   struggles: "¿Qué costó?",
   lessons: "¿Qué aprendiste?",

@@ -3,7 +3,7 @@ import { buildReviewSnapshot, type ReviewSnapshot } from "./snapshot"
 export { historyStart } from "./snapshot"
 import { isAvailable, latestAvailable, periodFromStart, periodOf, previousPeriod, nextPeriod, type Period } from "./periods"
 import { decisionsToEvaluate } from "./content"
-import { reviewKey, type Decision, type DecisionKind, type Evaluation, type EvaluationOutcome, type Review, type ReviewKind, type ReviewMap } from "./types"
+import { QUESTION_KEYS, reviewKey, type Decision, type DecisionKind, type Evaluation, type EvaluationOutcome, type Review, type ReviewKind, type ReviewMap } from "./types"
 import type { HabitsState } from "@/features/habits/domain/types"
 
 /**
@@ -105,8 +105,9 @@ export function headline(s: ReviewSnapshot): { completion: number | null; applic
 
 export type StepId = "figures" | "reflection" | "evaluations" | "decisions" | "close"
 
-/** The review steps (plan §6.2): the evaluation step only when the previous review left decisions. */
-export function reviewSteps(previous: Pick<Review, "decisions"> | null): StepId[] {
+/** The review steps (plan §6.2): the evaluation step only when the previous review left decisions; a day has neither. */
+export function reviewSteps(previous: Pick<Review, "decisions"> | null, kind: ReviewKind = "week"): StepId[] {
+  if (kind === "day") return ["figures", "reflection", "close"]
   return previous && previous.decisions.length > 0 ? ["figures", "reflection", "evaluations", "decisions", "close"] : ["figures", "reflection", "decisions", "close"]
 }
 
@@ -126,6 +127,12 @@ export function progressLabel(review: Pick<Review, "kind" | "content" | "decisio
   const parts = [`${answered} de ${questions} preguntas`, decisions === 1 ? "1 decisión" : `${decisions} decisiones`]
   if (pending > 0) parts.push(`${pending} por evaluar`)
   return parts.join(" · ")
+}
+
+/** The progress line of a review of any kind: a daily review only counts its questions. */
+export function reviewProgress(kind: ReviewKind, review: Pick<Review, "kind" | "content" | "decisions" | "evaluations"> | undefined, previous: Pick<Review, "decisions"> | null): string {
+  const label = progressLabel(review, previous, QUESTION_KEYS[kind].length)
+  return kind === "day" ? label.split(" · ")[0] : label
 }
 
 export interface LogEntry {

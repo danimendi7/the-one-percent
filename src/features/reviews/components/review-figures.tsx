@@ -25,7 +25,7 @@ export function ReviewFigures({ s, live, className }: { s: ReviewSnapshot; live:
     <div className={cn("space-y-4", className)} data-testid="review-figures">
       <ContextNotes s={s} live={live} />
       <HabitsBlock s={s} against={k.previous} />
-      <GoalsBlock s={s} />
+      {s.kind !== "day" && <GoalsBlock s={s} />}
       <FocusBlock s={s} against={k.previous} />
       <MindBlock s={s} against={k.previous} />
       {s.weekly && <WeeklyTable s={s} />}
@@ -36,6 +36,7 @@ export function ReviewFigures({ s, live, className }: { s: ReviewSnapshot; live:
 function ContextNotes({ s, live }: { s: ReviewSnapshot; live: boolean }) {
   const notes: string[] = []
   if (live) notes.push("Cifras en vivo: se congelarán al cerrar la revisión.")
+  if (s.kind === "day" && s.habits.current.pending > 0) notes.push(`El día seguía abierto: ${s.habits.current.pending === 1 ? "1 hábito pendiente cuenta" : `${s.habits.current.pending} hábitos pendientes cuentan`} como aún sin hacer.`)
   if (s.asOf < s.period.to) notes.push(`Hoy cuenta como pendiente: cifras hasta el ${formatDate(s.asOf, { day: "numeric", month: "long" })}.`)
   if (s.historyStart && s.historyStart > s.period.from && s.historyStart <= s.period.to)
     notes.push(`Tu historial empieza el ${formatDate(s.historyStart, { day: "numeric", month: "long" })}: los días anteriores no cuentan.`)
@@ -93,7 +94,7 @@ function HabitsBlock({ s, against }: { s: ReviewSnapshot; against: string }) {
             <p className="num text-xs text-text-tertiary">
               {h.current.fulfilled} de {h.current.applicable} cumplidas
               {h.current.exempt > 0 && ` · ${h.current.exempt} exentas`}
-              {h.perfectDays.withData > 0 && ` · ${h.perfectDays.perfect} de ${h.perfectDays.withData} días completos`}
+              {s.kind !== "day" && h.perfectDays.withData > 0 && ` · ${h.perfectDays.perfect} de ${h.perfectDays.withData} días completos`}
             </p>
             {delta !== null ? <Delta value={delta} unit="pts" against={against} /> : <span className="text-xs text-text-tertiary">Sin comparación: sin datos en el {against}</span>}
           </div>
@@ -281,7 +282,7 @@ function MindBlock({ s, against }: { s: ReviewSnapshot; against: string }) {
     <Block
       title="Mente y energía"
       testId="figures-mind"
-      figure={<span className="num text-sm text-text-secondary">{m.coverage.days} de {m.coverage.total} días con check-in</span>}
+      figure={<span className="num text-sm text-text-secondary">{s.kind === "day" ? (none ? "Sin check-in" : "Con check-in") : `${m.coverage.days} de ${m.coverage.total} días con check-in`}</span>}
       sub={
         <p className="text-xs text-text-tertiary">
           {none ? "Sin check-ins en este periodo. " : ""}Solo cifras agregadas: tus reflexiones privadas nunca aparecen en una revisión.
@@ -314,10 +315,10 @@ function MindBlock({ s, against }: { s: ReviewSnapshot; against: string }) {
               )
             })}
           </dl>
-          <p className="border-t border-border/70 px-4 py-2.5 text-[0.6875rem] leading-relaxed text-text-tertiary sm:px-5">
+          {s.kind !== "day" && <p className="border-t border-border/70 px-4 py-2.5 text-[0.6875rem] leading-relaxed text-text-tertiary sm:px-5">
             El cambio solo se calcula con al menos {ENOUGH_DAYS} días con dato en ambos periodos; con menos, se muestra el valor anterior como contexto.
             {m.energyByFocus.shown || m.completionBySleep.shown ? "" : " Las comparaciones energía-foco y sueño-hábitos necesitan más días."}
-          </p>
+          </p>}
         </>
       )}
     </Block>
