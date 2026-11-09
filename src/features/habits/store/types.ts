@@ -1,3 +1,4 @@
+import type { Grade } from "@/features/recall/domain/schedule"
 import type { AuditRow } from "@/features/habits/domain/history"
 import type { LocalDate } from "../domain/dates"
 import type { HabitInput, SetEntryResult } from "../domain/ops"
@@ -114,7 +115,18 @@ export interface ReviewActions {
   reviewSyncState(kind: ReviewKind, periodStart: LocalDate): ReviewSyncState
 }
 
-export interface HabitActions extends Partial<GoalActions>, Partial<FocusActions>, Partial<MindActions>, Partial<ReviewActions> {
+export type AddRecallCardResult = { ok: true; id: string } | { ok: false; field: "question" | "answer"; reason: "empty" | "too_long" }
+
+/** Active Recall (D3). Times and «today» come from the backend (server-corrected in account mode). */
+export interface RecallActions {
+  addRecallCard(input: { question: string; answer: string; sourceNoteId: string | null }): AddRecallCardResult
+  /** False if the card no longer exists. */
+  answerRecallCard(cardId: string, grade: Grade): boolean
+  suspendRecallCard(cardId: string, suspended: boolean): void
+  deleteRecallCard(cardId: string): void
+}
+
+export interface HabitActions extends Partial<RecallActions>, Partial<GoalActions>, Partial<FocusActions>, Partial<MindActions>, Partial<ReviewActions> {
   setEntry(habitId: string, date: LocalDate, value: boolean | number | null): SetEntryResult
   addHabit(input: HabitInput): string
   updateHabit(id: string, input: HabitInput): void

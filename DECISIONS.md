@@ -4,6 +4,9 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-09 | El repaso es una pantalla propia de Cerebro (`/knowledge/brain/repaso`), con una pestaña y su contador junto a Ideas y Aplicaciones | Una entrada más en la navegación principal | P16 define Cerebro como el centro de Ideas y Repaso. La ruta es estática y va en la caché offline |
+| 2026-11-09 | Crear una tarjeta desde una idea pone la idea como respuesta sin recortarla, y la pregunta la escribe la persona | Recortar a 2.000 caracteres o generar la pregunta | Recortar perdería texto sin avisar; si no cabe, el formulario lo dice. Una pregunta generada exigiría IA, fuera de la restricción económica |
+| 2026-11-09 | La demo trae cuatro tarjetas de ejemplo, etiquetadas; una cuenta nueva no trae ninguna | Demo vacía | Sin ejemplos no se ve cómo funciona el repaso. Las cuentas solo muestran lo que escribe su dueño |
 | 2026-11-09 | Repaso con SM-2 simplificado y versionado: 1 día, 6 días y luego intervalo × facilidad; tope de un año. Bien y Difícil coinciden en la primera respuesta | FSRS | El plan M4i pide SM-2 simplificado e intervalos deterministas. FSRS necesita un historial para ajustar parámetros que aún no existe; `algorithm_version` permite cambiarlo después |
 | 2026-11-09 | La fecha de una tarjeta es un día (`due_on`), no un instante como el `due_at` de la especificación | `due_at` con hora | Todo el producto cuenta por días locales de la zona del perfil; con hora, una tarjeta vencería en momentos distintos según el dispositivo |
 | 2026-11-09 | Solo se limitan las tarjetas nuevas (10 al día) y la pantalla dirá cuántas esperan; los repasos vencidos no se limitan | Limitar también los repasos | El riesgo que señala M4i es una cola alimentada sin control. Ocultar repasos vencidos solo los acumula y falsea el calendario |

@@ -18,6 +18,7 @@ import { collator, normalize } from "@/features/knowledge/domain/text"
 import { APPLICATION_LABEL, APPLICATION_STATUSES, NOTE_TYPES, noteLabel, STATUSES, type ApplicationStatus, type ContentStatus, type KnowledgeNote, type KnowledgeState, type NoteType } from "@/features/knowledge/domain/types"
 import { DEMO_NOTICE } from "@/features/knowledge/demo"
 import { useLibrary } from "./store/use-library"
+import { RecallCount } from "@/features/recall/components/recall-count"
 import type { LibrarySnapshot } from "./store/types"
 import { NoteCard, QuickCapture } from "./components/knowledge-notes"
 import { Connections, KnowledgePicker, Marked, refView } from "./components/knowledge-links"
@@ -367,6 +368,10 @@ export function BrainView() {
         <Link href={`${BRAIN_HREF}?vista=aplicaciones`} aria-current={b.view === "aplicaciones" ? "page" : undefined} className={cn("inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium md:min-h-10", b.view === "aplicaciones" ? "border-signal/60 bg-signal/12" : "border-border text-text-secondary hover:bg-surface-raised")} data-testid="tab-applications">
           Aplicaciones
           {appsPending > 0 && <span className="num rounded-full bg-surface-raised px-1.5 text-xs text-text-secondary">{appsPending}</span>}
+        </Link>
+        <Link href={`${BRAIN_HREF}/repaso`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-medium text-text-secondary hover:text-foreground md:min-h-9" data-testid="recall-tab">
+          Repaso
+          <RecallCount />
         </Link>
       </nav>
 

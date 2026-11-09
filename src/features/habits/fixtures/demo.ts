@@ -8,6 +8,7 @@ import { createDemoGoals } from "@/features/goals/fixtures"
 import { withDemoFocus } from "@/features/focus/fixtures"
 import { withDemoCheckins } from "@/features/mind/fixtures"
 import { withDemoReviews } from "@/features/reviews/fixtures"
+import { createDemoRecall } from "@/features/recall/fixtures"
 import { DEFAULT_CHECKIN_CONFIG } from "@/features/mind/domain/types"
 import {
   entryKey,
@@ -230,7 +231,7 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
       checkins: {},
       checkinConfig: DEFAULT_CHECKIN_CONFIG,
       reviews: {},
-      recall: { cards: {}, attempts: {} },
+      recall: createDemoRecall(today),
     },
     today
     ),
