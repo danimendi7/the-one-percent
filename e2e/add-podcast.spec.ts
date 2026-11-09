@@ -116,6 +116,30 @@ test.describe("add a podcast episode with search (account)", () => {
     await removeAccount(account)
   })
 
+  test("a reload while reviewing an episode offers to recover it with the edits; saving clears the draft (D102)", async ({ page }) => {
+    await providers(page, apple)
+    await openAssistant(page)
+    await chooseRuina(page)
+    await page.getByTestId("episode-row").first().click()
+    await page.getByTestId("confirm-duration").fill("80")
+    await expect(page.getByTestId("confirm-duration")).toHaveValue("80")
+
+    await page.goto("/knowledge/library/podcasts")
+    await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ }).first()).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId("add-menu").click()
+    await page.getByRole("menuitem", { name: "Episodio" }).click()
+    await expect(page.getByTestId("draft-offer")).toBeVisible()
+    await page.getByTestId("draft-recover").click()
+    await expect(page.getByTestId("confirm-duration")).toHaveValue("80")
+    await expect(page.getByTestId("confirm-program")).toHaveValue("__new__")
+
+    await page.getByTestId("confirm-save").click()
+    await expect(page.getByTestId("item-save")).toHaveText("Sincronizado", { timeout: 15_000 })
+    await openAssistant(page)
+    await expect(page.getByTestId("draft-offer")).toHaveCount(0)
+    expect(await countRows("select count(*)::int n from public.library_items where user_id = $1 and deleted_at is null", [account.id])).toBe(1)
+  })
+
   test("show → 200 recent episodes said as such, drawn 30 at a time → filter → local day → edited duration kept → saved once with its new show, synced", async ({ page, consoleErrors }) => {
     const calls = await providers(page, apple)
     const failed: string[] = []

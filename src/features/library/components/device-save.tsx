@@ -1,10 +1,24 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
 import { libraryActions } from "../store/use-library"
+import { settleDeviceSave } from "./device-save-flow"
 
 /** After this long still saving on the device, the assistant says so (it keeps waiting). */
 const SLOW_SAVE_MS = 3000
+
+/** Someone left during the wait and the device refused: the notice stays until it is really saved. */
+export function warnNotOnDevice() {
+  toast.error("Un cambio no se ha podido guardar en este dispositivo (puede que falte espacio). Si cierras la app, se perderá.", {
+    duration: Infinity,
+    action: {
+      label: "Reintentar",
+      onClick: () => void libraryActions.saved().then((ok) => (ok ? toast.success("Guardado en este dispositivo") : warnNotOnDevice())),
+    },
+  })
+}
 
 export type DeviceSaveState = "saving" | "slow" | "failed" | null
 
@@ -34,10 +48,11 @@ export function useDeviceSave(onSaved: (value: string) => void) {
     setWritten(value)
     setState("saving")
     const slow = setTimeout(() => setState((s) => (s === "saving" ? "slow" : s)), SLOW_SAVE_MS)
-    const ok = await libraryActions.saved()
+    const outcome = await settleDeviceSave(libraryActions.saved, () => alive.current)
     clearTimeout(slow)
-    if (!alive.current) return
-    if (!ok) return setState("failed")
+    if (outcome === "warn") return warnNotOnDevice()
+    if (outcome === "done") return
+    if (outcome === "retry") return setState("failed")
     done.current(value)
   }
 
@@ -56,11 +71,35 @@ export function useDeviceSave(onSaved: (value: string) => void) {
 
 export const SAVING_LABEL = "Guardando en este dispositivo…"
 
-export function DeviceSaveNotice({ state }: { state: DeviceSaveState }) {
+/**
+ * M4g.5 · what a deleted page shows until the deletion is on the device: leaving earlier could lose it
+ * offline, and the deleted content would come back without warning.
+ */
+export function RemovalPending({ state, onRetry }: { state: DeviceSaveState; onRetry: () => void }) {
+  return (
+    <div className="mx-auto max-w-md space-y-3 py-10">
+      {state === "failed" ? null : (
+        <p role="status" className="text-sm text-text-secondary" data-testid="removal-saving">
+          {SAVING_LABEL}
+        </p>
+      )}
+      <DeviceSaveNotice state={state} failedText="No se ha podido guardar el borrado en este dispositivo (puede que falte espacio). Si cierras la app, volverá a aparecer: pulsa «Reintentar»." />
+      {state === "failed" ? (
+        <Button onClick={onRetry} data-testid="removal-retry">
+          Reintentar
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+const FAILED_TEXT = "No se ha podido guardar en este dispositivo (puede que falte espacio). Lo elegido sigue aquí: no cierres ni recargues la app y pulsa «Reintentar»."
+
+export function DeviceSaveNotice({ state, failedText = FAILED_TEXT }: { state: DeviceSaveState; failedText?: string }) {
   if (state === "failed")
     return (
       <p role="alert" className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning" data-testid="form-error">
-        No se ha podido guardar en este dispositivo (puede que falte espacio). Lo elegido sigue aquí: no cierres ni recargues la app y pulsa «Reintentar».
+        {failedText}
       </p>
     )
   if (state === "slow")

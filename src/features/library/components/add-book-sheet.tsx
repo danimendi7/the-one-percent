@@ -15,11 +15,13 @@ import { STATUSES, STATUS_LABEL, type ContentStatus, type KnowledgeState } from 
 import { applyDetail, applyEdition, createDraft, draftErrors, draftResult, editField, setKeepDescription, setUseCover, type BookDraft, type DraftErrors, type DraftField } from "../metadata/book-draft"
 import { metadataClient } from "../metadata/client"
 import { findBookMatches, type Match } from "../metadata/duplicates"
+import { clearAssistantDraft, draftStorage } from "../metadata/assistant-draft"
 import { detectIsbn } from "../metadata/query"
 import { createSearchController, type SearchState } from "../metadata/search-controller"
 import { toBookInput } from "../metadata/to-input"
 import type { BookResult, MetadataErrorCode } from "../metadata/types"
 import { libraryActions } from "../store/use-library"
+import { RecoverDraft, useAssistantDraft } from "./assistant-draft-ui"
 import { AssistantSheet, OFFLINE_TEXT, searchErrorText } from "./assistant-ui"
 import { DeviceSaveNotice, SAVING_LABEL, useDeviceSave } from "./device-save"
 import { refusalText } from "./knowledge-notes"
@@ -52,35 +54,52 @@ const languageName = (code: string | null) => (code ? (LANGUAGE[code] ?? code.to
 
 const errorText = (code: MetadataErrorCode, retryAfter?: number) => searchErrorText(code, "Open Library", retryAfter)
 
+/** What a reload must not lose (M4g.5, D102). */
+type ConfirmDraft = { draft: BookDraft; detailDone: boolean; status: ContentStatus; rating: number | null; favorite: boolean; topics: string[]; separate: boolean }
+type AssistantDraft = { text: string; by: By; chosen: BookResult | null; confirm: ConfirmDraft | null }
+const worthKeeping = (d: AssistantDraft) => d.text.trim() !== "" || d.chosen !== null
+
 export function AddBookSheet({
   open,
   onOpenChange,
   state,
+  userId,
   onManual,
   onCreated,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   state: KnowledgeState
+  /** Whose draft this is (D102). */
+  userId: string | null
   /** Manual entry with what was typed (title, or the ISBN). */
   onManual: (draft: { title?: string; isbn?: string }) => void
   onCreated: (id: string) => void
 }) {
   return (
-    <AssistantSheet open={open} onOpenChange={onOpenChange} testId="add-book-sheet">
-      {({ setDirty, close }) => <Assistant state={state} onDirty={setDirty} onManual={(d) => (close(), onManual(d))} onCreated={(id) => (close(), onCreated(id))} />}
+    <AssistantSheet open={open} onOpenChange={onOpenChange} testId="add-book-sheet" onDiscard={() => userId && clearAssistantDraft(draftStorage(), "book", userId)}>
+      {({ setDirty, close }) => <Assistant state={state} userId={userId} onDirty={setDirty} onManual={(d) => (close(), onManual(d))} onCreated={(id) => (close(), onCreated(id))} />}
     </AssistantSheet>
   )
 }
 
-function Assistant({ state, onDirty, onManual, onCreated }: { state: KnowledgeState; onDirty: (v: boolean) => void; onManual: (d: { title?: string; isbn?: string }) => void; onCreated: (id: string) => void }) {
-  const [text, setText] = useState("")
-  const [by, setBy] = useState<By>("any")
+type AssistantProps = { state: KnowledgeState; onDirty: (v: boolean) => void; onManual: (d: { title?: string; isbn?: string }) => void; onCreated: (id: string) => void }
+
+function Assistant({ userId, ...props }: AssistantProps & { userId: string | null }) {
+  const drafts = useAssistantDraft<AssistantDraft>("book", userId, worthKeeping)
+  if (drafts.offer) return <RecoverDraft title="Añadir libro" what={drafts.offer.chosen?.title ?? drafts.offer.text.trim()} onRecover={drafts.recover} onStartOver={drafts.startOver} />
+  return <AssistantBody {...props} initial={drafts.restored} persist={drafts.persist} onCreated={(id) => (drafts.clear(), props.onCreated(id))} />
+}
+
+function AssistantBody({ state, initial, persist, onDirty, onManual, onCreated }: AssistantProps & { initial: AssistantDraft | null; persist: (d: AssistantDraft) => void }) {
+  const [text, setText] = useState(initial?.text ?? "")
+  const [by, setBy] = useState<By>(initial?.by ?? "any")
   const [search, setSearch] = useState<SearchState<BookResult[]>>({ status: "idle" })
-  const [chosen, setChosen] = useState<BookResult | null>(null)
+  const [chosen, setChosen] = useState<BookResult | null>(initial?.chosen ?? null)
+  const [confirm, setConfirm] = useState<ConfirmDraft | null>(initial?.confirm ?? null)
   const controller = useRef<ReturnType<typeof createSearchController<BookResult[]>> | null>(null)
   // What is typed, for the new controller when «by» changes (written in the handler, not on render).
-  const typed = useRef("")
+  const typed = useRef(initial?.text ?? "")
 
   // One controller per «by»: its session cache is per kind of search. Disposed on close.
   useEffect(() => {
@@ -92,6 +111,7 @@ function Assistant({ state, onDirty, onManual, onCreated }: { state: KnowledgeSt
   }, [by])
 
   useEffect(() => onDirty(text.trim() !== "" || chosen !== null), [text, chosen, onDirty])
+  useEffect(() => persist({ text, by, chosen, confirm: chosen ? confirm : null }), [text, by, chosen, confirm, persist])
 
   const manual = () => {
     const isbn = detectIsbn(text) ?? (invalidIsbn(text) ? compactIsbn(text) : null)
@@ -99,7 +119,7 @@ function Assistant({ state, onDirty, onManual, onCreated }: { state: KnowledgeSt
   }
 
   if (chosen)
-    return <Confirm key={chosen.editionId ?? chosen.workId ?? chosen.title} result={chosen} state={state} onBack={() => setChosen(null)} onManual={manual} onCreated={onCreated} />
+    return <Confirm key={chosen.editionId ?? chosen.workId ?? chosen.title} result={chosen} state={state} initial={confirm} onChange={setConfirm} onBack={() => (setChosen(null), setConfirm(null))} onManual={manual} onCreated={onCreated} />
 
   return (
     <SearchStep
@@ -300,18 +320,20 @@ const FIELD_LABEL: Record<DraftField, string> = {
   description: "Descripción",
 }
 
-function Confirm({ result, state, onBack, onManual, onCreated }: { result: BookResult; state: KnowledgeState; onBack: () => void; onManual: () => void; onCreated: (id: string) => void }) {
+function Confirm({ result, state, initial, onChange, onBack, onManual, onCreated }: { result: BookResult; state: KnowledgeState; initial: ConfirmDraft | null; onChange: (d: ConfirmDraft) => void; onBack: () => void; onManual: () => void; onCreated: (id: string) => void }) {
   const id = useId()
   const f = (k: string) => `${id}-${k}`
-  const [draft, setDraft] = useState<BookDraft>(() => createDraft(result))
-  const [detail, setDetail] = useState<"loading" | "done" | MetadataErrorCode>(result.workId ? "loading" : "done")
+  const [draft, setDraft] = useState<BookDraft>(() => initial?.draft ?? createDraft(result))
+  // A recovered draft keeps its edition: asking for the first one's detail would overwrite it.
+  const [start] = useState(() => ({ editionId: initial?.draft.source.editionId ?? result.editionId, detailDone: initial?.detailDone ?? false }))
+  const [detail, setDetail] = useState<"loading" | "done" | MetadataErrorCode>(result.workId && !start.detailDone ? "loading" : "done")
   const [editions, setEditions] = useState<BookResult[] | null>(null)
   const [showEditions, setShowEditions] = useState(false)
-  const [status, setStatus] = useState<ContentStatus>("planned")
-  const [rating, setRating] = useState<number | null>(null)
-  const [favorite, setFavorite] = useState(false)
-  const [topics, setTopics] = useState<string[]>([])
-  const [separate, setSeparate] = useState(false)
+  const [status, setStatus] = useState<ContentStatus>(initial?.status ?? "planned")
+  const [rating, setRating] = useState<number | null>(initial?.rating ?? null)
+  const [favorite, setFavorite] = useState(initial?.favorite ?? false)
+  const [topics, setTopics] = useState<string[]>(initial?.topics ?? [])
+  const [separate, setSeparate] = useState(initial?.separate ?? false)
   const [errors, setErrors] = useState<DraftErrors>({})
   const [failure, setFailure] = useState<string | null>(null)
   const device = useDeviceSave(onCreated)
@@ -323,19 +345,22 @@ function Confirm({ result, state, onBack, onManual, onCreated }: { result: BookR
   useEffect(() => {
     if (!result.workId) return
     const ac = new AbortController()
-    client.bookDetail(result.workId, result.editionId, ac.signal).then(
-      (r) => {
-        if (r.ok) setDraft((d) => applyDetail(d, r.data))
-        setDetail(r.ok ? "done" : r.error.code)
-      },
-      () => {}
-    )
+    if (!start.detailDone)
+      client.bookDetail(result.workId, start.editionId, ac.signal).then(
+        (r) => {
+          if (r.ok) setDraft((d) => applyDetail(d, r.data))
+          setDetail(r.ok ? "done" : r.error.code)
+        },
+        () => {}
+      )
     client.bookEditions(result.workId, ac.signal, "es").then(
       (r) => setEditions(r.ok ? r.data : []),
       () => {}
     )
     return () => ac.abort()
-  }, [result.workId, result.editionId])
+  }, [result.workId, start])
+
+  useEffect(() => onChange({ draft, detailDone: detail === "done", status, rating, favorite, topics, separate }), [draft, detail, status, rating, favorite, topics, separate, onChange])
 
   const candidate = draftResult(draft)
   // The book just written is not a duplicate of itself while its device copy is awaited.

@@ -13,6 +13,8 @@ import { PLATFORMS, PLATFORM_LABEL, STATUSES, STATUS_LABEL, type ContentItem, ty
 import { libraryActions } from "../store/use-library"
 import { refusalText } from "./knowledge-notes"
 import { RatingInput } from "./library-ui"
+import { settleDeviceSave } from "./device-save-flow"
+import { warnNotOnDevice } from "./device-save"
 
 /** `draft`: what was typed in the book assistant (M4g.3), kept when switching to manual entry. */
 export type FormTarget = { kind: ContentKind; item?: ContentItem; showId?: string | null; draft?: { title?: string; isbn?: string } } | { kind: "show"; show?: PodcastShow; draft?: { title?: string } }
@@ -139,10 +141,11 @@ function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; s
     written.current = savedId
     setSaving("saving")
     const slow = setTimeout(() => setSaving((s) => (s === "saving" ? "slow" : s)), SLOW_SAVE_MS)
-    const ok = await libraryActions.saved()
+    const outcome = await settleDeviceSave(libraryActions.saved, () => alive.current)
     clearTimeout(slow)
-    if (!alive.current) return
-    if (!ok) return setSaving("failed")
+    if (outcome === "warn") return warnNotOnDevice()
+    if (outcome === "done") return
+    if (outcome === "retry") return setSaving("failed")
     onDone(savedId)
   }
 

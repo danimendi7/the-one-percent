@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { BookOpen, ExternalLink, Heart, Link2, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -17,9 +17,11 @@ import { noteLabel, PLATFORM_LABEL, STATUSES, STATUS_LABEL, type ContentItem, ty
 import { DEMO_NOTICE } from "@/features/knowledge/demo"
 import { libraryActions, useLibrary } from "./store/use-library"
 import type { LibrarySnapshot } from "./store/types"
+import { dataAttribution } from "./metadata/attribution"
 import { NoteCard, QuickCapture, refusalText } from "./components/knowledge-notes"
 import { BackLink, BOOKS_HREF, CoverArt, itemHref, LIBRARY_HREF, PODCASTS_HREF, ProgressLine, RatingInput, showHref, StatusPill, SyncLine } from "./components/library-ui"
 import { LibraryConflicts, LibrarySyncBanner } from "./components/library-sync"
+import { RemovalPending, useDeviceSave } from "./components/device-save"
 import { Connections, KnowledgePicker } from "./components/knowledge-links"
 import { LibrarySkeleton, useContentForm } from "./library-views"
 
@@ -160,10 +162,15 @@ export function ItemDetail({ id }: { id: string }) {
   const snap = useLibrary()
   const router = useRouter()
   const form = useContentForm(snap?.state, snap?.source)
+  const afterLeaving = useRef<() => void>(() => undefined)
+  const removal = useDeviceSave((href) => {
+    router.push(href)
+    afterLeaving.current()
+  })
   if (!snap) return <LibrarySkeleton />
   const s: KnowledgeState = snap.state
   const found = Object.hasOwn(s.items, id) ? s.items[id] : undefined
-  if (!found) return <NotHere back={LIBRARY_HREF} />
+  if (!found) return removal.state ? <RemovalPending state={removal.state} onRetry={removal.retry} /> : <NotHere back={LIBRARY_HREF} />
   const item = found
   const show = item.kind === "episode" && item.episode.showId ? s.shows[item.episode.showId] : null
   const sections = sectionsOf(s, id).filter((x) => x.notes.length > 0)
@@ -173,10 +180,11 @@ export function ItemDetail({ id }: { id: string }) {
   function remove() {
     const r = libraryActions.deleteItem(id)
     if (!r.ok) return void toast.error(refusalText(r.error))
-    router.push(back.href)
-    toast(`${item.kind === "book" ? "Libro" : "Episodio"} eliminado`, { action: { label: "Deshacer", onClick: () => libraryActions.undo(r.undo) } })
+    afterLeaving.current = () => toast(`${item.kind === "book" ? "Libro" : "Episodio"} eliminado`, { action: { label: "Deshacer", onClick: () => libraryActions.undo(r.undo) } })
+    removal.begin(back.href)
   }
   const e = item.kind === "episode" ? item.episode : null
+  const attribution = dataAttribution(item)
   return (
     <Chrome snap={snap} back={back}>
       <article className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-8">
@@ -213,6 +221,11 @@ export function ItemDetail({ id }: { id: string }) {
                 <ExternalLink aria-hidden /> Abrir {e?.platform ? `en ${PLATFORM_LABEL[e.platform]}` : "el enlace original"}
               </a>
             </Button>
+          )}
+          {attribution && (
+            <p className="text-xs text-text-tertiary" data-testid="data-attribution">
+              {attribution}
+            </p>
           )}
           <QuickCapture itemId={id} kind={item.kind} snap={snap} />
           <section aria-label="Estado y valoración" className="panel space-y-4 rounded-2xl p-4">
@@ -310,17 +323,22 @@ export function ShowDetail({ id }: { id: string }) {
   const snap = useLibrary()
   const router = useRouter()
   const form = useContentForm(snap?.state, snap?.source)
+  const afterLeaving = useRef<() => void>(() => undefined)
+  const removal = useDeviceSave((href) => {
+    router.push(href)
+    afterLeaving.current()
+  })
   if (!snap) return <LibrarySkeleton />
   const show = Object.hasOwn(snap.state.shows, id) ? snap.state.shows[id] : undefined
-  if (!show) return <NotHere back={PODCASTS_HREF} />
+  if (!show) return removal.state ? <RemovalPending state={removal.state} onRetry={removal.retry} /> : <NotHere back={PODCASTS_HREF} />
   const episodes = episodesOfShow(snap.state, id)
   const notes = notesOfShow(snap.state, id)
   const topics = showTopics(snap.state, id)
   function remove() {
     const r = libraryActions.deleteShow(id)
     if (!r.ok) return void toast.error(refusalText(r.error))
-    router.push(PODCASTS_HREF)
-    toast("Programa eliminado", { description: "Sus episodios y notas se conservan, sin programa.", action: { label: "Deshacer", onClick: () => libraryActions.undo(r.undo) } })
+    afterLeaving.current = () => toast("Programa eliminado", { description: "Sus episodios y notas se conservan, sin programa.", action: { label: "Deshacer", onClick: () => libraryActions.undo(r.undo) } })
+    removal.begin(PODCASTS_HREF)
   }
   return (
     <Chrome snap={snap} back={{ href: PODCASTS_HREF, label: "Podcasts" }}>

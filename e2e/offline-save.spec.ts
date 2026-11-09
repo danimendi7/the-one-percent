@@ -312,6 +312,34 @@ test("storage refusing the write: the form says so, keeps what was typed, opens 
   expect(await ops(account, "library.item.create")).toBe(1)
 })
 
+test("a book deleted offline leaves its page only once the deletion is on the device; reload and reconnect keep it deleted (M4g.5)", async ({ page }) => {
+  await page.goto("/knowledge/library/books")
+  await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ }).first()).toBeVisible({ timeout: 15_000 })
+  await prepared(page)
+  await setConnection(page, false)
+  await manualBook(page)
+  await page.getByTestId("form-title").fill("Libro para borrar")
+  await page.getByTestId("form-save").click()
+  await expect(heading(page, "Libro para borrar")).toBeVisible({ timeout: 20_000 })
+
+  await holdDeviceWrites(page, account)
+  await page.getByTestId("delete").click()
+  await expect(page.getByTestId("removal-saving")).toBeVisible()
+  await expect(page).toHaveURL(/\/knowledge\/library\/item\?id=/)
+
+  await releaseDeviceWrites(page)
+  await expect(page).toHaveURL(/\/knowledge\/library\/books$/, { timeout: 20_000 })
+
+  await page.reload()
+  await expect(page.getByRole("button", { name: /Estado de datos/ }).first()).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId("item-tile").filter({ hasText: "Libro para borrar" })).toHaveCount(0)
+
+  await setConnection(page, true)
+  await expect.poll(() => storedQueue(page, account), { timeout: 20_000 }).toEqual([])
+  await expect(page.getByTestId("item-tile").filter({ hasText: "Libro para borrar" })).toHaveCount(0)
+  expect(await countRows("select count(*)::int n from public.library_items where user_id = $1 and deleted_at is null", [account.id])).toBe(0)
+})
+
 // ---------- M4g assistants ----------
 
 const bookRow = (a: Account) =>
