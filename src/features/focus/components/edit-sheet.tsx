@@ -16,7 +16,7 @@ import { projectSuggestions } from "../domain/ops"
 import { activeSeconds, hhmm, minutesOf, retime, zonedInstant } from "../domain/time"
 import type { FocusSession } from "../domain/types"
 import type { FocusModel } from "../use-focus"
-import { ProjectField, RatingInput, reasonText } from "./focus-ui"
+import { InterruptionsInput, ProjectField, RatingInput, reasonText } from "./focus-ui"
 
 const NONE = "none"
 
@@ -42,6 +42,7 @@ function EditForm({ fm, session, onDone }: { fm: FocusModel; session: FocusSessi
   const [plan, setPlan] = useState(session.plannedOutput ?? "")
   const [actual, setActual] = useState(session.actualOutput ?? "")
   const [rating, setRating] = useState<number | null>(session.rating)
+  const [interruptions, setInterruptions] = useState<number | null>(session.interruptions ?? null)
   const habits = fm.state.habits.filter((h) => h.type === "duration" && (h.activitySource === "focus" || h.id === session.habitId))
   const [habitId, setHabitId] = useState(session.habitId ?? NONE)
   const [error, setError] = useState<string | null>(null)
@@ -63,6 +64,7 @@ function EditForm({ fm, session, onDone }: { fm: FocusModel; session: FocusSessi
       plannedOutput: plan || null,
       actualOutput: actual || null,
       rating,
+      interruptions,
     })
     if (!r.ok) return setError(reasonText(r.reason))
     toast.success("Sesión actualizada")
@@ -120,6 +122,7 @@ function EditForm({ fm, session, onDone }: { fm: FocusModel; session: FocusSessi
           <Textarea id={ids.actual} value={actual} onChange={(e) => setActual(e.target.value)} maxLength={500} rows={2} />
         </div>
         <RatingInput value={rating} onChange={setRating} />
+        <InterruptionsInput value={interruptions} onChange={setInterruptions} />
         {fm.saved && habits.length > 0 && (
           <div className="space-y-2">
             <p id={ids.habit} className="text-sm font-medium">

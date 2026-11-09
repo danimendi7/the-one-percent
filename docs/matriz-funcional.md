@@ -29,7 +29,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Goals & Systems | Vínculo con libros | IV | `goal-books.tsx`, `goals/domain/books.ts`, `supabase/migrations/20261109110000_goal_books.sql`, `e2e/goals.spec.ts`, `tests/integration/goals.int.test.ts`, CI | Objetivo «leer N libros» con resultado derivado (aplazado, P15) | Baja |
 | Deep Work | Temporizador, proyectos, duración prevista y real, calidad | IV | `focus_sessions`, `rating`, `focus.int.test.ts`, E2E, CI | — | — |
 | Deep Work | Estadísticas por día, semana y proyecto | IV | `domain/metrics.ts`, `focus-analytics.tsx`, CI | — | — |
-| Deep Work | Interrupciones | ND | Sin campo ni interfaz (solo pausas en `segments`) | Anotar interrupciones (C4) | Media |
+| Deep Work | Interrupciones | IV | `InterruptionsInput`, `supabase/migrations/20261109120000_focus_interruptions.sql`, `e2e/focus.spec.ts`, `tests/integration/focus.int.test.ts`, CI | Usarlas en métricas e insights (E1) | Media |
 | Deep Work | Cruces con sueño, energía y estrés | P | Solo `mind_energy_focus` | Con B2 | Media |
 | Knowledge OS | Libros y podcasts: altas, estados, notas, sincronización | IV | `features/library`, `library*.int.test.ts`, E2E, CI | — | — |
 | Knowledge OS | Altas asistidas, metadatos, portadas, duplicados (M4g.1–4) | IV | `/api/metadata/*`, `/api/covers`, `add-book`, `add-podcast`, `covers`, CI | — | — |

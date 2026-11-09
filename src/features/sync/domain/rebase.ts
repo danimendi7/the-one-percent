@@ -138,12 +138,12 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
     case "focus.resume":
       return resumeSession(state, op.session_id, op.at).state
     case "focus.finish":
-      return finishSession(state, op.session_id, { at: op.at, trimTo: op.trim_to, actualOutput: op.actual_output, rating: op.rating }).state
+      return finishSession(state, op.session_id, { at: op.at, trimTo: op.trim_to, actualOutput: op.actual_output, rating: op.rating, interruptions: op.interruptions }).state
     case "focus.edit":
       return editSession(
         state,
         op.session_id,
-        { segments: op.segments, habitId: op.habit_id, project: op.project, plannedOutput: op.planned_output, actualOutput: op.actual_output, rating: op.rating },
+        { segments: op.segments, habitId: op.habit_id, project: op.project, plannedOutput: op.planned_output, actualOutput: op.actual_output, rating: op.rating, interruptions: op.interruptions },
         op.at
       ).state
     case "focus.discard":

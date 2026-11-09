@@ -106,6 +106,46 @@ test.describe("focus (demo)", () => {
     await expect(page.getByTestId("focus-today-minutes")).toHaveText("0 min")
   })
 
+  test("interruptions: noted when closing and editable afterwards", async ({ page }) => {
+    await startBlock(page, "50 min", "Producto")
+    await page.clock.setFixedTime(at(45))
+    await page.getByRole("button", { name: "Terminar" }).click()
+    const close = page.getByRole("dialog")
+    await expect(close.getByTestId("interruptions-value")).toHaveText("Sin anotar")
+    await close.getByRole("button", { name: "Una interrupción más" }).click()
+    await close.getByRole("button", { name: "Una interrupción más" }).click()
+    await expect(close.getByTestId("interruptions-value")).toHaveText("2")
+    await close.getByRole("button", { name: "Guardar" }).click()
+
+    const session = page.getByRole("region", { name: "Hoy" }).getByRole("button", { name: /Producto/ })
+    await expect(session).toContainText("2 interrupciones")
+    await session.click()
+    const sheet = page.getByRole("dialog", { name: "Editar sesión" })
+    await expect(sheet.getByTestId("interruptions-value")).toHaveText("2")
+    await sheet.getByRole("button", { name: "Una interrupción menos" }).click()
+    await sheet.getByRole("button", { name: "Guardar cambios" }).click()
+    await expect(session).toContainText("1 interrupción")
+  })
+
+  test("a session closed without noting interruptions does not claim there were none", async ({ page }) => {
+    await startBlock(page, "50 min", "Producto")
+    await page.clock.setFixedTime(at(45))
+    await page.getByRole("button", { name: "Terminar" }).click()
+    await page.getByRole("dialog").getByRole("button", { name: "Guardar" }).click()
+
+    const session = page.getByRole("region", { name: "Hoy" }).getByRole("button", { name: /Producto/ })
+    await expect(session).toBeVisible()
+    await expect(session).not.toContainText("interrupci")
+    await session.click()
+    const sheet = page.getByRole("dialog", { name: "Editar sesión" })
+    await expect(sheet.getByTestId("interruptions-value")).toHaveText("Sin anotar")
+    await sheet.getByRole("button", { name: "Una interrupción más" }).click()
+    await sheet.getByRole("button", { name: "Una interrupción menos" }).click()
+    await expect(sheet.getByTestId("interruptions-value")).toHaveText("0")
+    await sheet.getByRole("button", { name: "Una interrupción menos" }).click()
+    await expect(sheet.getByTestId("interruptions-value")).toHaveText("Sin anotar")
+  })
+
   test("only one active block: the start button is replaced while one runs", async ({ page }) => {
     await startBlock(page, "25 min")
     await expect(page.getByRole("button", { name: /^Empezar/ })).toHaveCount(0)

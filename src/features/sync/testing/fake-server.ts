@@ -482,7 +482,7 @@ export class FakeServer {
         if (row.data.deleted) return done("rejected", "session_not_found")
         if (row.data.session.state !== "finished") return done("rejected", "not_finished")
         if ((row.data.session.version ?? 1) !== op.base_version) return done("conflict")
-        const input = { segments: op.segments, habitId: op.habit_id, project: op.project, plannedOutput: op.planned_output, actualOutput: op.actual_output, rating: op.rating }
+        const input = { segments: op.segments, habitId: op.habit_id, project: op.project, plannedOutput: op.planned_output, actualOutput: op.actual_output, rating: op.rating, interruptions: op.interruptions }
         r = editSession(before, op.session_id, input, nowIso)
       } else {
         if (row.data.deleted || row.data.session.state === "finished") return done("superseded", "not_active")
@@ -491,7 +491,7 @@ export class FakeServer {
             ? pauseSession(before, op.session_id, clamp(op.at))
             : op.type === "focus.resume"
               ? resumeSession(before, op.session_id, clamp(op.at))
-              : finishSession(before, op.session_id, { at: clamp(op.at), trimTo: op.trim_to, actualOutput: op.actual_output, rating: op.rating })
+              : finishSession(before, op.session_id, { at: clamp(op.at), trimTo: op.trim_to, actualOutput: op.actual_output, rating: op.rating, interruptions: op.interruptions })
       }
     }
     if (!r.ok) return done("rejected", r.reason)
@@ -585,6 +585,7 @@ export class FakeServer {
                   active_seconds: activeSeconds(f.segments),
                   local_date: f.localDate,
                   rating: f.rating,
+                  interruptions: f.interruptions ?? null,
                   version: f.version ?? 1,
                   created_at: f.createdAt,
                   updated_at: f.updatedAt,

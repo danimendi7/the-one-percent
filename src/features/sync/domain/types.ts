@@ -99,7 +99,7 @@ export type Op =
     }
   | { type: "focus.pause"; op_id: string; session_id: string; at: string }
   | { type: "focus.resume"; op_id: string; session_id: string; at: string }
-  | { type: "focus.finish"; op_id: string; session_id: string; at: string; trim_to: string | null; actual_output: string | null; rating: number | null }
+  | { type: "focus.finish"; op_id: string; session_id: string; at: string; trim_to: string | null; actual_output: string | null; rating: number | null; interruptions?: number | null }
   | {
       type: "focus.edit"
       op_id: string
@@ -112,6 +112,8 @@ export type Op =
       planned_output: string | null
       actual_output: string | null
       rating: number | null
+      /** Absent in operations queued by an older version: the server then keeps what was noted. */
+      interruptions?: number | null
       /** Device time of the edit (validation of the optimistic copy only; the server uses its clock). */
       at: string
     }
@@ -266,6 +268,7 @@ export interface WireFocusSession {
   active_seconds: number
   local_date: LocalDate
   rating: number | null
+  interruptions?: number | null
   version: number
   created_at: string
   updated_at: string
