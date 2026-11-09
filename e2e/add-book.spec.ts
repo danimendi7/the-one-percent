@@ -92,6 +92,16 @@ async function openAssistant(page: Page) {
   await expect(page.getByTestId("book-search")).toBeFocused()
 }
 
+/** Opens the assistant when a draft is waiting: it asks before showing anything. */
+async function openWithDraft(page: Page) {
+  await page.goto("/knowledge/library/books")
+  await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ }).first()).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId("add-book").click()
+  await expect(page.getByTestId("draft-offer")).toBeVisible()
+}
+
+const draftKeys = (page: Page) => page.evaluate(() => Object.keys(sessionStorage).filter((k) => k.startsWith("top:draft:")))
+
 async function blocking(page: Page) {
   const results = await new AxeBuilder({ page }).include('[data-testid="add-book-sheet"]').withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()
   return results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(" | ")}`)
@@ -207,6 +217,8 @@ test.describe("add a book with search (account)", () => {
     await expect(page.getByTestId("confirm-save")).toHaveText("Añadir como otra edición")
     await page.getByTestId("confirm-save").click()
     await expect(page.getByTestId("item-save")).toHaveText("Sincronizado", { timeout: 15_000 })
+    // D101: the separate edition has no reference, and its page still says where its data came from.
+    await expect(page.getByTestId("data-attribution")).toHaveText("Datos: Open Library")
     const both = await row(account.id, "El infinito en un junco")
     expect(both.map((r) => r.external_id)).toEqual([WORK, null])
 
@@ -295,6 +307,95 @@ test.describe("add a book with search (account)", () => {
     if (!isMobile(info.project.name)) {
       await page.keyboard.press("Escape")
       await expect(page.getByRole("alertdialog")).toContainText("¿Descartar lo escrito?")
+    }
+  })
+
+  test("a reload half-way offers to recover it: chosen edition and typed fields come back, and saving clears the draft (D102)", async ({ page }) => {
+    await providers(page, library)
+    await openAssistant(page)
+    await page.getByTestId("book-search").fill("infinito")
+    await page.getByTestId("book-result").first().click()
+    await expect(page.getByTestId("confirm-pages")).toHaveValue("452")
+    await page.getByTestId("confirm-pages").fill("460")
+    await page.getByTestId("change-edition").click()
+    await page.getByTestId("edition-option").filter({ hasText: "Debate" }).click()
+    await expect(page.getByTestId("confirm-publisher")).toHaveValue("Debate")
+
+    await openWithDraft(page)
+    await expect(page.getByTestId("draft-offer")).toContainText("El infinito en un junco")
+    await page.getByTestId("draft-recover").click()
+    await expect(page.getByTestId("book-confirm")).toBeVisible()
+    await expect(page.getByTestId("confirm-publisher")).toHaveValue("Debate")
+    await expect(page.getByTestId("confirm-pages")).toHaveValue("460")
+
+    await page.getByTestId("confirm-save").click()
+    await expect(page.getByRole("heading", { level: 1, name: "El infinito en un junco" })).toBeVisible()
+    await expect.poll(() => draftKeys(page)).toEqual([])
+    await openAssistant(page)
+    await expect(page.getByTestId("draft-offer")).toHaveCount(0)
+    expect(await countRows("select count(*)::int n from public.library_items where user_id = $1 and deleted_at is null", [account.id])).toBe(1)
+  })
+
+  test("what was typed in the search comes back after a reload, with its results (D102)", async ({ page }) => {
+    await providers(page, library)
+    await openAssistant(page)
+    await page.getByTestId("book-search").fill("infinito")
+    await expect(page.getByTestId("book-result")).toHaveCount(2)
+
+    await openWithDraft(page)
+    await page.getByTestId("draft-recover").click()
+    await expect(page.getByTestId("book-search")).toHaveValue("infinito")
+    await expect(page.getByTestId("book-result")).toHaveCount(2)
+  })
+
+  test("«Empezar de cero» and an explicit discard leave nothing to recover (D102)", async ({ page }) => {
+    await providers(page, library)
+    await openAssistant(page)
+    await page.getByTestId("book-search").fill("infinito")
+    await expect(page.getByTestId("book-result")).toHaveCount(2)
+
+    await openWithDraft(page)
+    await page.getByTestId("draft-start-over").click()
+    await expect(page.getByTestId("book-search")).toHaveValue("")
+    await expect.poll(() => draftKeys(page)).toEqual([])
+
+    await page.getByTestId("book-search").fill("infinito")
+    await expect.poll(() => draftKeys(page)).toHaveLength(1)
+    await page.getByTestId("add-book-sheet").getByRole("button", { name: "Cerrar" }).click()
+    await page.getByTestId("form-discard").click()
+    await expect(page.getByTestId("add-book-sheet")).toHaveCount(0)
+    await expect.poll(() => draftKeys(page)).toEqual([])
+  })
+
+  test("a draft expires at 24 hours (D102)", async ({ page }) => {
+    await providers(page, library)
+    await openAssistant(page)
+    await page.getByTestId("book-search").fill("infinito")
+    await expect.poll(() => draftKeys(page)).toHaveLength(1)
+    await page.evaluate((key) => {
+      const stored = JSON.parse(sessionStorage.getItem(key)!) as { savedAt: number }
+      sessionStorage.setItem(key, JSON.stringify({ ...stored, savedAt: stored.savedAt - 25 * 60 * 60 * 1000 }))
+    }, `top:draft:book:${account.id}`)
+
+    await openAssistant(page)
+    await expect(page.getByTestId("draft-offer")).toHaveCount(0)
+    await expect.poll(() => draftKeys(page)).toEqual([])
+  })
+
+  test("another account in the same tab never sees the draft (D102)", async ({ page }, info) => {
+    await providers(page, library)
+    await openAssistant(page)
+    await page.getByTestId("book-search").fill("infinito")
+    await expect.poll(() => draftKeys(page)).toHaveLength(1)
+
+    const other = await newAccount(`addbook2-${info.project.name}`)
+    try {
+      await signIn(page, other)
+      await openAssistant(page)
+      await expect(page.getByTestId("draft-offer")).toHaveCount(0)
+      await expect.poll(() => draftKeys(page)).toEqual([])
+    } finally {
+      await removeAccount(other)
     }
   })
 })

@@ -54,7 +54,9 @@ export function useContentForm(state: KnowledgeState | undefined, source?: DataS
   const [target, setTarget] = useState<FormTarget | null>(null)
   const [assistant, setAssistant] = useState(false)
   const [podcast, setPodcast] = useState<{ show: ShowResult | null } | null>(null)
-  const timeZone = useHabits()?.state.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+  const habits = useHabits()
+  const timeZone = habits?.state.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+  const userId = habits?.account?.userId ?? null
   const open = (t: FormTarget) => {
     const isNew = !("item" in t && t.item) && !("show" in t && t.show) && !("draft" in t && t.draft)
     if (!isNew || source !== "account") return setTarget(t)
@@ -71,6 +73,7 @@ export function useContentForm(state: KnowledgeState | undefined, source?: DataS
         open={assistant}
         onOpenChange={setAssistant}
         state={state}
+        userId={userId}
         onManual={(draft) => setTarget({ kind: "book", draft })}
         onCreated={(id) => router.push(itemHref(id))}
       />
@@ -79,6 +82,7 @@ export function useContentForm(state: KnowledgeState | undefined, source?: DataS
         onOpenChange={(v) => !v && setPodcast(null)}
         state={state}
         timeZone={timeZone}
+        userId={userId}
         initialShow={podcast?.show ?? null}
         onManual={(m) => setTarget(m.kind === "show" ? { kind: "show", draft: { title: m.title } } : { kind: "episode", showId: m.showId ?? null, draft: { title: m.title } })}
         onCreated={(href) => router.push(href)}

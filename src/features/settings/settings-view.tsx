@@ -26,6 +26,7 @@ import { clearDemoState, readDemoState } from "@/features/habits/store/demo-stor
 import type { HabitsState } from "@/features/habits/domain/types"
 import { useHabitsModel } from "@/features/habits/components/use-habits-model"
 import { useHabits } from "@/features/habits/store/habit-store"
+import { clearAssistantDrafts, draftStorage } from "@/features/library/metadata/assistant-draft"
 import { DEMO_COOKIE, isSupabaseConfigured } from "@/lib/supabase/env"
 import { DemoImportSheet, downloadJson } from "./demo-import-sheet"
 import { isLibraryText } from "@/features/sync/domain/library-sync"
@@ -287,6 +288,7 @@ function SyncDiagnostics() {
 }
 
 function signOut() {
+  clearAssistantDrafts(draftStorage())
   const form = document.createElement("form")
   form.method = "post"
   form.action = "/auth/signout"
