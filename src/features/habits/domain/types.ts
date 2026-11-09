@@ -1,3 +1,4 @@
+import type { RecallState } from "@/features/recall/domain/types"
 import type { LocalDate, Weekday } from "./dates"
 import type { Goal, MeasurementMap } from "@/features/goals/domain/types"
 import type { FocusSession } from "@/features/focus/domain/types"
@@ -84,6 +85,8 @@ export interface HabitsState {
   checkinConfig: CheckinConfig
   /** Life Review (M3.4), keyed `kind:periodStart`. Metrics never read it. */
   reviews: ReviewMap
+  /** Active Recall (D2): cards and the history of their answers. */
+  recall: RecallState
 }
 
 export function entryKey(habitId: string, date: LocalDate): string {

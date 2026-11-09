@@ -28,9 +28,9 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | C3 | Objetivos vinculados a libros | Unitaria del progreso; E2E | Sí | high | C1 | hecha | #10 |
 | C4 | Deep Work: anotar interrupciones (migración aditiva) | Integración y E2E; sesiones antiguas intactas | Sí | xhigh | A1 | hecha | #11 |
 | C5 | Revisión diaria (migración aditiva) | Integración; E2E del ciclo; revisiones anteriores intactas | Sí | xhigh | A1 | hecha | #12 |
-| C6 | Historial de cambios de un hábito | Integración con RLS; E2E | Sí | high | A1 | PR lista para fusionar | #13 |
-| D1 | Active Recall: dominio de repaso espaciado | Unitarias de Again/Hard/Good/Easy y calendario | Sí | high | A9 | pendiente | — |
-| D2 | Active Recall: persistencia, RLS y sincronización | Integración de RLS y sincronización | Sí | xhigh | D1 | pendiente | — |
+| C6 | Historial de cambios de un hábito | Integración con RLS; E2E | Sí | high | A1 | hecha | #13 |
+| D1 | Active Recall: dominio de repaso espaciado | Unitarias de Again/Hard/Good/Easy y calendario | Sí | high | A9 | PR lista para fusionar | #14 |
+| D2 | Active Recall: persistencia, RLS y sincronización | Integración de RLS y sincronización | Sí | xhigh | D1 | PR lista para fusionar | #14 |
 | D3 | Active Recall: sesión de repaso desde ideas | E2E, también sin red | Sí | high | D2 | pendiente | — |
 | D4 | Daily Discovery real: temas propios, valoración persistente, sin citas inventadas | Integración; E2E; lo no verificado se etiqueta | Sí | xhigh | A9 | pendiente | — |
 | D5 | Tema de hoy en Command Center con datos reales | E2E; sin datos muestra estado vacío | Sí | medium | D4 | pendiente | — |

@@ -1,3 +1,4 @@
+import type { RecallState } from "@/features/recall/domain/types"
 import type { LocalDate } from "@/features/habits/domain/dates"
 import type { PersistedSync } from "../engine"
 import { emptyCache } from "./merge"
@@ -53,6 +54,7 @@ export function upgradePersisted(raw: unknown, today: LocalDate): PersistedSync 
         checkins: isObject(s.checkins) ? s.checkins : {},
         checkinConfig: normalizeConfig(s.checkinConfig),
         reviews: isObject(s.reviews) ? s.reviews : {},
+        recall: isObject(s.recall) && isObject(s.recall.cards) && isObject(s.recall.attempts) ? (s.recall as unknown as RecallState) : { cards: {}, attempts: {} },
       } as PersistedSync["cache"]["state"],
       habitVersion: isObject(c.habitVersion) ? (c.habitVersion as Record<string, number>) : {},
       rowSeq: isObject(c.rowSeq) ? (c.rowSeq as Record<string, number>) : {},

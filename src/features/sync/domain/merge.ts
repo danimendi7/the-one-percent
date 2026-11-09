@@ -1,3 +1,4 @@
+import { toRecallAttempt, toRecallCard } from "./recall-wire"
 import type { LocalDate, Weekday } from "@/features/habits/domain/dates"
 import { entryKey, type Habit, type HabitEntry, type HabitsState, type ScheduleRule } from "@/features/habits/domain/types"
 import { measurementKey } from "@/features/goals/domain/types"
@@ -19,7 +20,7 @@ const DEFAULT_DIMENSIONS: HabitsState["dimensions"] = [
 
 export function emptyCache(today: LocalDate, timezone = "Europe/Madrid"): ServerCache {
   return {
-    state: { version: 1, timezone, dimensions: DEFAULT_DIMENSIONS, habits: [], entries: {}, restDays: [], seededOn: today, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {} },
+    state: { version: 1, timezone, dimensions: DEFAULT_DIMENSIONS, habits: [], entries: {}, restDays: [], seededOn: today, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {}, recall: { cards: {}, attempts: {} } },
     habitVersion: {},
     rowSeq: {},
     cursor: 0,
@@ -98,6 +99,7 @@ const seqKey = {
   focus: (id: string) => `f:${id}`,
   checkin: (date: string, phase: string) => `c:${date}:${phase}`,
   review: (kind: string, start: string) => `v:${kind}:${start}`,
+  recallCard: (id: string) => `k:${id}`,
 }
 
 /**
@@ -117,6 +119,8 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
   const focus = new Map(base.state.focusSessions.map((f) => [f.id, f]))
   const checkins = { ...base.state.checkins }
   const reviews = { ...base.state.reviews }
+  const recallCards = { ...base.state.recall.cards }
+  const recallAttempts = { ...base.state.recall.attempts }
 
   const newer = (key: string, seq: number) => !(key in rowSeq) || seq > rowSeq[key]
 
@@ -185,6 +189,16 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
     else reviews[rk] = toReview(w)
   }
 
+  for (const w of p.recall_cards ?? []) {
+    const k = seqKey.recallCard(w.id)
+    if (!newer(k, w.server_seq)) continue
+    rowSeq[k] = w.server_seq
+    if (w.deleted) delete recallCards[w.id]
+    else recallCards[w.id] = toRecallCard(w)
+  }
+  // Attempts never change, so their id is enough to apply each one once.
+  for (const w of p.recall_attempts ?? []) recallAttempts[w.id] = toRecallAttempt(w)
+
   return {
     state: {
       ...base.state,
@@ -202,11 +216,12 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
       checkins,
       checkinConfig: p.profile?.checkin_fields ? normalizeConfig(p.profile.checkin_fields) : base.state.checkinConfig,
       reviews,
+      recall: { cards: recallCards, attempts: recallAttempts },
     },
     habitVersion,
     rowSeq,
     cursor: Math.max(p.full ? 0 : cache.cursor, p.cursor),
     serverToday: p.server_today,
-    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined, reviews: p.reviews !== undefined, dailyReviews: p.daily_reviews !== undefined, library: p.library !== undefined },
+    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined, reviews: p.reviews !== undefined, dailyReviews: p.daily_reviews !== undefined, recall: p.recall_cards !== undefined, library: p.library !== undefined },
   }
 }

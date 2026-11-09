@@ -1,3 +1,4 @@
+import type { CardState, Grade } from "@/features/recall/domain/schedule"
 import type { LocalDate } from "@/features/habits/domain/dates"
 import type { DimensionId, HabitsState, HabitType, ScheduleRule, TargetDirection } from "@/features/habits/domain/types"
 import type { Aggregation, GoalDirection, GoalKind, GoalLogEntry, GoalPriority, GoalState, Horizon, NumericSource } from "@/features/goals/domain/types"
@@ -159,6 +160,30 @@ export type Op =
       base_seq: number | null
     }
   | { type: "review.delete"; op_id: string; kind: ReviewKind; period_start: LocalDate; confirm: "delete"; base_seq: number }
+  // ── Active Recall (D2) ──
+  | {
+      type: "recall.create"
+      op_id: string
+      card: { id: string; question: string; answer: string; source_type: "note" | null; source_id: string | null }
+      local_date: LocalDate
+      algorithm_version: number
+      at: string
+    }
+  | {
+      type: "recall.answer"
+      op_id: string
+      card_id: string
+      attempt_id: string
+      grade: Grade
+      responded_at: string
+      local_date: LocalDate
+      due_on_before: LocalDate
+      algorithm_version: number
+      /** Computed on the device from the card as it was seen; the server validates its shape. */
+      schedule: WireRecallSchedule
+    }
+  | { type: "recall.suspend"; op_id: string; card_id: string; suspended_on: LocalDate | null }
+  | { type: "recall.delete"; op_id: string; card_id: string }
   // ── Library (M4b wire, M4c client): field names are column names (library-wire.ts) ──
   | LibraryOp
 
@@ -401,6 +426,43 @@ export interface WireRestDay {
   server_seq: number
 }
 
+export interface WireRecallSchedule {
+  state: CardState
+  reps: number
+  lapses: number
+  ease_factor: number
+  interval_days: number
+  due_on: LocalDate
+}
+
+export interface WireRecallCard extends WireRecallSchedule {
+  id: string
+  source_type: "note" | null
+  source_id: string | null
+  question: string
+  answer: string
+  algorithm_version: number
+  suspended_on: LocalDate | null
+  first_answered_on: LocalDate | null
+  last_answered_at: string | null
+  created_at: string
+  deleted: boolean
+  server_seq: number
+}
+
+export interface WireRecallAttempt {
+  id: string
+  card_id: string
+  grade: Grade
+  responded_at: string
+  local_date: LocalDate
+  due_on_before: LocalDate
+  due_on_after: LocalDate
+  interval_days: number
+  algorithm_version: number
+  server_seq: number
+}
+
 export interface PullPayload {
   server_today: LocalDate
   /** Server clock (ISO), used to correct the device clock. */
@@ -423,6 +485,9 @@ export interface PullPayload {
   reviews?: WireReview[]
   /** Daily reviews (C5), apart from `reviews` so that clients published before them never receive one. */
   daily_reviews?: WireReview[]
+  /** Active Recall (D2). A full pull brings only the last 90 days of attempts. */
+  recall_cards?: WireRecallCard[]
+  recall_attempts?: WireRecallAttempt[]
   /** M4b. The library travels through pull_library; this only says the server stores it and its newest change. */
   library?: { head: number }
   cursor: number
@@ -436,7 +501,7 @@ export interface ServerCache {
   cursor: number
   serverToday: LocalDate
   /** Server capabilities seen in the last pull (a deploy may precede its migration). */
-  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; dailyReviews?: boolean; library?: boolean }
+  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; dailyReviews?: boolean; recall?: boolean; library?: boolean }
 }
 
 export type SyncStatus = "synced" | "syncing" | "pending" | "offline" | "error"

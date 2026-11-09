@@ -5,6 +5,7 @@
  * data. Used when there is no account (explore mode) or Supabase is not
  * configured. Never synced, never imported automatically into an account.
  */
+import { emptyRecall } from "@/features/recall/domain/ops"
 import { useSyncExternalStore } from "react"
 import { clearDemoLibrary, createDemoLibrary } from "@/features/library/store/demo-library"
 import { localDateInZone, type LocalDate } from "../domain/dates"
@@ -65,7 +66,7 @@ export function readDemoState(): HabitsState | null {
     if (!raw) return null
     const parsed = habitsStateSchema.safeParse(JSON.parse(raw))
     if (!parsed.success) return null
-    const data = parsed.data as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews"> &
+    const data = { ...parsed.data, recall: parsed.data.recall ?? emptyRecall() } as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews"> &
       Partial<Pick<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews">>
     // Before M3.4 there were no reviews.
     const reviews = data.reviews ?? {}

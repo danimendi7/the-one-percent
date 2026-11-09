@@ -56,7 +56,7 @@ describe("upgradePersisted (copies saved by older versions)", () => {
       ...m30Copy(),
       cache: {
         ...m30Copy().cache,
-        state: { ...m30Copy().cache.state, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {} },
+        state: { ...m30Copy().cache.state, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {}, recall: { cards: {}, attempts: {} } },
         features: { goals: true, focus: true, checkins: true, reviews: true },
       },
       pendingNotes: [],
