@@ -200,7 +200,7 @@ function SearchStep({
     <div className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="border-b border-border px-5 pt-5 pb-4">
         <SheetTitle className="text-lg">Añadir libro</SheetTitle>
-        <SheetDescription>Busca por título, autor o ISBN. Revisarás los datos antes de guardarlo.</SheetDescription>
+        <SheetDescription className="max-md:sr-only">Busca por título, autor o ISBN. Revisarás los datos antes de guardarlo.</SheetDescription>
         <form role="search" aria-label="Buscar libros" className="mt-3 space-y-3" onSubmit={(e) => (e.preventDefault(), onRetry())}>
           <div className="relative">
             <Label htmlFor={`${id}-q`} className="sr-only">
@@ -240,7 +240,7 @@ function SearchStep({
           {status}
         </p>
         {current && (search.status === "error" || search.status === "offline") && search.status === "error" && search.code !== "unauthorized" && (
-          <Button variant="outline" size="sm" className="mx-2 mb-2" onClick={onRetry} data-testid="book-search-retry">
+          <Button variant="outline" size="touch-sm" className="mx-2 mb-2" onClick={onRetry} data-testid="book-search-retry">
             Reintentar
           </Button>
         )}
@@ -387,7 +387,7 @@ function Confirm({ result, state, initial, onChange, onBack, onManual, onCreated
   const field = (k: DraftField, extra: React.ComponentProps<typeof Input> = {}) => (
     <div className="space-y-1.5">
       <Label htmlFor={f(k)}>{FIELD_LABEL[k]}</Label>
-      <Input id={f(k)} value={draft.values[k]} onChange={edit(k)} aria-invalid={!!errors[k]} aria-describedby={errors[k] ? f(`${k}-err`) : undefined} {...extra} />
+      <Input id={f(k)} value={draft.values[k]} onChange={edit(k)} aria-invalid={!!errors[k]} aria-describedby={errors[k] ? f(`${k}-err`) : undefined} {...extra} className={cn("max-md:h-11", extra.className)} />
       {errors[k] && (
         <p id={f(`${k}-err`)} className="text-xs text-warning">
           {errors[k]}
@@ -399,7 +399,7 @@ function Confirm({ result, state, initial, onChange, onBack, onManual, onCreated
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="border-b border-border px-5 pt-4 pb-3">
-        <Button variant="ghost" size="sm" className="-ml-2 w-fit" onClick={onBack} disabled={device.locked} data-testid="confirm-back">
+        <Button variant="ghost" size="touch-sm" className="-ml-2 w-fit" onClick={onBack} disabled={device.locked} data-testid="confirm-back">
           <ArrowLeft aria-hidden /> Resultados
         </Button>
         <SheetTitle asChild>
@@ -431,7 +431,7 @@ function Confirm({ result, state, initial, onChange, onBack, onManual, onCreated
               </p>
             ) : (
               otherEditions.length > 1 && (
-                <Button variant="outline" size="sm" aria-expanded={showEditions} onClick={() => setShowEditions((v) => !v)} data-testid="change-edition">
+                <Button variant="outline" size="touch-sm" aria-expanded={showEditions} onClick={() => setShowEditions((v) => !v)} data-testid="change-edition">
                   {showEditions ? "Ocultar ediciones" : `Cambiar edición (${otherEditions.length})`}
                 </Button>
               )
@@ -506,7 +506,7 @@ function Confirm({ result, state, initial, onChange, onBack, onManual, onCreated
                       type="button"
                       aria-pressed={on}
                       onClick={() => setTopics((x) => (on ? x.filter((y) => y !== t) : [...x, t]))}
-                      className={cn("min-h-9 rounded-full border px-3 text-sm", on ? "border-signal bg-signal/15 text-foreground" : "border-border text-text-secondary hover:text-foreground")}
+                      className={cn("min-h-11 rounded-full border px-3 text-sm md:min-h-9", on ? "border-signal bg-signal/15 text-foreground" : "border-border text-text-secondary hover:text-foreground")}
                     >
                       {on ? "✓ " : "+ "}
                       {t}
@@ -542,7 +542,7 @@ function Confirm({ result, state, initial, onChange, onBack, onManual, onCreated
 
         <p className="text-xs text-text-tertiary">
           {draft.source.attribution} ·{" "}
-          <a href={draft.source.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
+          <a href={draft.source.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 underline-offset-2 hover:underline md:min-h-0">
             ver en Open Library <ExternalLink className="inline size-3" aria-hidden />
           </a>
         </p>
@@ -598,19 +598,19 @@ function Duplicates({ matches, owned, separate, onSeparate }: { matches: Match[]
       </p>
       <div className="flex flex-wrap gap-2">
         {item && (
-          <Button asChild variant={exact && !separate ? "default" : "outline"} size="sm">
+          <Button asChild variant={exact && !separate ? "default" : "outline"} size="touch-sm">
             <Link href={itemHref(item.id)} data-testid="open-existing">
               Abrir el existente
             </Link>
           </Button>
         )}
         {exact && !separate && (
-          <Button variant="outline" size="sm" onClick={() => onSeparate(true)} data-testid="add-edition">
+          <Button variant="outline" size="touch-sm" onClick={() => onSeparate(true)} data-testid="add-edition">
             Añadir como otra edición
           </Button>
         )}
         {separate && (
-          <Button variant="ghost" size="sm" onClick={() => onSeparate(false)}>
+          <Button variant="ghost" size="touch-sm" onClick={() => onSeparate(false)}>
             Cancelar
           </Button>
         )}
