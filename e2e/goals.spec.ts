@@ -63,6 +63,39 @@ test.describe("goals (demo data, fixed clock)", () => {
     expect(consoleErrors).toEqual([])
   })
 
+  test("obstacles and adjustments: added, listed newest first, deleted only after confirming", async ({ page, consoleErrors }, info) => {
+    await page.goto("/goals/demo-goal-10k")
+    const log = page.getByRole("region", { name: "Obstáculos y ajustes" })
+    await expect(log.getByText("Sin anotaciones todavía.")).toBeVisible()
+    await expect(log.getByRole("button", { name: "Añadir" })).toBeDisabled()
+
+    await log.getByLabel("Anotación", { exact: true }).fill("Viaje de trabajo esta semana")
+    await log.getByRole("button", { name: "Añadir" }).click()
+    await expect(log.getByLabel("Anotación", { exact: true })).toHaveValue("")
+    await log.getByRole("radio", { name: "Ajuste" }).click()
+    await log.getByLabel("Anotación", { exact: true }).fill("Entreno al mediodía")
+    await log.getByRole("button", { name: "Añadir" }).click()
+
+    const rows = log.getByRole("list", { name: "Anotaciones" }).getByRole("listitem")
+    await expect(rows).toHaveCount(2)
+    await expect(rows.first()).toContainText("Ajuste")
+    await expect(rows.first()).toContainText("Entreno al mediodía")
+    await expect(rows.last()).toContainText("Obstáculo")
+
+    const remove = log.getByRole("button", { name: "Borrar anotación: Entreno al mediodía" })
+    if (isMobile(info.project.name)) expect((await remove.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    await remove.click()
+    await log.getByRole("button", { name: "Cancelar" }).click()
+    await expect(rows).toHaveCount(2)
+    await remove.click()
+    await log.getByRole("button", { name: "Borrar", exact: true }).click()
+    await expect(rows).toHaveCount(1)
+    await expect(log.getByText("Entreno al mediodía")).toHaveCount(0)
+
+    expect(serious(await new AxeBuilder({ page }).withTags(WCAG).analyze())).toEqual([])
+    expect(consoleErrors).toEqual([])
+  })
+
   test("the three data states are explicit: enough history, few points, none (N/D, never 0 %)", async ({ page }) => {
     await page.goto("/goals/demo-goal-10k")
     await expect(page.getByText(/A este ritmo llegarías a la meta/)).toBeVisible()

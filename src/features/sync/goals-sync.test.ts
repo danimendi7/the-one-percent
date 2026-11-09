@@ -109,6 +109,33 @@ describe("goals over the sync engine", () => {
     expect(phone.engine.getSnapshot().state.goals[0].title).toBe("Bajar a 77 kg")
   })
 
+  it("notes added on two devices all arrive and never conflict with an edit of the definition", async () => {
+    const server = new FakeServer(TODAY, () => NOW)
+    const a = await device(server)
+    a.engine.submit(create())
+    await a.engine.sync()
+    const b = await device(server)
+    await b.engine.sync()
+    const note = (noteId: string) => ({ id: noteId, kind: "obstacle" as const, text: noteId, on: TODAY })
+    b.engine.submit(update("Bajar a 77 kg", b.engine.goalVersion(GOAL)))
+    await b.engine.sync()
+    a.engine.submit({ type: "goal.log_add", op_id: id("l"), goal_id: GOAL, entry: note("from-a") })
+    b.engine.submit({ type: "goal.log_add", op_id: id("l"), goal_id: GOAL, entry: note("from-b") })
+    await a.engine.sync()
+    await b.engine.sync()
+    await a.engine.sync()
+    expect(a.engine.getSnapshot().notices).toEqual([])
+    for (const d of [a, b]) {
+      const goal = d.engine.getSnapshot().state.goals[0]
+      expect(goal.title).toBe("Bajar a 77 kg")
+      expect(goal.processLog!.map((e) => e.id).sort()).toEqual(["from-a", "from-b"])
+    }
+    a.engine.submit({ type: "goal.log_remove", op_id: id("l"), goal_id: GOAL, entry_id: "from-b" })
+    await a.engine.sync()
+    await b.engine.sync()
+    expect(b.engine.getSnapshot().state.goals[0].processLog!.map((e) => e.id)).toEqual(["from-a"])
+  })
+
   it("milestone ticks from two devices converge", async () => {
     const server = new FakeServer(TODAY, () => NOW)
     const a = await device(server)

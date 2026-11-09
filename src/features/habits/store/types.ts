@@ -2,7 +2,7 @@ import type { LocalDate } from "../domain/dates"
 import type { HabitInput, SetEntryResult } from "../domain/ops"
 import type { HabitsState } from "../domain/types"
 import type { GoalInput, MeasureResult } from "@/features/goals/domain/ops"
-import type { GoalState } from "@/features/goals/domain/types"
+import type { GoalLogKind, GoalState } from "@/features/goals/domain/types"
 import type { CloseIntent, Op, ReviewSyncState, SyncNotice, SyncStatus } from "@/features/sync/domain/types"
 import type { CloseRequest } from "@/features/sync/engine"
 import type { ReviewFields } from "@/features/reviews/domain/sync"
@@ -53,6 +53,8 @@ export interface GoalActions {
   archiveGoal(id: string): void
   restoreGoal(id: string): void
   setGoalReview(id: string, review: boolean): void
+  addGoalLog(goalId: string, kind: GoalLogKind, text: string): void
+  removeGoalLog(goalId: string, entryId: string): void
   setMeasurement(goalId: string, date: LocalDate, value: number | null, note?: string | null): MeasureResult
   setCheckpoint(goalId: string, checkpointId: string, doneOn: LocalDate | null): void
 }

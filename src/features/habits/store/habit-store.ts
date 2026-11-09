@@ -93,6 +93,8 @@ export const habitActions: HabitActions & GoalActions & FocusActions & MindActio
   archiveGoal: (...a) => need(active().archiveGoal)(...a),
   restoreGoal: (...a) => need(active().restoreGoal)(...a),
   setGoalReview: (...a) => need(active().setGoalReview)(...a),
+  addGoalLog: (...a) => need(active().addGoalLog)(...a),
+  removeGoalLog: (...a) => need(active().removeGoalLog)(...a),
   setMeasurement: (...a) => need(active().setMeasurement)(...a),
   setCheckpoint: (...a) => need(active().setCheckpoint)(...a),
   startFocus: (input) => need(active().startFocus)(input),

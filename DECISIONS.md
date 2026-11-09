@@ -4,6 +4,8 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-09 | Obstáculos y ajustes son una lista dentro del objetivo (`process_log`), no una tabla nueva | Tabla `goal_notes` con su RLS y su sincronización | Comparte la seguridad y la sincronización del objetivo, y añadir una nota no sube la versión, así que no choca con una edición desde otro dispositivo. Tope de 200 notas de 500 caracteres |
+| 2026-11-09 | Las notas se añaden o se borran, con confirmación, pero no se editan | Editarlas en su sitio | Es un registro de lo que pasó; para corregir una errata basta con borrarla y escribirla otra vez |
 | 2026-11-09 | La corrección del detalle tardío de una edición va en la PR #8, junto a C1 | Una PR aparte | La CI de C1 la detectó y exige 0 inestables, así que C1 no se podía fusionar sin ella; cada pasada cuesta unos 25 min |
 | 2026-11-09 | «En revisión» es una fecha opcional (`review_since`) junto al estado, no un valor nuevo de `state` | Añadir `in_review` a `state` | La app desplegada usa la misma base y trata todo lo que no sea `active` como cerrado: un valor nuevo le haría ver esos objetivos como terminados. La columna opcional no le afecta |
 | 2026-11-09 | Un objetivo en revisión sigue midiéndose y sigue en el Resumen, pero se lista solo en el filtro «Revisión» | Sacarlo del Resumen | Revisar un objetivo es pensarlo de nuevo, no cerrarlo, y así las cifras y las revisiones congeladas no cambian |

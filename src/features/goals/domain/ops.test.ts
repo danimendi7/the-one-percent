@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest"
 import { makeHabit, makeState } from "@/features/habits/domain/test-helpers"
 import type { HabitsState } from "@/features/habits/domain/types"
 import {
+  addGoalLogEntry,
   archiveGoal,
+  cleanLogText,
+  GOAL_LOG_LIMITS,
+  goalLogNewestFirst,
+  removeGoalLogEntry,
   createGoal,
   goalStatusView,
   goalsForHabit,
@@ -91,6 +96,52 @@ describe("goal reducers", () => {
     const s3 = archiveGoal(s2, "g1", TODAY)
     expect(archiveGoal(s3, "g1", TODAY)).toBe(s3)
     expect(restoreGoal(s3, "g1").goals[0].archivedOn).toBeNull()
+  })
+
+  describe("process log", () => {
+    const entry = (id: string, on = TODAY, text = "Sin tiempo por las mañanas") => ({ id, kind: "obstacle" as const, text, on })
+
+    it("appends once per id, cleans the text and leaves the definition alone", () => {
+      const s1 = withGoal()
+      const s2 = addGoalLogEntry(s1, "g1", entry("a", TODAY, "  Viaje\n\nde  trabajo "))
+      expect(s2.goals[0].processLog).toEqual([{ id: "a", kind: "obstacle", text: "Viaje de trabajo", on: TODAY }])
+      expect(s2.goals[0].version).toBe(s1.goals[0].version)
+      expect(addGoalLogEntry(s2, "g1", entry("a"))).toBe(s2)
+    })
+
+    it("refuses an empty note, an oversized one, a full log and an unknown goal", () => {
+      const s = withGoal()
+      expect(addGoalLogEntry(s, "g1", entry("a", TODAY, " \n "))).toBe(s)
+      expect(addGoalLogEntry(s, "g1", entry("a", TODAY, "x".repeat(GOAL_LOG_LIMITS.text + 1)))).toBe(s)
+      expect(addGoalLogEntry(s, "nope", entry("a"))).toBe(s)
+      let full = s
+      for (let i = 0; i < GOAL_LOG_LIMITS.entries; i++) full = addGoalLogEntry(full, "g1", entry(`e${i}`))
+      expect(full.goals[0].processLog).toHaveLength(GOAL_LOG_LIMITS.entries)
+      expect(addGoalLogEntry(full, "g1", entry("extra"))).toBe(full)
+    })
+
+    it("removes only that entry, and removing twice changes nothing", () => {
+      const s = addGoalLogEntry(addGoalLogEntry(withGoal(), "g1", entry("a")), "g1", entry("b"))
+      const after = removeGoalLogEntry(s, "g1", "a")
+      expect(after.goals[0].processLog!.map((e) => e.id)).toEqual(["b"])
+      expect(removeGoalLogEntry(after, "g1", "a")).toBe(after)
+    })
+
+    it("an edit of the goal keeps the log", () => {
+      const s = addGoalLogEntry(withGoal(), "g1", entry("a"))
+      expect(updateGoal(s, "g1", input({ title: "Otro" }), NOW).goals[0].processLog).toHaveLength(1)
+    })
+
+    it("lists the newest day first, the last written first within a day, without changing the stored order", () => {
+      const log = [entry("old", "2026-10-01"), entry("a"), entry("b"), entry("mid", "2026-10-15")]
+      expect(goalLogNewestFirst(log).map((e) => e.id)).toEqual(["b", "a", "mid", "old"])
+      expect(log[0].id).toBe("old")
+      expect(goalLogNewestFirst(undefined)).toEqual([])
+    })
+
+    it("cleans control characters", () => {
+      expect(cleanLogText("a\u0007b\tc")).toBe("ab c")
+    })
   })
 
   it("review is a desired state that keeps its first date and no other field", () => {
