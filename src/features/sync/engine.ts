@@ -488,7 +488,7 @@ export class SyncEngine {
    * - restore: bring back what was deleted elsewhere, with this device's text;
    * - free: save the note as a free-standing idea (its content was deleted).
    */
-  resolveLibraryText(noticeId: string, choice: "mine" | "theirs" | "both" | "restore" | "free"): boolean {
+  resolveLibraryText(noticeId: string, choice: "mine" | "theirs" | "both" | "restore" | "free" | "existing" | "show", target?: string): boolean {
     const n = this.notices.find((x) => x.id === noticeId)
     if (!n || !isLibraryText(n) || !n.op || !isLibraryOp(n.op) || n.op.type === "library.link.set") return false
     const op = n.op as LibraryWriteOp | LibraryUpdateOp
@@ -522,6 +522,27 @@ export class SyncEngine {
         // Without its content: no content and no page or minute, the text and everything else kept.
         const rest = pick(recover, Object.keys(recover).filter((k) => !["item_id", "page", "position_seconds", "locator_label"].includes(k)))
         this.libraryCreate("note", { ...rest, item_id: null })
+        return true
+      }
+      case "existing": {
+        // M4g.3: its content was refused as a duplicate of one already in the Library (created on
+        // another device); the note is written again, whole, on that existing content.
+        const row = target ? this.libraryRow("item", target) : undefined
+        if (entity !== "note" || n.code !== "item_deleted" || !row || row.deleted) return false
+        this.dismissNotice(noticeId)
+        this.libraryCreate("note", { ...recover, item_id: target })
+        return true
+      }
+      case "show": {
+        // M4g.4: an episode refused because its show was refused (the same show was created on
+        // another device). It is written again, whole and with the same id, on the show that
+        // exists — or, without `target`, with no show — so its kept notes can follow it.
+        const w = op as LibraryWriteOp
+        if (entity !== "item" || n.code !== "show_not_found" || !w.type.endsWith(".create")) return false
+        const show = target ? this.libraryRow("show", target) : undefined
+        if (target && (!show || show.deleted)) return false
+        this.dismissNotice(noticeId)
+        this.libraryCreate("item", { ...recover, show_id: target ?? null }, { id: w.id, kind: w.kind ?? n.library?.kind })
         return true
       }
     }

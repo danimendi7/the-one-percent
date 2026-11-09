@@ -1,0 +1,105 @@
+{
+ "publishers": [
+  "Siruela"
+ ],
+ "subtitle": "La invención de los libros en el mundo antiguo",
+ "covers": [
+  9689877,
+  -1
+ ],
+ "physical_format": "paperback",
+ "full_title": "El infinito en un junco : La invención de los libros en el mundo antiguo",
+ "key": "/books/OL28108908M",
+ "authors": [
+  {
+   "key": "/authors/OL5980983A"
+  }
+ ],
+ "source_records": [
+  "amazon:8417860797",
+  "marc:harvard_bibliographic_metadata/20220215_022.bib.mrc:292525042:1920"
+ ],
+ "title": "El infinito en un junco",
+ "notes": "Source title: El infinito en un junco: La invención de los libros en el mundo antiguo (Biblioteca de Ensayo / Serie mayor) (Spanish Edition)",
+ "number_of_pages": 452,
+ "publish_date": "2020-03-23",
+ "works": [
+  {
+   "key": "/works/OL20770492W"
+  }
+ ],
+ "type": {
+  "key": "/type/edition"
+ },
+ "identifiers": {
+  "amazon": [
+   "8417860797"
+  ],
+  "goodreads": [
+   "51554723"
+  ],
+  "storygraph": [
+   "d95a3002-a371-4e06-8a0c-06e13645d886"
+  ],
+  "depósito_legal": [
+   "M 22798-2019"
+  ]
+ },
+ "classifications": {
+  "udc": [
+   "655.3.066.11(091)"
+  ]
+ },
+ "isbn_10": [
+  "8417860797"
+ ],
+ "isbn_13": [
+  "9788417860790"
+ ],
+ "oclc_numbers": [
+  "1416397970",
+  "1120776828"
+ ],
+ "dewey_decimal_class": [
+  "002.09"
+ ],
+ "contributors": [
+  {
+   "role": "Epigraph",
+   "name": "\"Parecen dibujos, pero dentro de las letras están las voces. Cada página es una caja infinita de voces\""
+  },
+  {
+   "role": "Dedicated to",
+   "name": "A mi madre, mano firme de algodón"
+  },
+  {
+   "role": "Copyright",
+   "name": "©2019"
+  }
+ ],
+ "languages": [
+  {
+   "key": "/languages/spa"
+  }
+ ],
+ "first_sentence": {
+  "type": "/type/text",
+  "value": "Misteriosos grupos de hombres a caballo recorren los caminos de Gracia."
+ },
+ "lccn": [
+  "2019431806"
+ ],
+ "lc_classifications": [
+  "Z5 .V34 2019"
+ ],
+ "latest_revision": 5,
+ "revision": 5,
+ "created": {
+  "type": "/type/datetime",
+  "value": "2020-05-18T09:54:23.297835"
+ },
+ "last_modified": {
+  "type": "/type/datetime",
+  "value": "2025-11-25T01:27:53.341639"
+ }
+}

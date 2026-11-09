@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test --grep-invert @screens",
     "check": "npm run typecheck && npm run lint && npm run test",
+    "verify": "npm run check && npm run build",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
@@ -28,7 +29,8 @@
     "e2e:linux": "node scripts/e2e-linux.mjs",
     "bench:knowledge": "node scripts/bench-knowledge.mjs",
     "test:browser": "playwright test --config playwright.browser.config.ts",
-    "bench:search": "node scripts/bench-search.mjs"
+    "bench:search": "node scripts/bench-search.mjs",
+    "explore:metadata": "vitest run --config vitest.explore.config.mts --silent=false"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

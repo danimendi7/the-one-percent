@@ -1,0 +1,49 @@
+{
+ "works": [
+  {
+   "key": "/works/OL17930368W"
+  }
+ ],
+ "title": "Hábitos Atómicos",
+ "publishers": [
+  "Ediciones Paidós"
+ ],
+ "publish_date": "January 23, 2024",
+ "key": "/books/OL51155019M",
+ "type": {
+  "key": "/type/edition"
+ },
+ "covers": [
+  15237820,
+  15237819,
+  15125764,
+  15073719,
+  14591837,
+  14587942
+ ],
+ "languages": [
+  {
+   "key": "/languages/spa"
+  }
+ ],
+ "number_of_pages": 448,
+ "source_records": [
+  "ia:hbitosatmicos0000jame"
+ ],
+ "ocaid": "hbitosatmicos0000jame",
+ "isbn_13": [
+  "9786075696140"
+ ],
+ "subtitle": "Un método sencillo y comprobado para construir hábitos buenos y desterrar los malos",
+ "physical_format": "Hardcover",
+ "latest_revision": 21,
+ "revision": 21,
+ "created": {
+  "type": "/type/datetime",
+  "value": "2024-02-21T17:54:46.574725"
+ },
+ "last_modified": {
+  "type": "/type/datetime",
+  "value": "2026-08-19T11:44:17.546806"
+ }
+}

@@ -6,7 +6,9 @@ import { demoBackend } from "@/features/habits/store/demo-store"
 import { activateBackend, habitActions, useHabits } from "@/features/habits/store/habit-store"
 import type { Backend } from "@/features/habits/store/types"
 import { createAccountBackend } from "@/features/sync/account-backend"
+import { isLibraryText } from "@/features/sync/domain/library-sync"
 import type { SyncNotice } from "@/features/sync/domain/types"
+import { isDurableNotice } from "@/features/sync/engine"
 import { getSupabaseBrowser } from "@/lib/supabase/browser"
 import { isSupabaseConfigured } from "@/lib/supabase/env"
 
@@ -143,9 +145,27 @@ function SyncNotices() {
   return null
 }
 
-function showNotice(n: SyncNotice) {
+/**
+ * A library text the server did not take (D68): kept on this device until the user decides in the
+ * Library panel (the Library, the content's page, Cerebro). The toast only informs (D108): it has no
+ * buttons, and closing it — by hand or when its time runs out — decides nothing.
+ */
+function showLibraryText(n: SyncNotice, subject: string) {
+  toast(n.kind === "conflict" ? `${subject} cambió en otro dispositivo` : `${subject} no se pudo guardar`, {
+    id: n.id,
+    description: "Tu texto se conserva en este dispositivo hasta que decidas qué hacer con él en la Biblioteca.",
+    duration: 10_000,
+  })
+}
+
+/** Exported for its tests (data-source.test.ts). */
+export function showNotice(n: SyncNotice) {
   if (n.op?.type === "review.save") return showReviewText({ ...n, op: n.op })
   const subject = n.subject ? `«${n.subject}»` : "Un cambio"
+  if (isLibraryText(n)) return showLibraryText(n, subject)
+  // Closing a toast acknowledges an informative notice. A notice that keeps a text (isDurableNotice)
+  // is never decided by a toast closing (D108): only by the user's explicit choice.
+  const acknowledge = isDurableNotice(n) ? {} : { onDismiss: () => habitActions.dismissNotice?.(n.id), onAutoClose: () => habitActions.dismissNotice?.(n.id) }
   if (n.op?.type === "review.delete") {
     // Never retried on its own: a delete only applies to the exact version the user confirmed.
     toast(`${subject} no se ha borrado`, {
@@ -187,16 +207,14 @@ function showNotice(n: SyncNotice) {
       description: "Se ha mantenido la versión más reciente. Puedes volver a aplicar tu cambio.",
       duration: 12_000,
       action: { label: "Aplicar el mío", onClick: () => habitActions.reapplyNotice?.(n.id) },
-      onDismiss: () => habitActions.dismissNotice?.(n.id),
-      onAutoClose: () => habitActions.dismissNotice?.(n.id),
+      ...acknowledge,
     })
   } else {
     toast.error(`${subject} no se pudo guardar`, {
       id: n.id,
       description: `El servidor lo rechazó: ${REJECTION[n.code ?? ""] ?? "datos no válidos"}. Se muestra el estado real.`,
       duration: 8_000,
-      onDismiss: () => habitActions.dismissNotice?.(n.id),
-      onAutoClose: () => habitActions.dismissNotice?.(n.id),
+      ...acknowledge,
     })
   }
 }

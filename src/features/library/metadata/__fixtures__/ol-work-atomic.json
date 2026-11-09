@@ -1,0 +1,50 @@
+{
+ "description": "No matter your goals, Atomic Habits offers a proven framework for improving every day. James Clear, one of the world's leading experts on habit formation, reveals practical strategies that will teach you exactly how to form good habits, break bad ones, and master the tiny behaviors that lead to remarkable results.",
+ "subjects": [
+  "Habit",
+  "Habit breaking",
+  "Behavior modification",
+  "Self-actualization (psychology)",
+  "Business",
+  "psychology",
+  "Personal Growth",
+  "New York Times bestseller",
+  "BUSINESS & ECONOMICS / Organizational Behavior",
+  "PSYCHOLOGY / Social Psychology",
+  "SELF-HELP / Personal Growth / General."
+ ],
+ "key": "/works/OL17930368W",
+ "title": "Atomic Habits",
+ "authors": [
+  {
+   "author": {
+    "key": "/authors/OL7422948A"
+   },
+   "type": {
+    "key": "/type/author_role"
+   }
+  }
+ ],
+ "type": {
+  "key": "/type/work"
+ },
+ "covers": [
+  12539702,
+  10457042,
+  10958382,
+  8260535,
+  12225471,
+  10510589,
+  11646973
+ ],
+ "latest_revision": 79,
+ "revision": 79,
+ "created": {
+  "type": "/type/datetime",
+  "value": "2018-10-20T04:53:43.040839"
+ },
+ "last_modified": {
+  "type": "/type/datetime",
+  "value": "2026-09-13T07:28:40.920779"
+ }
+}

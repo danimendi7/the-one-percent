@@ -19,6 +19,12 @@ import { formatDate } from "@/features/habits/domain/dates"
 import { DEMO_NOTICE } from "@/features/knowledge/demo"
 import { useLibrary } from "./store/use-library"
 import type { LibrarySnapshot } from "./store/types"
+import type { DataSource } from "@/features/habits/store/types"
+import { AddBookSheet } from "./components/add-book-sheet"
+import { AddPodcastSheet } from "./components/add-podcast-sheet"
+import { showResultOf } from "./metadata/to-input"
+import type { ShowResult } from "./metadata/types"
+import { useHabits } from "@/features/habits/store/habit-store"
 import { ContentFormSheet, type FormTarget } from "./components/content-form"
 import { NoteCard, QuickCapture } from "./components/knowledge-notes"
 import { BackLink, BOOKS_HREF, BRAIN_HREF, byline, CoverArt, itemHref, LIBRARY_HREF, PODCASTS_HREF, ProgressLine, RatingBadge, showHref, StatusPill } from "./components/library-ui"
@@ -38,11 +44,46 @@ export function LibrarySkeleton() {
 }
 
 /** One form sheet for the whole screen: what to add or edit, or nothing. */
-export function useContentForm(state: KnowledgeState | undefined) {
+/**
+ * The add and edit sheets of the Library. With an account, a new book opens the search assistant
+ * (M4g.3), which can hand over to the manual form with what was typed; the demo has no search, so a
+ * new book there is manual as before. Editing, episodes and shows keep the manual form.
+ */
+export function useContentForm(state: KnowledgeState | undefined, source?: DataSource) {
   const router = useRouter()
   const [target, setTarget] = useState<FormTarget | null>(null)
+  const [assistant, setAssistant] = useState(false)
+  const [podcast, setPodcast] = useState<{ show: ShowResult | null } | null>(null)
+  const timeZone = useHabits()?.state.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+  const open = (t: FormTarget) => {
+    const isNew = !("item" in t && t.item) && !("show" in t && t.show) && !("draft" in t && t.draft)
+    if (!isNew || source !== "account") return setTarget(t)
+    if (t.kind === "book") return setAssistant(true)
+    // A new episode or show: the podcast assistant (M4g.4). From a show's page, at that show's
+    // episodes when it came from Apple; a show written by hand keeps the manual form.
+    const local = t.kind === "episode" && t.showId ? state?.shows[t.showId] : undefined
+    if (local && local.external?.provider !== "itunes") return setTarget(t)
+    setPodcast({ show: local ? showResultOf(local) : null })
+  }
   const sheet = state ? (
-    <ContentFormSheet
+    <>
+      <AddBookSheet
+        open={assistant}
+        onOpenChange={setAssistant}
+        state={state}
+        onManual={(draft) => setTarget({ kind: "book", draft })}
+        onCreated={(id) => router.push(itemHref(id))}
+      />
+      <AddPodcastSheet
+        open={!!podcast}
+        onOpenChange={(v) => !v && setPodcast(null)}
+        state={state}
+        timeZone={timeZone}
+        initialShow={podcast?.show ?? null}
+        onManual={(m) => setTarget(m.kind === "show" ? { kind: "show", draft: { title: m.title } } : { kind: "episode", showId: m.showId ?? null, draft: { title: m.title } })}
+        onCreated={(href) => router.push(href)}
+      />
+      <ContentFormSheet
       target={target ?? { kind: "book" }}
       state={state}
       open={!!target}
@@ -51,9 +92,10 @@ export function useContentForm(state: KnowledgeState | undefined) {
         const t = target
         if (t && !("item" in t && t.item) && !("show" in t && t.show)) router.push(t.kind === "show" ? showHref(id) : itemHref(id))
       }}
-    />
+      />
+    </>
   ) : null
-  return { open: setTarget, sheet }
+  return { open, sheet }
 }
 
 function AddMenu({ open, only }: { open: (t: FormTarget) => void; only?: ContentKind | "podcasts" }) {
@@ -93,7 +135,7 @@ const showTitle = (s: KnowledgeState, i: ContentItem) => (i.kind === "episode" &
 function ItemTile({ item, state }: { item: ContentItem; state: KnowledgeState }) {
   return (
     <Link href={itemHref(item.id)} className="group block min-w-0 rounded-xl focus-visible:outline-2" data-testid="item-tile">
-      <CoverArt seed={item.id} title={item.title} byline={byline(item, showTitle(state, item))} kind={item.kind} className="transition-transform group-hover:-translate-y-0.5 motion-reduce:transition-none" />
+      <CoverArt seed={item.id} title={item.title} byline={byline(item, showTitle(state, item))} kind={item.kind} cover={item.cover} className="transition-transform group-hover:-translate-y-0.5 motion-reduce:transition-none" />
       <p className="mt-2 line-clamp-2 text-sm leading-snug font-medium">{item.title}</p>
       <div className="mt-1 flex flex-wrap items-center gap-1.5">
         <StatusPill kind={item.kind} status={item.status} />
@@ -111,7 +153,7 @@ function ItemRow({ item, state }: { item: ContentItem; state: KnowledgeState }) 
     <li>
       <Link href={itemHref(item.id)} className="flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-surface-raised/50" data-testid="item-row">
         <div className={cn("shrink-0", item.kind === "book" ? "w-10" : "w-12")}>
-          <CoverArt seed={item.id} title={item.title} kind={item.kind} size="sm" />
+          <CoverArt seed={item.id} title={item.title} kind={item.kind} size="sm" cover={item.cover} />
         </div>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{item.title}</span>
@@ -142,7 +184,7 @@ function Header({ snap, title, back, actions, description }: { snap: LibrarySnap
 /** `/knowledge/library`: the door to Books, Podcasts and Cerebro, what you are on now, and a free idea. */
 export function LibraryHome() {
   const snap = useLibrary()
-  const form = useContentForm(snap?.state)
+  const form = useContentForm(snap?.state, snap?.source)
   if (!snap) return <LibrarySkeleton />
   const s = snap.state
   const items = Object.values(s.items)
@@ -262,7 +304,7 @@ function Shelves({ kind, state, shelf, onShelf }: { kind: ContentKind; state: Kn
 /** `/knowledge/library/books`. */
 export function BooksView() {
   const snap = useLibrary()
-  const form = useContentForm(snap?.state)
+  const form = useContentForm(snap?.state, snap?.source)
   const [shelf, setShelf] = useState<Shelf>("all")
   const [sort, setSort] = useState<ContentSort>("recent")
   const [layout, setLayout] = useState<"grid" | "list">("grid")
@@ -324,7 +366,7 @@ export function BooksView() {
 /** `/knowledge/library/podcasts`: episodes (by status) and shows (grouping their episodes). */
 export function PodcastsView() {
   const snap = useLibrary()
-  const form = useContentForm(snap?.state)
+  const form = useContentForm(snap?.state, snap?.source)
   const [tab, setTab] = useState<"episodes" | "shows">("episodes")
   const [shelf, setShelf] = useState<Shelf>("all")
   const episodes = useMemo(() => (snap ? (filterContent(snap.state, { kind: "episode", shelf, sort: "recent" }) as Episode[]) : []), [snap, shelf])
@@ -364,7 +406,7 @@ export function PodcastsView() {
             const eps = episodesOfShow(snap.state, sh.id)
             return (
               <Link key={sh.id} href={showHref(sh.id)} className="group block min-w-0" data-testid="show-tile">
-                <CoverArt seed={sh.id} title={sh.title} byline={sh.publisher} kind="show" className="transition-transform group-hover:-translate-y-0.5 motion-reduce:transition-none" />
+                <CoverArt seed={sh.id} title={sh.title} byline={sh.publisher} kind="show" cover={sh.cover} className="transition-transform group-hover:-translate-y-0.5 motion-reduce:transition-none" />
                 <p className="mt-2 line-clamp-2 text-sm font-medium">{sh.title}</p>
                 <p className="num text-xs text-text-tertiary">
                   {eps.length} {eps.length === 1 ? "episodio" : "episodios"}

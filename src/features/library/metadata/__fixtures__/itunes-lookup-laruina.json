@@ -1,0 +1,209 @@
+{
+ "resultCount": 6,
+ "results": [
+  {
+   "wrapperType": "track",
+   "kind": "podcast",
+   "collectionId": 1455818214,
+   "trackId": 1455818214,
+   "artistName": "La Ruina",
+   "collectionName": "La Ruina",
+   "trackName": "La Ruina",
+   "collectionCensoredName": "La Ruina",
+   "trackCensoredName": "La Ruina",
+   "collectionViewUrl": "https://podcasts.apple.com/es/podcast/la-ruina/id1455818214?uo=4",
+   "feedUrl": "https://anchor.fm/s/a4e7fe88/podcast/rss",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/la-ruina/id1455818214?uo=4",
+   "artworkUrl30": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts114/v4/1c/41/de/1c41de2b-e3c5-4640-1f7a-1e56690f4dc3/mza_1199734298903823958.jpg/30x30bb.jpg",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts114/v4/1c/41/de/1c41de2b-e3c5-4640-1f7a-1e56690f4dc3/mza_1199734298903823958.jpg/60x60bb.jpg",
+   "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts114/v4/1c/41/de/1c41de2b-e3c5-4640-1f7a-1e56690f4dc3/mza_1199734298903823958.jpg/100x100bb.jpg",
+   "collectionPrice": 0,
+   "trackPrice": 0,
+   "collectionHdPrice": 0,
+   "releaseDate": "2026-10-21T16:00:00Z",
+   "collectionExplicitness": "notExplicit",
+   "trackExplicitness": "cleaned",
+   "trackCount": 356,
+   "trackTimeMillis": 4527,
+   "country": "ESP",
+   "currency": "EUR",
+   "primaryGenreName": "Comedia",
+   "contentAdvisoryRating": "Clean",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts114/v4/1c/41/de/1c41de2b-e3c5-4640-1f7a-1e56690f4dc3/mza_1199734298903823958.jpg/600x600bb.jpg",
+   "genreIds": [
+    "1303",
+    "26"
+   ],
+   "genres": [
+    "Comedia",
+    "Podcasts"
+   ]
+  },
+  {
+   "episodeUrl": "https://traffic.megaphone.fm/APO1239524040.mp3",
+   "previewUrl": "https://traffic.megaphone.fm/APO1239524040.mp3",
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/la-ruina/id1455818214?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/331-la-ruina-con-petite-lorena/id1455818214?i=1000798560432&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/2b/1a/09/2b1a09d7-c6dc-22c2-d2f6-2a34ef83a6dd/mza_16581116865991017367.jpg/60x60bb.jpg",
+   "trackTimeMillis": 4596000,
+   "contentAdvisoryRating": "Explicit",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/2b/1a/09/2b1a09d7-c6dc-22c2-d2f6-2a34ef83a6dd/mza_16581116865991017367.jpg/160x160bb.jpg",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/2b/1a/09/2b1a09d7-c6dc-22c2-d2f6-2a34ef83a6dd/mza_16581116865991017367.jpg/600x600bb.jpg",
+   "artistIds": [],
+   "genres": [
+    {
+     "name": "Comedy",
+     "id": "1303"
+    }
+   ],
+   "episodeGuid": "e0f5a3e4-a222-454c-9cba-e676a5f34373",
+   "collectionId": 1455818214,
+   "collectionName": "La Ruina",
+   "trackId": 1000798560432,
+   "trackName": "331. La Ruina (con Petite Lorena)",
+   "releaseDate": "2026-10-28T17:00:00Z",
+   "feedUrl": "https://anchor.fm/s/a4e7fe88/podcast/rss",
+   "closedCaptioning": "none",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "🎟️ LA RUINA está de gira en http://www.laruinashow.com\nLa Ruina desde Barcelona con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Petite Lorena teloneando a alguien inesperado. \nEpisodio en colaboración con Impress. Están celebrando su BLACK FRIDAY y os podéis ahorrar 1.000€ en el tratamiento de ortodoncia invisible, ¡el mejor descuento del año! Reserva YA cita gratuita: https://tinyurl.com/impress-black-friday\nEl juego, la taza y todo el merchandising oficial de La Ruina en https://lallamastore.com/\nIgnasi Taltavull: \nhttp://www.instagram.com/ignasitf      \nTomàs Fuentes:\nhttp://www.twitter.com/cap0 \nhttp://www.instagram.com/cap0      \n📲 La Ruina sigue en redes: @laruinashow \nhttp://www.instagram.com/laruinashow",
+   "country": "ESP",
+   "shortDescription": "🎟️ LA RUINA está de gira en http://www.laruinashow.com\nLa Ruina desde Barcelona con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Petite Lorena teloneando a alguien inesperado. \nEpisodio en colaboración con Impress. Están celebrando"
+  },
+  {
+   "episodeUrl": "https://traffic.megaphone.fm/APO2138521264.mp3",
+   "previewUrl": "https://traffic.megaphone.fm/APO2138521264.mp3",
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/la-ruina/id1455818214?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/330-la-ruina-con-berto-romero/id1455818214?i=1000797468768&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts211/v4/96/37/b4/9637b494-09ed-fe42-d51f-0658cc64823f/mza_13968928445864637824.jpg/60x60bb.jpg",
+   "trackTimeMillis": 4527000,
+   "contentAdvisoryRating": "Explicit",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts211/v4/96/37/b4/9637b494-09ed-fe42-d51f-0658cc64823f/mza_13968928445864637824.jpg/160x160bb.jpg",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts211/v4/96/37/b4/9637b494-09ed-fe42-d51f-0658cc64823f/mza_13968928445864637824.jpg/600x600bb.jpg",
+   "artistIds": [],
+   "genres": [
+    {
+     "name": "Comedy",
+     "id": "1303"
+    }
+   ],
+   "episodeGuid": "fc65fd0f-38de-44e2-a805-e30957797056",
+   "collectionId": 1455818214,
+   "collectionName": "La Ruina",
+   "trackId": 1000797468768,
+   "trackName": "330. La Ruina (con Berto Romero)",
+   "releaseDate": "2026-10-21T16:00:00Z",
+   "feedUrl": "https://anchor.fm/s/a4e7fe88/podcast/rss",
+   "closedCaptioning": "none",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "🎟️ LA RUINA está de gira en http://www.laruinashow.com\nLa Ruina desde Girona con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Berto Romero yendo al festival de San Sebastián demasiado cansado.\nCon la colaboración de Movistar Plus+, la única plataforma de TV en la que podrás disfrutar de lo mejor del deporte, fútbol, cine y series. +info en https://www.movistarplus.es/\nEl juego, la taza y todo el merchandising oficial de La Ruina en https://lallamastore.com/\nIgnasi Taltavull: \nhttp://www.instagram.com/ignasitf      \nTomàs Fuentes:\nhttp://www.twitter.com/cap0 \nhttp://www.instagram.com/cap0      \n📲 La Ruina sigue en redes: @laruinashow \nhttp://www.instagram.com/laruinashow",
+   "country": "ESP",
+   "shortDescription": "🎟️ LA RUINA está de gira en http://www.laruinashow.com\nLa Ruina desde Girona con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Berto Romero yendo al festival de San Sebastián demasiado cansado.\nCon la colaboración de Movistar Plus+, l"
+  },
+  {
+   "episodeUrl": "https://traffic.megaphone.fm/APO8577682804.mp3",
+   "previewUrl": "https://traffic.megaphone.fm/APO8577682804.mp3",
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/la-ruina/id1455818214?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/329-la-ruina-con-mamen-mendiz%C3%A1bal/id1455818214?i=1000796945816&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts211/v4/16/00/0f/16000f1f-dd8c-0117-4608-ab1036799ece/mza_7733351827225323538.jpg/60x60bb.jpg",
+   "trackTimeMillis": 4176000,
+   "contentAdvisoryRating": "Explicit",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts211/v4/16/00/0f/16000f1f-dd8c-0117-4608-ab1036799ece/mza_7733351827225323538.jpg/160x160bb.jpg",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts211/v4/16/00/0f/16000f1f-dd8c-0117-4608-ab1036799ece/mza_7733351827225323538.jpg/600x600bb.jpg",
+   "artistIds": [],
+   "genres": [
+    {
+     "name": "Comedy",
+     "id": "1303"
+    }
+   ],
+   "episodeGuid": "39d1cb7e-f9ab-462d-86bd-c53b12df7da4",
+   "collectionId": 1455818214,
+   "collectionName": "La Ruina",
+   "trackId": 1000796945816,
+   "trackName": "329. La Ruina (con Mamen Mendizábal)",
+   "releaseDate": "2026-10-18T17:00:00Z",
+   "feedUrl": "https://anchor.fm/s/a4e7fe88/podcast/rss",
+   "closedCaptioning": "none",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "🎟️ LA RUINA está de gira en http://www.laruinashow.com\nLa Ruina desde Girona con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Mamen Mendizábal recogiendo su primer premio en Marina d’Or.\nCon la colaboración de http://www.spoticar.es\nEl juego, la taza y todo el merchandising oficial de La Ruina en https://lallamastore.com/\nIgnasi Taltavull: http://www.instagram.com/ignasitf    \nTomàs Fuentes:http://www.twitter.com/cap0 http://www.instagram.com/cap0      \n📲 La Ruina sigue en redes: @laruinashow http://www.instagram.com/laruinashow",
+   "country": "ESP",
+   "shortDescription": "🎟️ LA RUINA está de gira en http://www.laruinashow.com\nLa Ruina desde Girona con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Mamen Mendizábal recogiendo su primer premio en Marina d’Or.\nCon la colaboración de http://www.spoticar.e"
+  },
+  {
+   "episodeUrl": "https://traffic.megaphone.fm/APO8338808749.mp3",
+   "previewUrl": "https://traffic.megaphone.fm/APO8338808749.mp3",
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/la-ruina/id1455818214?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/328-la-ruina-con-adri-romeo/id1455818214?i=1000796339148&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/b0/71/0a/b0710af7-006c-ac6a-2f79-c5d23e325a5c/mza_16697019807530154911.jpg/60x60bb.jpg",
+   "trackTimeMillis": 4274000,
+   "contentAdvisoryRating": "Explicit",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/b0/71/0a/b0710af7-006c-ac6a-2f79-c5d23e325a5c/mza_16697019807530154911.jpg/160x160bb.jpg",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/b0/71/0a/b0710af7-006c-ac6a-2f79-c5d23e325a5c/mza_16697019807530154911.jpg/600x600bb.jpg",
+   "artistIds": [],
+   "genres": [
+    {
+     "name": "Comedy",
+     "id": "1303"
+    }
+   ],
+   "episodeGuid": "2082b11e-a9bc-4e7d-a51b-6571346d560f",
+   "collectionId": 1455818214,
+   "collectionName": "La Ruina",
+   "trackId": 1000796339148,
+   "trackName": "328. La Ruina (con Adri Romeo)",
+   "releaseDate": "2026-10-14T16:00:00Z",
+   "feedUrl": "https://anchor.fm/s/a4e7fe88/podcast/rss",
+   "closedCaptioning": "none",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "🎟️ LA RUINA está de gira en http://www.laruinashow.com\nLa Ruina desde Barcelona con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Adri Romeo haciendo un interrail por Francia. \nCon la colaboración de Movistar Plus+, la única plataforma de TV en la que podrás disfrutar de lo mejor del deporte, fútbol, cine y series. +info en https://www.movistarplus.es/\nEl juego, la taza y todo el merchandising oficial de La Ruina en https://lallamastore.com/\nIgnasi Taltavull: http://www.instagram.com/ignasitf    \nTomàs Fuentes:http://www.twitter.com/cap0 http://www.instagram.com/cap0      \n📲 La Ruina sigue en redes: @laruinashow http://www.instagram.com/laruinashow",
+   "country": "ESP",
+   "shortDescription": "🎟️ LA RUINA está de gira en http://www.laruinashow.com\nLa Ruina desde Barcelona con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Adri Romeo haciendo un interrail por Francia. \nCon la colaboración de Movistar Plus+, la única plataform"
+  },
+  {
+   "episodeUrl": "https://traffic.megaphone.fm/APO4092972943.mp3",
+   "previewUrl": "https://traffic.megaphone.fm/APO4092972943.mp3",
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/la-ruina/id1455818214?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/327-la-ruina-con-arturo-valls/id1455818214?i=1000793688211&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/28/3e/98/283e9851-f831-fd80-ab91-8be8bf10bf84/mza_2548781760079372170.jpg/60x60bb.jpg",
+   "trackTimeMillis": 4512000,
+   "contentAdvisoryRating": "Explicit",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/28/3e/98/283e9851-f831-fd80-ab91-8be8bf10bf84/mza_2548781760079372170.jpg/160x160bb.jpg",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/28/3e/98/283e9851-f831-fd80-ab91-8be8bf10bf84/mza_2548781760079372170.jpg/600x600bb.jpg",
+   "artistIds": [],
+   "genres": [
+    {
+     "name": "Comedy",
+     "id": "1303"
+    }
+   ],
+   "episodeGuid": "b2311713-6083-48de-a69d-d4776044ae8d",
+   "collectionId": 1455818214,
+   "collectionName": "La Ruina",
+   "trackId": 1000793688211,
+   "trackName": "327. La Ruina (con Arturo Valls)",
+   "releaseDate": "2026-10-07T16:00:00Z",
+   "feedUrl": "https://anchor.fm/s/a4e7fe88/podcast/rss",
+   "closedCaptioning": "none",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "🎟️ LA RUINA está de gira en http://www.laruinashow.com\nLa Ruina desde Girona con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Arturo Valls intentando pasar desapercibido en la Copa América.\nEste episodio cuenta con la colaboración de O2, la compañía de fibra y móvil. +info en https://o2online.es\nEl juego, la taza y todo el merchandising oficial de La Ruina en https://lallamastore.com/\nIgnasi Taltavull: \nhttp://www.instagram.com/ignasitf      \nTomàs Fuentes:\nhttp://www.twitter.com/cap0 \nhttp://www.instagram.com/cap0      \n📲 La Ruina sigue en redes: @laruinashow \nhttp://www.instagram.com/laruinashow",
+   "country": "ESP",
+   "shortDescription": "🎟️ LA RUINA está de gira en http://www.laruinashow.com\nLa Ruina desde Girona con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Arturo Valls intentando pasar desapercibido en la Copa América.\nEste episodio cuenta con la colaboración de"
+  }
+ ],
+ "_note": "trimmed from 201 results"
+}
