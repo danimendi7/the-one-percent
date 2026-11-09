@@ -69,7 +69,8 @@ function useAnalyticsFilter(): [AnalyticsFilter, SetFilter] {
   const params = useSearchParams()
   const pathname = usePathname()
   const filter = parseFilter(params)
-  const update: SetFilter = (patch) => window.history.replaceState(null, "", pathname + serializeFilter({ ...filter, ...patch }))
+  // From the address bar, not this render: two quick taps must build on each other.
+  const update: SetFilter = (patch) => window.history.replaceState(null, "", pathname + serializeFilter({ ...parseFilter(new URLSearchParams(window.location.search)), ...patch }))
   return [filter, update]
 }
 

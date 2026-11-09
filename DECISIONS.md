@@ -4,6 +4,7 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-09 | Los filtros de Cerebro, Objetivos y Analytics calculan la URL desde la barra de direcciones, y Cerebro usa `history.replaceState` como los otros dos | Seguir con `router.replace` y el valor del render | Con dos toques seguidos, el segundo partía de una URL antigua y borraba el primer filtro. La PR #11 lo incluye porque su CI lo destapó y exige 0 inestables |
 | 2026-11-09 | Las interrupciones son un número opcional al cerrar o editar una sesión, y «sin anotar» es distinto de 0 | Un contador durante la sesión, o 0 por defecto | Las sesiones antiguas no tienen ese dato y ponerles 0 sería inventarlo. El contador en vivo añade una operación más a cada toque, y se puede añadir después |
 | 2026-11-09 | `focus.edit` solo escribe las interrupciones si la operación trae el dato | Escribir siempre lo que llegue | Una edición desde la app desplegada, que no conoce el campo, borraría sin aviso lo anotado |
 | 2026-11-09 | Un objetivo se vincula a libros concretos, y su avance de lectura se muestra aparte, sin entrar en el resultado del objetivo | Una fuente nueva «libros terminados» para objetivos numéricos, tipo «leer 24 libros» | El Plan pide relacionar objetivos y libros. Meterlo en el resultado exigiría llevar la biblioteca a las revisiones congeladas y cambiar `source`, que la app desplegada no entiende; el plan de M4 ya lo aplazó (P15) |
