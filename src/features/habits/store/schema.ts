@@ -129,7 +129,7 @@ const checkin = z.object({
 // reviews map is dropped on its own, never the rest of the demo.
 const review = z
   .object({
-    kind: z.enum(["week", "month"]),
+    kind: z.enum(["day", "week", "month"]),
     periodStart: localDate,
     periodEnd: localDate,
     status: z.enum(["draft", "closed"]),

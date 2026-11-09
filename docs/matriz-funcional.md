@@ -46,7 +46,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Knowledge OS | Daily Discovery / Tema de hoy | P | Pantalla demo, no guarda nada | D4, D5 | Alta |
 | Mind & Energy | Check-in, historial, tendencias, filtros | IV | `features/mind`, `checkins.int.test.ts`, E2E, CI | — | — |
 | Life Review | Semanal y mensual, decisiones, cierre | IV | `features/reviews`, `reviews*.int.test.ts`, E2E, CI | Corrección del e2e flaky (A2) | Alta |
-| Life Review | Revisión diaria | ND | `kind`: solo `week` y `month` | C5 | Alta |
+| Life Review | Revisión diaria | IV | `kind = 'day'` en `features/reviews`, `20261109130000_daily_reviews.sql`, `reviews.int.test.ts`, `reviews*.spec.ts`, CI | — | — |
 | AI Intelligence | Insights basados en reglas | ND | `/intelligence` es estática | E1, E2 | Alta |
 | AI Intelligence | Arquitectura de proveedor opcional | ND | Solo variables en `.env.example` | E4 | Media |
 | AI Intelligence | IA generativa | ND | — | Pendiente autorizable: requiere proveedor | — |

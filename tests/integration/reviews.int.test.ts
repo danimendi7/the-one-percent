@@ -12,7 +12,7 @@ import { addDays, adminClient, anonClient, db, isoWeekday, opId } from "./setup"
 
 type Result = { op_id: string; status: string; outcome?: string; code?: string | null; fields?: string[] }
 type WireReview = {
-  kind: "week" | "month"
+  kind: "day" | "week" | "month"
   period_start: string
   period_end: string
   status: "draft" | "closed"
@@ -27,7 +27,7 @@ type WireReview = {
   deleted: boolean
   server_seq: number
 }
-type Pull = { server_today: string; cursor: number; profile: { timezone: string }; reviews: WireReview[] }
+type Pull = { server_today: string; cursor: number; profile: { timezone: string }; reviews: WireReview[]; daily_reviews: WireReview[] }
 
 interface User {
   id: string
@@ -110,7 +110,7 @@ let prevWeek: string
 let month: string
 
 const one = async (c: SupabaseClient, kind: string, start: string, since = 0) => (await pull(c, since)).reviews.find((r) => r.kind === kind && r.period_start === start) ?? null
-const snapshotFor = (kind: "week" | "month", start: string) =>
+const snapshotFor = (kind: "day" | "week" | "month", start: string) =>
   buildReviewSnapshot({ state: { ...makeState([]), timezone: tz }, kind, periodStart: start, today, computedAt: new Date().toISOString() })
 
 beforeAll(async () => {
@@ -408,3 +408,115 @@ describe("pull_changes and the cursor", () => {
     expect(p1.cursor).toBeGreaterThan(p0.cursor)
   })
 })
+
+describe("daily reviews (C5)", () => {
+  const day = (c: SupabaseClient, date: string, since = 0) => pull(c, since).then((p) => p.daily_reviews.find((r) => r.period_start === date) ?? null)
+  /** A past day far from the dates the other describes write on. */
+  const past = (n: number) => addDays(today, -n)
+
+  it("today and any past day are a period of one date; tomorrow and a non-date are not", async () => {
+    expect(await applyOne(a.d1, save("day", today, { "content.observations": "  Dormí poco  ", "content.adjustments": "Acostarme antes" }))).toMatchObject({ status: "applied" })
+    expect((await day(a.d1, today))!).toMatchObject({ kind: "day", status: "draft", period_start: today, period_end: today, content: { observations: "Dormí poco", adjustments: "Acostarme antes" } })
+    expect(await applyOne(a.d1, save("day", addDays(today, 1), { "content.observations": "x" }))).toMatchObject({ status: "rejected", code: "not_available" })
+    expect(await applyOne(a.d1, save("day", "2026-13-01", { "content.observations": "x" }))).toMatchObject({ status: "rejected", code: "invalid_period" })
+  })
+
+  it("the table itself allows a single date and one review per day", async () => {
+    const attempt = (date: string, end: string) =>
+      db(async (c) => {
+        await c.query("begin")
+        try {
+          await c.query("select set_config('top.review_op', 'on', true)")
+          await c.query("insert into public.reviews (user_id, kind, period_start, period_end) values ($1, 'day', $2, $3)", [a.id, date, end])
+        } finally {
+          await c.query("rollback")
+        }
+      })
+    await expect(attempt(past(500), past(499))).rejects.toThrow(/reviews_day_period/)
+    await expect(attempt(today, today)).rejects.toThrow(/reviews_one_per_period|duplicate key/)
+  })
+
+  it("takes only its two questions: no free note, no answers of another kind, no decisions", async () => {
+    const d = past(510)
+    expect(await applyOne(a.d1, save("day", d, { "content.note": "Libre" }))).toMatchObject({ status: "rejected", code: "invalid_value" })
+    expect(await applyOne(a.d1, save("day", d, { "content.wins": "Semanal" }))).toMatchObject({ status: "rejected", code: "invalid_value" })
+    expect(await applyOne(a.d1, save("day", d, { "content.observations": "x".repeat(601) }))).toMatchObject({ status: "rejected" })
+    expect(await applyOne(a.d1, save("day", d, { decisions: [decision(0)] }))).toMatchObject({ status: "rejected" })
+    expect(await day(a.d1, d)).toBeNull()
+  })
+
+  it("is written only through the operations, and only its owner sees it", async () => {
+    const d = past(520)
+    await applyOne(a.d1, save("day", d, { "content.observations": "Privado" }))
+    const { error } = await a.d1.from("reviews").update({ content: { observations: "Directo" } }).eq("kind", "day").eq("period_start", d)
+    expect(error?.message).toMatch(/reviews_via_ops_only/)
+    expect((await day(a.d1, d))!.content).toEqual({ observations: "Privado" })
+    expect(await day(b.d1, d)).toBeNull()
+    const { data } = await b.d1.from("reviews").select("id").eq("kind", "day").eq("period_start", d)
+    expect(data).toEqual([])
+  })
+
+  it("two devices editing different questions end on one row with both", async () => {
+    const d = past(530)
+    const [r1, r2] = await Promise.all([applyOne(a.d1, save("day", d, { "content.observations": "Móvil" })), applyOne(a.d2, save("day", d, { "content.adjustments": "Portátil" }))])
+    expect([r1.status, r2.status]).toEqual(["applied", "applied"])
+    expect((await day(a.d1, d))!.content).toEqual({ observations: "Móvil", adjustments: "Portátil" })
+  })
+
+  it("closes once with frozen figures and then refuses any edit", async () => {
+    const d = past(540)
+    await applyOne(a.d1, save("day", d, { "content.observations": "Buen día" }))
+    const r = (await day(a.d1, d))!
+    const cursor = (await pull(a.d1)).cursor
+    expect(await applyOne(a.d1, close("day", d, snapshotFor("day", d), cursor, r.server_seq))).toMatchObject({ status: "applied" })
+    expect((await day(a.d1, d))!).toMatchObject({ status: "closed", content: { observations: "Buen día" }, snapshot: { kind: "day", goals: [] } })
+    expect(await applyOne(a.d1, close("day", d, snapshotFor("day", d), cursor, r.server_seq))).toMatchObject({ status: "superseded", code: "already_closed" })
+    expect(await applyOne(a.d1, save("day", d, { "content.observations": "Tarde" }))).toMatchObject({ status: "rejected", code: "review_closed" })
+  })
+
+  it("a snapshot of another kind or day cannot close it", async () => {
+    const d = past(550)
+    await applyOne(a.d1, save("day", d, { "content.observations": "x" }))
+    const r = (await day(a.d1, d))!
+    const cursor = (await pull(a.d1)).cursor
+    expect(await applyOne(a.d1, close("day", d, snapshotFor("day", addDays(d, -1)), cursor, r.server_seq))).toMatchObject({ status: "rejected", code: "invalid_snapshot" })
+    expect(await applyOne(a.d1, close("day", d, snapshotFor("week", addDays(today, 1 - isoWeekday(today) - 7)), cursor, r.server_seq))).toMatchObject({ status: "rejected", code: "invalid_snapshot" })
+  })
+
+  it("can be deleted explicitly and stays gone on a full pull", async () => {
+    const d = past(560)
+    await applyOne(a.d1, save("day", d, { "content.observations": "Para borrar" }))
+    const r = (await day(a.d1, d))!
+    expect(await applyOne(a.d1, del("day", d, r.server_seq))).toMatchObject({ status: "applied" })
+    expect(await day(a.d2, d)).toBeNull()
+  })
+
+  it("travels only under daily_reviews, incrementally: a published client never receives one", async () => {
+    const p0 = await pull(a.d1)
+    expect(p0.reviews.some((r) => (r.kind as string) === "day")).toBe(false)
+    expect(p0.daily_reviews.length).toBeGreaterThan(0)
+    const d = past(570)
+    await applyOne(a.d1, save("day", d, { "content.adjustments": "Incremental" }))
+    const p1 = await pull(a.d2, p0.cursor)
+    expect(p1.daily_reviews.map((r) => r.period_start)).toEqual([d])
+    expect(p1.reviews).toEqual([])
+    expect(p1.cursor).toBeGreaterThan(p0.cursor)
+  })
+
+  it("leaves earlier reviews intact: writing and closing days changes no week or month", async () => {
+    const start = addDays(week, -84)
+    await applyOne(a.d1, save("week", start, { "content.wins": "Semana anterior", "content.note": "Se queda" }, {}))
+    const prior = await db(async (c) => (await c.query("select kind, period_start, content, decisions, evaluations, status, snapshot, version, server_seq from public.reviews where user_id = $1 and kind <> 'day' order by kind, period_start", [a.id])).rows)
+    expect(prior.length).toBeGreaterThan(0)
+
+    const d = past(580)
+    await applyOne(a.d1, save("day", d, { "content.observations": "Un día más" }))
+    const r = (await day(a.d1, d))!
+    const cursor = (await pull(a.d1)).cursor
+    expect(await applyOne(a.d1, close("day", d, snapshotFor("day", d), cursor, r.server_seq))).toMatchObject({ status: "applied" })
+
+    const after = await db(async (c) => (await c.query("select kind, period_start, content, decisions, evaluations, status, snapshot, version, server_seq from public.reviews where user_id = $1 and kind <> 'day' order by kind, period_start", [a.id])).rows)
+    expect(after).toEqual(prior)
+  })
+})
+

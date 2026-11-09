@@ -116,3 +116,38 @@ describe("routes and labels", () => {
     expect(periodLabel(periodOf("month", "2026-10-01"))).toBe("Octubre de 2026")
   })
 })
+
+describe("a day is its own period (C5)", () => {
+  it("starts and ends on the same date", () => {
+    expect(periodOf("day", "2026-10-21")).toEqual({ kind: "day", from: "2026-10-21", to: "2026-10-21" })
+    expect(periodDays(periodOf("day", "2026-10-21"))).toBe(1)
+  })
+
+  it("any real date starts one; anything else does not", () => {
+    expect(isPeriodStart("day", "2026-10-21")).toBe(true)
+    expect(isPeriodStart("day", "2026-02-30")).toBe(false)
+    expect(periodFromStart("day", "ayer")).toBeNull()
+  })
+
+  it("moves one day at a time, across months and the change of hour", () => {
+    expect(nextPeriod(periodOf("day", "2026-10-31")).from).toBe("2026-11-01")
+    expect(previousPeriod(periodOf("day", "2026-10-26")).from).toBe("2026-10-25")
+    expect(nextPeriod(periodOf("day", "2026-10-25")).from).toBe("2026-10-26")
+  })
+
+  it("is available from that day on, so the one due is always today", () => {
+    expect(isAvailable(periodOf("day", "2026-10-21"), "2026-10-21")).toBe(true)
+    expect(isAvailable(periodOf("day", "2026-10-22"), "2026-10-21")).toBe(false)
+    expect(latestAvailable("day", "2026-10-21").from).toBe("2026-10-21")
+  })
+
+  it("the route takes today and past days, never tomorrow", () => {
+    expect(parseRoute("day", "2026-10-21", "2026-10-21")).toEqual({ kind: "day", from: "2026-10-21", to: "2026-10-21" })
+    expect(parseRoute("day", "2026-10-01", "2026-10-21")?.from).toBe("2026-10-01")
+    expect(parseRoute("day", "2026-10-22", "2026-10-21")).toBeNull()
+  })
+
+  it("is named by its weekday and date", () => {
+    expect(periodLabel(periodOf("day", "2026-10-21"))).toBe("Miércoles, 21 de octubre")
+  })
+})

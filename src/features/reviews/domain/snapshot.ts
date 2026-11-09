@@ -4,6 +4,7 @@ import {
   completion,
   currentStreak,
   dailyRates,
+  habitOpportunities,
   perfectDays,
   weekdayConsistency,
   type CompletionSummary,
@@ -208,7 +209,9 @@ export function withoutNotes(checkins: CheckinMap): CheckinMap {
 
 function habitFigures(state: HabitsState, period: Period, prev: Period, today: LocalDate): ReviewSnapshot["habits"] {
   const ctx = habitContext(state, period, today)
-  const habits = state.habits
+  // A weekly target is judged per week (metrics, PRD §3.2): a single day has no verdict on it.
+  const judgedIn = (range: Period) => (period.kind === "day" ? state.habits.filter((h) => habitOpportunities(h, range, ctx).every((o) => o.kind === "day")) : state.habits)
+  const habits = judgedIn(period)
   const rows: HabitRow[] = habits
     .map((h) => ({ h, s: completion([h], period, ctx) }))
     .filter(({ s }) => s.applicable + s.exempt + s.inProgress > 0)
@@ -226,7 +229,7 @@ function habitFigures(state: HabitsState, period: Period, prev: Period, today: L
   const dims = byDimension(habits, period, ctx)
   const out: ReviewSnapshot["habits"] = {
     current: completion(habits, period, ctx),
-    previous: completion(habits, prev, ctx),
+    previous: completion(judgedIn(prev), prev, ctx),
     perfectDays: perfectDays(dailyRates(habits, period, ctx)),
     byDimension: state.dimensions
       .map((d) => ({ d, s: dims.get(d.id) }))
@@ -356,7 +359,8 @@ export function buildReviewSnapshot({ state, kind, periodStart, today, computedA
     computedAt,
     historyStart: historyStart(state),
     habits: habitFigures(state, period, prev, today),
-    goals: goalFigures(state, period, today),
+    // A daily review is about the day's habits: goals are read week to week and month to month.
+    goals: kind === "day" ? [] : goalFigures(state, period, today),
     focus: { current: focusFigures(state, period), previous: focusFigures(state, prev) },
     mind: mindFigures(state, period, prev, today),
   }

@@ -7,6 +7,7 @@ import { expect, isMobile, test } from "./fixtures"
  * October, with two decisions of the previous week to evaluate; September is the month due.
  */
 const WEEK = "/reviews/week/2026-10-12"
+const DAY = "/reviews/day/2026-10-21"
 
 async function blocking(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()
@@ -94,6 +95,77 @@ test.describe("life review (demo)", () => {
     expect(consoleErrors).toEqual([])
   })
 
+  test("the daily review: today's figures, two questions saved without a button, closed and frozen, and the week untouched", async ({ page, consoleErrors }, info) => {
+    const mobile = isMobile(info.project.name)
+    await page.goto("/reviews")
+    await page.getByRole("radio", { name: "Diaria" }).click()
+    await expect(page).toHaveURL(/tipo=diaria/)
+    const now = page.getByTestId("review-now")
+    await expect(now).toContainText("Tu revisión diaria está lista")
+    await expect(now).toContainText("Miércoles, 21 de octubre")
+    await expect(now).toContainText("0 de 2 preguntas")
+    await expect(now).not.toContainText("decisiones")
+
+    await page.getByTestId("review-now-open").click()
+    await expect(page).toHaveURL(DAY)
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Miércoles, 21 de octubre")
+    await expect(page.getByTestId("figures-habits")).toBeVisible()
+    await expect(page.getByTestId("figures-goals")).toHaveCount(0)
+
+    if (mobile) {
+      await expect(page.getByText("Paso 1 de 3", { exact: false })).toBeVisible()
+      await page.getByTestId("review-next").click()
+      await expect(page.getByRole("heading", { name: "Reflexión" })).toBeFocused()
+    }
+    await page.getByTestId("review-observations").fill("Dormí poco y lo noté a mediodía")
+    await page.getByTestId("review-adjustments").fill("Acostarme antes de las once")
+    await expect(page.getByTestId("review-save")).toContainText("Guardado en este navegador · demo")
+    await expect(page.getByRole("button", { name: "Añadir una nota libre" })).toHaveCount(0)
+    await expect(page.getByTestId("review-add-decision")).toHaveCount(0)
+
+    await page.reload()
+    await goToStep(page, mobile, /Reflexión/)
+    await expect(page.getByTestId("review-observations")).toHaveValue("Dormí poco y lo noté a mediodía")
+    await expect(page.getByTestId("review-adjustments")).toHaveValue("Acostarme antes de las once")
+
+    await goToStep(page, mobile, /Cerrar/)
+    await page.getByTestId("review-close").click()
+    const dialog = page.getByRole("dialog")
+    await expect(dialog).toContainText("Las cifras quedarán congeladas")
+    await expect(dialog).toContainText("2 de 2 preguntas respondidas")
+    await expect(dialog).not.toContainText("para el próximo periodo")
+    await dialog.getByTestId("review-close-confirm").click()
+
+    await expect(page.getByTestId("review-closed-stamp")).toContainText("cifras congeladas")
+    await expect(page.locator("textarea")).toHaveCount(0)
+    await expect(page.getByText("Acostarme antes de las once")).toBeVisible()
+    await expect(page.getByText("Decisiones para mañana")).toHaveCount(0)
+
+    await page.goto("/reviews?tipo=diaria")
+    await expect(now).toContainText("La revisión de hoy está cerrada")
+    await expect(page.getByTestId("review-row")).toHaveCount(1)
+    await expect(page.getByTestId("review-row").first()).toContainText("Cerrada")
+
+    // Earlier reviews stay as they were.
+    await page.goto("/reviews")
+    await expect(now).toContainText("Tu revisión semanal está lista")
+    await expect(now).toContainText("2 por evaluar")
+    await expect(page.getByTestId("review-row")).toHaveCount(2)
+    await page.goto("/reviews/week/2026-10-05")
+    await expect(page.getByTestId("review-closed-stamp")).toContainText("Cerrada · cifras congeladas")
+    expect(consoleErrors).toEqual([])
+  })
+
+  test("a past day can be reviewed; tomorrow and a date that does not exist are explained", async ({ page }) => {
+    await page.goto("/reviews/day/2026-10-20")
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Martes, 20 de octubre")
+    await expect(page.getByTestId("figures-habits")).toBeVisible()
+    await page.goto("/reviews/day/2026-10-22")
+    await expect(page.getByTestId("review-invalid")).toContainText("Esta revisión no existe")
+    await page.goto("/reviews/day/2026-02-30")
+    await expect(page.getByTestId("review-invalid")).toBeVisible()
+  })
+
   test("keyboard: the options are radiogroups with arrow keys", async ({ page }, info) => {
     test.skip(isMobile(info.project.name), "keyboard on desktop")
     await page.goto(WEEK)
@@ -142,7 +214,7 @@ test.describe("life review (demo)", () => {
   })
 
   test("a11y: home, editor, closed review, close dialog and decision log", async ({ page }, info) => {
-    for (const route of ["/reviews", WEEK, "/reviews/week/2026-10-05", "/reviews/month/2026-09-01", "/reviews/decisions"]) {
+    for (const route of ["/reviews", "/reviews?tipo=diaria", DAY, WEEK, "/reviews/week/2026-10-05", "/reviews/month/2026-09-01", "/reviews/decisions"]) {
       await page.goto(route)
       await expect(page.locator("h1").first()).toBeVisible()
       await page.waitForLoadState("networkidle")

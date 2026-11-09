@@ -590,3 +590,85 @@ describe("persisted copies of earlier versions (D39)", () => {
     expect(up.closeIntents).toEqual([intent])
   })
 })
+
+describe("daily reviews (C5) over the sync engine", () => {
+  const dayReview = (e: SyncEngine, date = TODAY) => e.getSnapshot().state.reviews[reviewKey("day", date)]
+
+  it("a day written on one device reaches the server and another device, under its own pull key", async () => {
+    const w = world()
+    const a = await device(w)
+    const b = await device(w)
+    expect(a.engine.saveReview("day", TODAY, { "content.observations": "Dormí poco", "content.adjustments": "Acostarme antes" })).toEqual({ ok: true })
+    await settle(a.engine)
+    expect(w.server.review("day", TODAY)).toMatchObject({ status: "draft", period_start: TODAY, period_end: TODAY, content: { observations: "Dormí poco", adjustments: "Acostarme antes" } })
+    await settle(b.engine)
+    expect(dayReview(b.engine)?.content).toEqual({ observations: "Dormí poco", adjustments: "Acostarme antes" })
+
+    const pulled = w.server.pull(0)
+    expect(pulled.reviews).toEqual([])
+    expect(pulled.daily_reviews?.map((r) => r.period_start)).toEqual([TODAY])
+  })
+
+  it("a week and a day of the same user stay apart: the week still travels under reviews", async () => {
+    const w = world()
+    const a = await device(w)
+    a.engine.saveReview("week", WEEK, { "content.wins": "Semana" })
+    a.engine.saveReview("day", TODAY, { "content.observations": "Día" })
+    await settle(a.engine)
+    const pulled = w.server.pull(0)
+    expect(pulled.reviews?.map((r) => r.kind)).toEqual(["week"])
+    expect(pulled.daily_reviews?.map((r) => r.kind)).toEqual(["day"])
+    expect(review(a.engine)?.content).toEqual({ wins: "Semana" })
+    expect(dayReview(a.engine)?.content).toEqual({ observations: "Día" })
+  })
+
+  it("tomorrow, a free note and decisions are refused without writing", async () => {
+    const w = world()
+    const a = await device(w)
+    const calls = a.transport.calls
+    expect(a.engine.saveReview("day", "2026-10-30", { "content.observations": "Mañana" })).toEqual({ ok: false, reason: "not_available" })
+    expect(a.engine.saveReview("day", TODAY, { "content.note": "Libre" })).toEqual({ ok: false, reason: "invalid" })
+    expect(a.engine.saveReview("day", TODAY, { decisions: [{ id: "0b9c8a52-6a3e-4c1e-9d6f-2f3b1c4d5e61", text: "Decidir", kind: "keep", expected: null, link: null }] })).toEqual({ ok: false, reason: "invalid" })
+    await settle(a.engine)
+    expect(a.transport.calls).toBe(calls)
+    expect(dayReview(a.engine)).toBeUndefined()
+  })
+
+  it("closes with frozen figures and then refuses edits", async () => {
+    const w = world()
+    const a = await device(w)
+    a.engine.saveReview("day", TODAY, { "content.observations": "Bien" })
+    await settle(a.engine)
+    expect(a.engine.requestClose("day", TODAY)).toEqual({ ok: true, deferred: false })
+    await settle(a.engine)
+    expect(w.server.review("day", TODAY)).toMatchObject({ status: "closed", content: { observations: "Bien" } })
+    expect(dayReview(a.engine)?.snapshot).toMatchObject({ kind: "day", period: { from: TODAY, to: TODAY }, goals: [] })
+    expect(a.engine.saveReview("day", TODAY, { "content.observations": "Otra cosa" })).toEqual({ ok: false, reason: "closed" })
+  })
+
+  it("a server without the migration keeps the text on the device, and sends it once it is there", async () => {
+    const w = world()
+    w.server.dailyReviewsSupported = false
+    const a = await device(w)
+    expect(a.engine.saveReview("day", TODAY, { "content.observations": "Sin migrar" })).toEqual({ ok: true })
+    await settle(a.engine)
+    expect(w.server.review("day", TODAY)).toBeNull()
+    expect(a.engine.getSnapshot()).toMatchObject({ pending: 1, reviews: true, dailyReviews: false })
+    expect(a.engine.reviewSyncState("day", TODAY)).toBe("local")
+    expect(dayReview(a.engine)?.content).toEqual({ observations: "Sin migrar" })
+    expect(a.engine.requestClose("day", TODAY)).toEqual({ ok: false, reason: "no_server_support" })
+
+    // Weeks are not held back by it.
+    a.engine.saveReview("week", WEEK, { "content.wins": "Semana" })
+    await settle(a.engine)
+    expect(serverReview(w)?.content).toEqual({ wins: "Semana" })
+    expect(a.engine.getSnapshot().pending).toBe(1)
+
+    w.server.dailyReviewsSupported = true
+    await settle(a.engine)
+    await settle(a.engine)
+    expect(w.server.review("day", TODAY)?.content).toEqual({ observations: "Sin migrar" })
+    expect(a.engine.getSnapshot()).toMatchObject({ pending: 0, dailyReviews: true })
+    expect(a.engine.reviewSyncState("day", TODAY)).toBe("synced")
+  })
+})

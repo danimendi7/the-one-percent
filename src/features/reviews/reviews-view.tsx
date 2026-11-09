@@ -14,10 +14,10 @@ import { formatDate } from "@/features/habits/domain/dates"
 import { Segmented } from "@/features/habits/components/habit-form-sheet"
 import { minutesLabel } from "@/features/focus/components/focus-ui"
 import { nextPeriod, periodFromStart, periodLabel } from "./domain/periods"
-import { dueReview, headline, historyGroups, historyStart, pastPeriods, phaseOf, previousReviewOf, progressLabel, reviewOf } from "./domain/overview"
-import { QUESTION_KEYS, type Review, type ReviewKind } from "./domain/types"
+import { dueReview, headline, historyGroups, historyStart, pastPeriods, phaseOf, previousReviewOf, reviewOf, reviewProgress } from "./domain/overview"
+import type { Review, ReviewKind } from "./domain/types"
 import { closeIntentOf, useReviewsModel, type ReviewsModel } from "./use-reviews"
-import { KIND_LABEL, reviewHref, shortPeriod, StatusBadge } from "./components/review-ui"
+import { KIND_LABEL, reviewHref, reviewsHomeHref, shortPeriod, StatusBadge } from "./components/review-ui"
 
 export function ReviewsSkeleton() {
   return (
@@ -34,13 +34,14 @@ export function ReviewsView() {
   const params = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
-  const kind: ReviewKind = params.get("tipo") === "mensual" ? "month" : "week"
+  const tipo = params.get("tipo")
+  const kind: ReviewKind = tipo === "mensual" ? "month" : tipo === "diaria" ? "day" : "week"
   return (
     <>
       <PageHeader
         title="Revisiones"
         meta={<SourceBadge source={m?.source}>Demo · cifras de los registros de ejemplo</SourceBadge>}
-        description="Cada semana y cada mes: cifras reales, una reflexión breve y hasta tres decisiones. Sin IA."
+        description="Cada día, cada semana y cada mes: cifras reales y una reflexión breve; semanas y meses, con hasta tres decisiones. Sin IA."
         actions={
           <Button variant="outline" asChild>
             <Link href="/reviews/decisions">
@@ -53,8 +54,9 @@ export function ReviewsView() {
       <Segmented
         label="Tipo de revisión"
         value={kind}
-        onChange={(v) => router.replace(v === "month" ? `${pathname}?tipo=mensual` : pathname, { scroll: false })}
+        onChange={(v) => router.replace(`${pathname}${reviewsHomeHref(v as ReviewKind).slice("/reviews".length)}`, { scroll: false })}
         options={[
+          { value: "day", label: "Diaria" },
           { value: "week", label: "Semanal" },
           { value: "month", label: "Mensual" },
         ]}
@@ -79,7 +81,7 @@ function Home({ m, kind }: { m: ReviewsModel; kind: ReviewKind }) {
             Histórico
           </h2>
           {groups.length === 0 ? (
-            <p className="px-5 pb-5 text-sm text-text-tertiary">Todavía no hay revisiones {kind === "week" ? "semanales" : "mensuales"}.</p>
+            <p className="px-5 pb-5 text-sm text-text-tertiary">Todavía no hay revisiones {kind === "day" ? "diarias" : kind === "week" ? "semanales" : "mensuales"}.</p>
           ) : (
             groups.map((g) => (
               <div key={g.month}>
@@ -96,7 +98,7 @@ function Home({ m, kind }: { m: ReviewsModel; kind: ReviewKind }) {
         {past.length > 0 && (
           <details className="panel group rounded-2xl" data-testid="review-past">
             <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 text-sm font-medium [&::-webkit-details-marker]:hidden">
-              {kind === "week" ? "Revisar una semana anterior" : "Revisar un mes anterior"}
+              {kind === "day" ? "Revisar un día anterior" : kind === "week" ? "Revisar una semana anterior" : "Revisar un mes anterior"}
               <ChevronRight className="size-4 text-text-tertiary transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
             </summary>
             <ul className="divide-y divide-border/70 border-t border-border/70">
@@ -141,7 +143,7 @@ function NowCard({ m, kind, hasHistory }: { m: ReviewsModel; kind: ReviewKind; h
           Estás al día
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
-          {periodLabel(due.period)} está cerrada. La próxima estará lista el {formatDate(next.to, { weekday: "long", day: "numeric", month: "long" })}.
+          {kind === "day" ? "La revisión de hoy" : periodLabel(due.period)} está cerrada. La próxima estará lista {kind === "day" ? "mañana" : `el ${formatDate(next.to, { weekday: "long", day: "numeric", month: "long" })}`}.
         </p>
         <Button variant="outline" className="mt-5" asChild>
           <Link href={reviewHref(kind, due.period.from)}>Ver la revisión</Link>
@@ -161,14 +163,14 @@ function NowCard({ m, kind, hasHistory }: { m: ReviewsModel; kind: ReviewKind; h
         {started ? `Continúa tu ${k.title.toLowerCase()}` : `Tu ${k.title.toLowerCase()} está lista`}
       </h2>
       <p className="mt-1 text-sm text-text-secondary">{periodLabel(due.period)}</p>
-      <p className="num mt-3 text-xs text-text-tertiary">{progressLabel(due.review, previous, QUESTION_KEYS[kind].length)}</p>
+      <p className="num mt-3 text-xs text-text-tertiary">{reviewProgress(kind, due.review, previous)}</p>
       <Button size="lg" className="mt-5 w-full sm:w-auto" asChild>
         <Link href={reviewHref(kind, due.period.from)} data-testid="review-now-open">
           {started ? "Continuar" : "Empezar"}
           <ArrowRight aria-hidden />
         </Link>
       </Button>
-      <p className="mt-3 text-xs text-text-tertiary">Unos 5 minutos · todo es opcional.</p>
+      <p className="mt-3 text-xs text-text-tertiary">{kind === "day" ? "Un par de minutos" : "Unos 5 minutos"} · todo es opcional.</p>
     </section>
   )
 }
@@ -195,7 +197,7 @@ function HistoryRow({ m, review }: { m: ReviewsModel; review: Review }) {
             {minutesLabel(h.focusMinutes)} foco
           </span>
         ) : (
-          <span className="num text-right text-xs text-text-tertiary">{progressLabel(review, null, QUESTION_KEYS[review.kind].length).split(" · ")[0]}</span>
+          <span className="num text-right text-xs text-text-tertiary">{reviewProgress(review.kind, review, null).split(" · ")[0]}</span>
         )}
         <ChevronRight className="size-4 shrink-0 text-text-tertiary" aria-hidden />
       </Link>

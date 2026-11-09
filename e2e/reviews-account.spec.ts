@@ -267,6 +267,41 @@ test.describe("life review · account mode", () => {
     await expect(p.getByTestId("review-conflicts")).toHaveCount(0)
   })
 
+  test("a daily review: saved on the server, kept after reopening, closed and frozen, and seen from another browser", async ({ browser, page, consoleErrors }, info) => {
+    test.slow()
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date())
+    const dayUrl = `/reviews/day/${today}`
+    await signIn(page, account)
+    await page.goto(dayUrl)
+    await synced(page)
+    await step(page, info, /Reflexión/)
+    await page.getByTestId("review-observations").fill("Dormí poco")
+    await page.getByTestId("review-adjustments").fill("Acostarme antes")
+    await expect.poll(() => answer("adjustments"), { timeout: 15_000 }).toBe("Acostarme antes")
+    await expect.poll(() => answer("observations"), { timeout: 15_000 }).toBe("Dormí poco")
+    await expect(page.getByTestId("review-save")).toContainText("Sincronizado")
+
+    await page.reload()
+    await synced(page)
+    await step(page, info, /Reflexión/)
+    await expect(page.getByTestId("review-observations")).toHaveValue("Dormí poco")
+
+    await closeReview(page, info)
+    await expect(page.getByTestId("review-closed-stamp")).toBeVisible({ timeout: 20_000 })
+    await expect.poll(async () => (await row())?.status, { timeout: 15_000 }).toBe("closed")
+    expect((await row())?.frozen).toBe(true)
+    expect(await countRows("select count(*)::int n from public.reviews where user_id = $1 and kind = 'day' and period_start = $2 and period_end = $2", [account.id, today])).toBe(1)
+
+    const b = await secondDevice(browser, info)
+    await b.page.goto(dayUrl)
+    await synced(b.page)
+    await expect(b.page.getByTestId("review-closed-stamp")).toBeVisible({ timeout: 20_000 })
+    await expect(b.page.getByText("Acostarme antes")).toBeVisible()
+    await expect(b.page.locator("textarea")).toHaveCount(0)
+    await b.ctx.close()
+    expect(consoleErrors).toEqual([])
+  })
+
   test("a new account: honest empty home, no demo reviews", async ({ page }) => {
     await signIn(page, account)
     await page.goto("/reviews")

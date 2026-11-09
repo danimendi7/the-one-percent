@@ -176,7 +176,7 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
   }
 
   // A review arrives whole with its section versions; a tombstone removes it from this device.
-  for (const w of p.reviews ?? []) {
+  for (const w of [...(p.reviews ?? []), ...(p.daily_reviews ?? [])]) {
     const k = seqKey.review(w.kind, w.period_start)
     if (!newer(k, w.server_seq)) continue
     rowSeq[k] = w.server_seq
@@ -207,6 +207,6 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
     rowSeq,
     cursor: Math.max(p.full ? 0 : cache.cursor, p.cursor),
     serverToday: p.server_today,
-    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined, reviews: p.reviews !== undefined, library: p.library !== undefined },
+    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined, reviews: p.reviews !== undefined, dailyReviews: p.daily_reviews !== undefined, library: p.library !== undefined },
   }
 }

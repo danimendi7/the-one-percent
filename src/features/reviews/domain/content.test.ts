@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   addDecision,
+  contentKeys,
   decisionsToEvaluate,
   normalizeContent,
   normalizeDecision,
@@ -96,5 +97,29 @@ describe("evaluations live in the next review (decision 4)", () => {
   it("progress counts answered questions, decisions and pending evaluations; the free note is optional", () => {
     const r = review({ content: { wins: "x", note: "y" }, decisions: [decision(2)] })
     expect(sectionProgress(r, previous)).toEqual({ answered: 1, questions: 3, decisions: 1, toEvaluate: 2 })
+  })
+})
+
+describe("a daily review (C5): observations and immediate adjustments, nothing else", () => {
+  it("has two questions and neither a free note nor decisions among its sections", () => {
+    expect(contentKeys("day")).toEqual(["observations", "adjustments"])
+    expect(reviewFields("day")).toEqual(["content.observations", "content.adjustments"])
+  })
+
+  it("accepts its answers, and none at all", () => {
+    expect(validateContent(review({ kind: "day" }))).toEqual({ ok: true })
+    expect(validateContent(review({ kind: "day", content: { observations: "Dormí poco", adjustments: "Acostarme antes" } }))).toEqual({ ok: true })
+  })
+
+  it("refuses a free note, an answer of another kind and an answer over the limit", () => {
+    expect(validateContent(review({ kind: "day", content: { note: "Libre" } }))).toMatchObject({ ok: false })
+    expect(validateContent(review({ kind: "day", content: { wins: "Semanal" } }))).toMatchObject({ ok: false })
+    expect(validateContent(review({ kind: "day", content: { observations: "x".repeat(LIMITS.answer + 1) } }))).toMatchObject({ ok: false, field: "content.observations" })
+  })
+
+  it("refuses decisions and evaluations, which belong to weeks and months", () => {
+    expect(validateContent(review({ kind: "day", decisions: [decision(0)] }))).toMatchObject({ ok: false, field: "decisions" })
+    const evaluation: Evaluation = { decisionId: ID[0], from: "2026-10-20", outcome: "done", note: null }
+    expect(validateContent(review({ kind: "day", evaluations: [evaluation] }))).toMatchObject({ ok: false, field: "evaluations" })
   })
 })

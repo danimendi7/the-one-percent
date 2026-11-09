@@ -133,6 +133,7 @@ export interface EngineSnapshot {
   checkins: boolean
   /** The server has the reviews migration (M3.4). */
   reviews: boolean
+  dailyReviews: boolean
   /** Review closes waiting to run (or needing a new decision). */
   closeIntents: CloseIntent[]
   /** Reviews (`kind:periodStart`) with writes still in the queue. */
@@ -294,6 +295,7 @@ export class SyncEngine {
         focus: !!this.cache.features?.focus,
         checkins: !!this.cache.features?.checkins,
         reviews: !!this.cache.features?.reviews,
+        dailyReviews: !!this.cache.features?.dailyReviews,
         closeIntents: this.closeIntents,
         pendingReviews: [...new Set(this.queue.map((q) => reviewOf(q.op)).filter((k): k is string => k !== null))],
         library: applyLibraryOps(this.libConfirmed, this.queue.map((q) => q.op)),
@@ -665,7 +667,7 @@ export class SyncEngine {
     if (this.queue.some((q) => reviewOf(q.op) === key)) {
       // Not even on this device: storage refused the write.
       if (!this.persisted) return "error"
-      return this.status === "offline" || this.status === "error" || !this.cache.features?.reviews ? "local" : "pending"
+      return this.status === "offline" || this.status === "error" || !this.serverTakes(kind) ? "local" : "pending"
     }
     return "synced"
   }
@@ -691,7 +693,7 @@ export class SyncEngine {
       lastPullAt: this.lastSyncedAt,
       now: this.now(),
       conflicts: this.reviewFieldsWaiting(kind, periodStart).length,
-      serverSupports: !!this.cache.features?.reviews,
+      serverSupports: this.serverTakes(kind),
     })
     if (gate.action === "blocked") return { ok: false, reason: gate.reason }
     const existing = this.closeIntent(kind, periodStart)
@@ -959,7 +961,13 @@ export class SyncEngine {
   /** Review writes wait on the device while the server lacks the reviews migration (never rejected there). */
   private sendable(op: Op): boolean {
     if (op.type.startsWith("library.")) return !!this.cache.features?.library
-    return !op.type.startsWith("review.") || !!this.cache.features?.reviews
+    if (op.type === "review.save" || op.type === "review.close" || op.type === "review.delete") return this.serverTakes(op.kind)
+    return true
+  }
+
+  /** The server has the migration for reviews of this kind (M3.4, and C5 for daily ones). */
+  private serverTakes(kind: ReviewKind): boolean {
+    return !!(kind === "day" ? this.cache.features?.dailyReviews : this.cache.features?.reviews)
   }
 
   /**
@@ -1058,7 +1066,7 @@ export class SyncEngine {
     if (this.closeIntents.length === 0 || this.queue.length > 0 || !this.cache.features?.reviews) return
     const kept: CloseIntent[] = []
     for (const c of this.closeIntents) {
-      if (c.state !== "waiting" || c.opId) {
+      if (c.state !== "waiting" || c.opId || !this.serverTakes(c.kind)) {
         kept.push(c)
         continue
       }
