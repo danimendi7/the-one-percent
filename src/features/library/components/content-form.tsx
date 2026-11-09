@@ -14,7 +14,8 @@ import { libraryActions } from "../store/use-library"
 import { refusalText } from "./knowledge-notes"
 import { RatingInput } from "./library-ui"
 
-export type FormTarget = { kind: ContentKind; item?: ContentItem; showId?: string | null } | { kind: "show"; show?: PodcastShow }
+/** `draft`: what was typed in the book assistant (M4g.3), kept when switching to manual entry. */
+export type FormTarget = { kind: ContentKind; item?: ContentItem; showId?: string | null; draft?: { title?: string; isbn?: string } } | { kind: "show"; show?: PodcastShow; draft?: { title?: string } }
 
 const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean)
 const num = (s: string) => (s.trim() === "" ? null : Number(s))
@@ -39,7 +40,7 @@ export function ContentFormSheet({ target, state, open, onOpenChange, onDone }: 
   )
 }
 
-function DiscardPrompt({ onKeep, onDiscard }: { onKeep: () => void; onDiscard: () => void }) {
+export function DiscardPrompt({ onKeep, onDiscard }: { onKeep: () => void; onDiscard: () => void }) {
   const keep = useRef<HTMLButtonElement>(null)
   useEffect(() => keep.current?.focus(), [])
   return (
@@ -84,8 +85,9 @@ function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; s
   const editing = !!(item || show)
   const book = item?.kind === "book" ? item.book : null
   const ep = item?.kind === "episode" ? item.episode : null
+  const draft: { title?: string; isbn?: string } | undefined = "draft" in target ? target.draft : undefined
   const [v, setV] = useState({
-    title: item?.title ?? show?.title ?? "",
+    title: item?.title ?? show?.title ?? draft?.title ?? "",
     creators: (item?.creators ?? []).join(", "),
     publisher: show?.publisher ?? book?.publisher ?? "",
     status: (item?.status ?? "planned") as ContentStatus,
@@ -99,7 +101,7 @@ function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; s
     pageCount: book?.pageCount?.toString() ?? "",
     currentPage: book?.currentPage?.toString() ?? "",
     year: book?.publishedYear?.toString() ?? "",
-    isbn: book?.isbn13 ?? book?.isbn10 ?? "",
+    isbn: book?.isbn13 ?? book?.isbn10 ?? draft?.isbn ?? "",
     showId: ep?.showId ?? ("showId" in target ? (target.showId ?? "") : ""),
     platform: (ep?.platform ?? "") as Platform | "",
     sourceUrl: item?.sourceUrl ?? show?.sourceUrl ?? "",
@@ -108,10 +110,11 @@ function ContentForm({ target, state, onDone, onDirty }: { target: FormTarget; s
     publishedOn: ep?.publishedOn ?? "",
     episodeNumber: ep?.episodeNumber?.toString() ?? "",
   })
-  const [initial] = useState(v)
+  // A carried-over draft counts as typed: closing asks before dropping it.
+  const [initial] = useState(draft ? { ...v, title: "", isbn: "" } : v)
   const dirty = JSON.stringify(v) !== JSON.stringify(initial)
   useEffect(() => onDirty(dirty), [dirty, onDirty])
-  const [more, setMore] = useState(editing)
+  const [more, setMore] = useState(editing || !!draft?.isbn)
   const [error, setError] = useState<string | null>(null)
   // M4-H1: the form closes, and a new page opens, only once the write is stored on this device.
   // Offline, opening the page reloads the app, and a write still in progress was lost with it.

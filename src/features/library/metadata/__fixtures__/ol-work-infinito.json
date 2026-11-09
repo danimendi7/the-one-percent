@@ -1,0 +1,59 @@
+{
+ "title": "El infinito en un junco",
+ "covers": [
+  9689877,
+  11181011,
+  12945153,
+  13538063,
+  13607225,
+  13622782
+ ],
+ "key": "/works/OL20770492W",
+ "authors": [
+  {
+   "author": {
+    "key": "/authors/OL5980983A"
+   },
+   "type": {
+    "key": "/type/author_role"
+   }
+  }
+ ],
+ "type": {
+  "key": "/type/work"
+ },
+ "subjects": [
+  "History",
+  "General Nonfiction",
+  "Nonfiction",
+  "Books About Books",
+  "Spanish Literature",
+  "Essays",
+  "Spain",
+  "Historical",
+  "Literature",
+  "Ancient History",
+  "Books"
+ ],
+ "identifiers": {
+  "librarything": [
+   "23773512"
+  ]
+ },
+ "description": "Este es un libro sobre la historia de los libros. Un recorrido por la vida de ese fascinante artefacto que inventamos para que las palabras pudieran viajar en el espacio y en el tiempo. La historia de su fabricación, de todos los tipos que hemos ensayado a lo largo de casi treinta siglos: libros de humo, de piedra, de arcilla, de juncos, de seda, de piel, de árboles y, los últimos llegados, de plástico y luz.\r\n\r\nEs, además, un libro de viajes. Una ruta con escalas en los campos de batalla de Alejandro y en la Villa de los Papiros bajo la erupción del Vesubio, en los palacios de Cleopatra y en el escenario del crimen de Hipatia, en las primeras librerías conocidas y en los talleres de copia manuscrita, en las hogueras donde ardieron códices prohibidos, en el gulag, en la biblioteca de Sarajevo y en el laberinto subterráneo de Oxford en el año 2000. Un hilo que une a los clásicos con el vertiginoso mundo contemporáneo, conectándolos con debates actuales: Aristófanes y los procesos judiciales contra humoristas, Safo y la voz literaria de las mujeres, Tito Livio y el fenómeno fan, Séneca y la posverdad…\r\n\r\nPero, sobre todo, esta es una fabulosa aventura colectiva protagonizada por miles de personas que, a lo largo del tiempo, han hecho posibles y han protegido los libros: narradoras orales, escribas, iluminadores, traductores, vendedores ambulantes, maestras, sabios, espías, rebeldes, monjas, esclavos, aventureras… Lectores en paisajes de montaña y junto al mar que ruge, en las capitales donde la energía se concentra y en los enclaves más apartados donde el saber se refugia en tiempos de caos. Gente común cuyos nombres en muchos casos no registra la historia, esos salvadores de libros que son los auténticos protagonistas de este ensayo.",
+ "subtitle": "La invención de los libros en el mundo antiguo",
+ "genres": [
+  "/tags/OL170T",
+  "/tags/OL174T"
+ ],
+ "latest_revision": 12,
+ "revision": 12,
+ "created": {
+  "type": "/type/datetime",
+  "value": "2020-05-18T09:54:23.297835"
+ },
+ "last_modified": {
+  "type": "/type/datetime",
+  "value": "2026-08-15T10:18:06.808989"
+ }
+}

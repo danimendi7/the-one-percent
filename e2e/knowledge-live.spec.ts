@@ -48,6 +48,8 @@ async function addBook(page: Page, title: string): Promise<string> {
   await page.goto("/knowledge/library/books")
   await synced(page)
   await page.getByTestId("add-book").click()
+  // With an account «Añadir libro» opens the search assistant (M4g.3); these tests use manual entry.
+  await page.getByTestId("add-manual").click()
   await page.getByTestId("form-title").fill(title)
   await page.getByTestId("form-save").click()
   await expect(page.getByTestId("item-save")).toHaveText("Sincronizado", { timeout: 15_000 })

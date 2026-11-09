@@ -1,0 +1,268 @@
+{
+ "resultCount": 8,
+ "results": [
+  {
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/la-ruina/id1455818214?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/89-la-ruina-con-ignatius-farray/id1455818214?i=1000568136678&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts112/v4/d9/ad/78/d9ad78db-8efc-7169-a60a-b26f037f6976/mza_5475279997366444739.jpeg/60x60bb.jpg",
+   "trackTimeMillis": 3498000,
+   "contentAdvisoryRating": "Clean",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artistIds": [],
+   "previewUrl": "https://anchor.fm/s/a4e7fe88/podcast/play/54434660/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2022-6-11%2F275898955-44100-2-21b7015875a8f.mp3",
+   "episodeUrl": "https://anchor.fm/s/a4e7fe88/podcast/play/54434660/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2022-6-11%2F275898955-44100-2-21b7015875a8f.mp3",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts112/v4/d9/ad/78/d9ad78db-8efc-7169-a60a-b26f037f6976/mza_5475279997366444739.jpeg/600x600bb.jpg",
+   "genres": [
+    {
+     "name": "Comedy",
+     "id": "1303"
+    }
+   ],
+   "episodeGuid": "https://www.ivoox.com/89172828",
+   "closedCaptioning": "none",
+   "trackId": 1000568136678,
+   "trackName": "89. La Ruina (con Ignatius Farray)",
+   "releaseDate": "2022-07-11T08:41:07Z",
+   "shortDescription": "️ Ven a La Ruina en directo: http://www.laruinashow.com\n\nLa Ruina con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Ignatius Farray en el entierro de su abuela. La gente de Valencia nos cuentan ruinas con gusanos, pajas, penaltis, coches y ce",
+   "feedUrl": "https://anchor.fm/s/a4e7fe88/podcast/rss",
+   "collectionId": 1455818214,
+   "collectionName": "La Ruina",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "🎟️ Ven a La Ruina en directo: http://www.laruinashow.com\n\nLa Ruina con Ignasi Taltavull (@ignasitf), Tomàs Fuentes (@cap0) y Ignatius Farray en el entierro de su abuela. La gente de Valencia nos cuentan ruinas con gusanos, pajas, penaltis, coches y cejas.\n\nIgnasi Taltavull: @ignasitf\nhttp://www.twitter.com/ignasitf\nhttp://www.instagram.com/ignasitf\n\nTomàs Fuentes @cap0\nhttp://www.twitter.com/cap0 \nhttp://www.instagram.com/cap0 \n\n📲 La Ruina sigue en redes: @laruinashow \nhttp://www.twitter.com/laruinashow \nhttp://www.instagram.com/laruinashow \nwww.laruinashow.com",
+   "country": "ESP",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts112/v4/d9/ad/78/d9ad78db-8efc-7169-a60a-b26f037f6976/mza_5475279997366444739.jpeg/160x160bb.jpg"
+  },
+  {
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/the-fatima-center-podcast/id1476581843?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/st-francis-xavier-the-father-couture-series/id1476581843?i=1000637568853&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts112/v4/9e/06/d8/9e06d89e-810a-123d-8310-7772e26cb848/mza_17307612474092624696.jpg/60x60bb.jpg",
+   "trackTimeMillis": 2026000,
+   "contentAdvisoryRating": "Clean",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artistIds": [],
+   "previewUrl": "https://anchor.fm/s/d3cf05c/podcast/play/79533391/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2023-11-4%2F7e96ebe0-534d-ec7e-153d-373c86ec3cc9.mp3",
+   "episodeUrl": "https://anchor.fm/s/d3cf05c/podcast/play/79533391/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2023-11-4%2F7e96ebe0-534d-ec7e-153d-373c86ec3cc9.mp3",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts112/v4/9e/06/d8/9e06d89e-810a-123d-8310-7772e26cb848/mza_17307612474092624696.jpg/600x600bb.jpg",
+   "genres": [
+    {
+     "name": "Religion & Spirituality",
+     "id": "1314"
+    }
+   ],
+   "episodeGuid": "7f05e8bf-f3a5-4372-b02e-6decff0727ff",
+   "closedCaptioning": "none",
+   "trackId": 1000637568853,
+   "trackName": "St. Francis Xavier | The Father Couture Series",
+   "releaseDate": "2023-12-05T14:00:00Z",
+   "shortDescription": "",
+   "feedUrl": "https://anchor.fm/s/d3cf05c/podcast/rss",
+   "collectionId": 1476581843,
+   "collectionName": "The Fatima Center Podcast",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "Fr. Daniel Couture on the saints we need for our times.\n\nHelp us spread the message, Donate to the Apostolate Today! » ⁠https://fatima.org/donate/⁠\n\nWatch the video for this podcast: » https://fatima.org/video/saint-francis-xavier-the-father-couture-series/\n\nContact Us:\n\n» WEBSITE: ⁠https://www.fatima.org⁠\n\n» PHONE: 1-800-263-8160\n\n» EMAIL: info@thefatimacenter.com\n\n» NEWSLETTER: ⁠https://fatima.org/resources/newsletter-subscription/⁠\n\n» FACEBOOK: ⁠https://www.facebook.com/Fatima-Center-95998926441⁠\n\n» YOUTUBE: ⁠https://www.youtube.com/thefatimacenter⁠\n\n» TWITTER: ⁠https://twitter.com/TheFatimaCenter⁠\n\n» INSTAGRAM: ⁠https://www.instagram.com/the_fatima_center/⁠\n\nThe Fatima Center’s mission is to ensure that the entire Message of Fatima is fully known, accurately understood, and deeply appreciated so that it may be followed by all.\n\nThe Fatima Center has been faithful to this mission since it was founded by the late Father Nicholas Gruner in 1978.  The Message of Fatima is the ONLY solution to the crisis in the Church and the world.",
+   "country": "ESP",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts112/v4/9e/06/d8/9e06d89e-810a-123d-8310-7772e26cb848/mza_17307612474092624696.jpg/160x160bb.jpg"
+  },
+  {
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/the-catholic-cafe/id290765917?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/the-christian-brothers/id290765917?i=1000168900238&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts4/v4/76/75/f5/7675f55d-b2a0-a0b8-1834-346efc8f5ff7/mza_8921176333450348489.jpg/60x60bb.jpg",
+   "trackTimeMillis": 1680000,
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artistIds": [],
+   "previewUrl": "http://thecatholiccafe.com/podcasts/audio/TCC074.mp3",
+   "episodeUrl": "http://thecatholiccafe.com/podcasts/audio/TCC074.mp3",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts4/v4/76/75/f5/7675f55d-b2a0-a0b8-1834-346efc8f5ff7/mza_8921176333450348489.jpg/600x600bb.jpg",
+   "genres": [
+    {
+     "name": "Christianity",
+     "id": "1439"
+    }
+   ],
+   "episodeGuid": "http://thecatholiccafe.com/podcasts/audio/TCC074.mp3",
+   "closedCaptioning": "none",
+   "trackId": 1000168900238,
+   "trackName": "The Christian Brothers",
+   "releaseDate": "2010-07-22T05:00:00Z",
+   "shortDescription": "Deacon Jeff talks with Brother Joel McGraw about his experiences with the Christian Brothers, particularly about their ministry in the Diocese of Memphis in Tennessee.",
+   "feedUrl": "http://thecatholiccafe.com/podcasts/thecatholiccafe.xml",
+   "collectionId": 290765917,
+   "collectionName": "The Catholic Cafe",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "Deacon Jeff talks with Brother Joel McGraw about his experiences with the Christian Brothers, particularly about their ministry in the Diocese of Memphis in Tennessee.",
+   "country": "ESP",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts4/v4/76/75/f5/7675f55d-b2a0-a0b8-1834-346efc8f5ff7/mza_8921176333450348489.jpg/160x160bb.jpg"
+  },
+  {
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/morning-joy/id1741797300?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/saints-sinners-and-politics/id1741797300?i=1000732827267&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/75/fe/db/75fedb39-9d27-0891-40fc-f6a75381af84/mza_12241173784628424727.jpg/60x60bb.jpg",
+   "trackTimeMillis": 6808000,
+   "contentAdvisoryRating": "Clean",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artistIds": [],
+   "previewUrl": "https://traffic.libsyn.com/secure/morningjoy/MJ_20251021.mp3?dest-id=4604047",
+   "episodeUrl": "https://traffic.libsyn.com/secure/morningjoy/MJ_20251021.mp3?dest-id=4604047",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/75/fe/db/75fedb39-9d27-0891-40fc-f6a75381af84/mza_12241173784628424727.jpg/600x600bb.jpg",
+   "genres": [
+    {
+     "name": "Christianity",
+     "id": "1439"
+    }
+   ],
+   "episodeGuid": "c9252a22-1055-46d7-953f-88defebe6def",
+   "closedCaptioning": "none",
+   "trackId": 1000732827267,
+   "trackName": "Saints, Sinners, and Politics",
+   "releaseDate": "2025-10-21T14:42:00Z",
+   "shortDescription": "Today:\n 00:00 Angelus Prayer, Word of the Day, News Brief, Catholic Trivia\n 15:00 The Next Right Thing with Debbie Georgianni and Adam Blai: Civic Duty\n 44:00 “Mornings with Medley” with Fr. Sam Medley: St. Bartolo Longo, former Satanist\n 1:00:00 Mo",
+   "feedUrl": "https://feeds.libsyn.com/535062/rss",
+   "collectionId": 1741797300,
+   "collectionName": "Morning Joy",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "Today:\n 00:00 Angelus Prayer, Word of the Day, News Brief, Catholic Trivia\n 15:00 The Next Right Thing with Debbie Georgianni and Adam Blai: Civic Duty\n 44:00 \"Mornings with Medley\" with Fr. Sam Medley: St. Bartolo Longo, former Satanist\n 1:00:00 Morning Prayer, News Brief, Word of the Day, Lesser Known Saint, Catholic Trivia\n 1:15:00 Dale Ahlquist, president of the Chesterton Society\n 1:30:00 Morning Joy Online Roundtable\n  \n Word(s) of the Day: VIGILANT\n  \n Do you know what 'nolo episcopari' means? Play our trivia game for free every weekday at www.GRNonline.com/Joy and you could receive our weekly prize!\n  \n Links:\n https://www.GRNonline.com/Joy\n Fishers of Men Dinners - https://www.GRNonline.com/FOM \n Seine River Cruise - https://www.grnonline.com/events/seine-river-cruise \n Catholics in the Public Square - https://dphx.org/catholics-in-the-public-square/ \n Catholic News Agency -  https://www.catholicnewsagency.com/news/267287/catholics-say-religion-has-a-positive-influence-on-american-life-poll-shows \n Chesterton Society - https://www.chesterton.org \n I Also Had My Hour book - https://ignatius.com/i-also-had-my-hour-ahhp \n  \n Sponsors:\n § St. Joseph Partners\n  - Protect your investments with physical gold and precious medals. \n  - https://sjp.stjosephpartners.com/grn \n  \n Morning Joy, Where Truth Matters\n Hosted by Nick De La Torre\n Weekdays starting at 6am Central\n From the Guadalupe Radio Network\n www.GRNonline.com/Joy\n Also heard on: \n Catholic Spirit Radio - www.catholicspiritradio.com \n Our Lady of Good Success Radio Network - https://kcrd-fm.org \n  \n ~~~\n The Angelus\n  \n V/. The Angel of the Lord declared unto Mary,\n R/. And she conceived of the Holy Spirit.\n  \n Hail Mary, full of grace, the Lord is with you;\n blessed are you among women,\n and blessed is the fruit of your womb, Jesus.\n Holy Mary, Mother of God,\n pray for us sinners\n now and at the hour of our death.\n Amen.\n  \n V/. Behold the handmaid of the Lord,\n R/. Be it done unto me according to your Word.\n Hail Mary…\n  \n V/. And the Word was made flesh,\n R/. And dwelt among us.\n Hail Mary…\n  \n V/. Pray for us, O holy Mother of God,\n R/. That we may be made worthy of the promises of Christ.\n  \n Let us pray. Pour forth, we beseech you, O Lord, your grace into our hearts: that we, to whom the Incarnation of Christ your Son was made known by the message of an Angel, may by his Passion and Cross be brought to the glory of his Resurrection. Through the same Christ our Lord. Amen.\n ~~~\n Other great GRN Shows:\n The Spirit World - Saturday mornings\n The Quest - Weekday afternoons\n Back to the Father - Friday afternoons\n We Sing Our Faith - Saturday mornings\n Listen anytime here: https://www.grnonline.com/listen/grn-podcast-library \n  \n Where else Morning Joy is streaming:\n Youtube - @GRNonline \n Facebook - @GuadalupeRadioNetwork\n Instagram - @GRNonline\n X - @GRNonline \n Rumble - @MorningJoy\n TikTok - @GRNonline \n Twitch - @GRNonline",
+   "country": "ESP",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/75/fe/db/75fedb39-9d27-0891-40fc-f6a75381af84/mza_12241173784628424727.jpg/160x160bb.jpg"
+  },
+  {
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/the-mike-calta-show-interviews/id1709194725?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/colin-quinn/id1709194725?i=1000629262458&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts116/v4/d3/81/7a/d3817a0f-94a8-f437-cf9c-2274439ef464/mza_9007013491168869466.png/60x60bb.png",
+   "trackTimeMillis": 1546000,
+   "contentAdvisoryRating": "Clean",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artistIds": [],
+   "previewUrl": "https://dts.podtrac.com/redirect.mp3/od-cmg.streamguys1.com/tampa/tam1025/20220309084132-24-COLINQUINN.mp3?awCollectionId=tam1025-11&awGenre=Talk&awEpisodeId=20220309084132-24-COLINQUINN",
+   "episodeUrl": "https://dts.podtrac.com/redirect.mp3/od-cmg.streamguys1.com/tampa/tam1025/20220309084132-24-COLINQUINN.mp3?awCollectionId=tam1025-11&awGenre=Talk&awEpisodeId=20220309084132-24-COLINQUINN",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts116/v4/d3/81/7a/d3817a0f-94a8-f437-cf9c-2274439ef464/mza_9007013491168869466.png/600x600bb.jpg",
+   "genres": [
+    {
+     "name": "Society & Culture",
+     "id": "1324"
+    }
+   ],
+   "episodeGuid": "03990b60-9fb7-11ec-8623-1b1a3bb1aad8",
+   "closedCaptioning": "none",
+   "trackId": 1000629262458,
+   "trackName": "COLIN QUINN",
+   "releaseDate": "2022-03-09T14:41:32Z",
+   "shortDescription": "Mike Calta interviews Colin Quinn",
+   "feedUrl": "https://rss-cmg.streamguys1.com/tampa/tam1025/the-mike-calta-show.xml",
+   "collectionId": 1709194725,
+   "collectionName": "The Mike Calta Show Interviews",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "Mike Calta interviews Colin Quinn",
+   "country": "ESP",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts116/v4/d3/81/7a/d3817a0f-94a8-f437-cf9c-2274439ef464/mza_9007013491168869466.png/160x160bb.jpg"
+  },
+  {
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/old-school-with-shilo-brooks/id1841566275?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/colin-quinn-on-incels-woke-activists-and-peaking-at-14/id1841566275?i=1000747158164&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/12/b1/f3/12b1f3e8-81c4-d725-5cb7-eb3dc01cc486/mza_14189038863376680501.jpg/60x60bb.jpg",
+   "trackTimeMillis": 3177000,
+   "contentAdvisoryRating": "Explicit",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artistIds": [],
+   "previewUrl": "https://www.podtrac.com/pts/redirect.mp3/tracking.swap.fm/track/VOdNgcECFk0maZgOJbmx/traffic.megaphone.fm/CBS3657752760.mp3?updated=1769641668",
+   "episodeUrl": "https://www.podtrac.com/pts/redirect.mp3/tracking.swap.fm/track/VOdNgcECFk0maZgOJbmx/traffic.megaphone.fm/CBS3657752760.mp3?updated=1769641668",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/12/b1/f3/12b1f3e8-81c4-d725-5cb7-eb3dc01cc486/mza_14189038863376680501.jpg/600x600bb.jpg",
+   "genres": [
+    {
+     "name": "Books",
+     "id": "1482"
+    }
+   ],
+   "episodeGuid": "73793584-fc9c-11f0-8db1-cf21dc5faaa3",
+   "closedCaptioning": "none",
+   "trackId": 1000747158164,
+   "trackName": "Colin Quinn on Incels, Woke Activists, and Peaking at 14",
+   "releaseDate": "2026-01-29T10:00:00Z",
+   "shortDescription": "In this episode, legendary comic Colin Quinn dives into a cult classic that still makes him cry with laughter: John Kennedy Toole’s A Confederacy of Dunces.\n\nThe novel follows the misadventures of an overweight, pretentious misanthrope still living wi",
+   "feedUrl": "https://feeds.megaphone.fm/RUNMED9953716923",
+   "collectionId": 1841566275,
+   "collectionName": "Old School with Shilo Brooks",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "In this episode, legendary comic Colin Quinn dives into a cult classic that still makes him cry with laughter: John Kennedy Toole’s A Confederacy of Dunces.\n\nThe novel follows the misadventures of an overweight, pretentious misanthrope still living with his mother in 1960s New Orleans. It’s a book that turns fart jokes into high art. It’s also, somehow, a love story between a fat incel and a woke activist—a seemingly absurd pairing that just may be a prescient solution to our modern polarization problem. \n\nPlus, Colin and Shilo dig into the parallels between great comic writing and great standup: Both give language to things audiences half-know but have never quite articulated, making the familiar suddenly, painfully funny.\n\nOld School is proudly brought to you by the Jack Miller Center. If you believe in the importance of civic education and want to help prepare the next generation to carry on our democracy, join us at JackMillerCenter.org.\n\nBecome a paid subscriber to The Free Press today to enjoy exclusive bonus episodes and reduced ads. Click here to subscribe.\nLearn more about your ad choices. Visit megaphone.fm/adchoices",
+   "country": "ESP",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/12/b1/f3/12b1f3e8-81c4-d725-5cb7-eb3dc01cc486/mza_14189038863376680501.jpg/160x160bb.jpg"
+  },
+  {
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/literally-literary/id1132953623?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/ll-061-confederacy-of-dunces-confederacy-of-dunces/id1132953623?i=1000391271871&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts125/v4/4f/51/df/4f51df75-6f51-f80d-055e-13d956a8effc/mza_1843899854321735725.jpg/60x60bb.jpg",
+   "trackTimeMillis": 1939000,
+   "contentAdvisoryRating": "Explicit",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artistIds": [],
+   "previewUrl": "https://static1.squarespace.com/static/5780a89e2e69cfb0b3fc82db/t/599a68f6ff7c502eb4a34e5e/1503291692189/LL-+061+-+Confederacy+of+Dunces++-+Confederacy+of+Dunces+by+John+Kennedy+Toole+.mp3",
+   "episodeUrl": "https://static1.squarespace.com/static/5780a89e2e69cfb0b3fc82db/t/599a68f6ff7c502eb4a34e5e/1503291692189/LL-+061+-+Confederacy+of+Dunces++-+Confederacy+of+Dunces+by+John+Kennedy+Toole+.mp3",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts125/v4/4f/51/df/4f51df75-6f51-f80d-055e-13d956a8effc/mza_1843899854321735725.jpg/600x600bb.jpg",
+   "genres": [
+    {
+     "name": "Books",
+     "id": "1482"
+    }
+   ],
+   "episodeGuid": "5780a89e2e69cfb0b3fc82db:5780aa2920099e05b57f9741:599a688ea803bb42d1998b9d",
+   "closedCaptioning": "none",
+   "trackId": 1000391271871,
+   "trackName": "LL- 061 - Confederacy of Dunces  - Confederacy of Dunces by John Kennedy Toole",
+   "releaseDate": "2017-08-21T05:16:08Z",
+   "shortDescription": "Confederacy of Dunces by John Kennedy Toole",
+   "feedUrl": "http://faucast.com/literally-literary/?format=rss",
+   "collectionId": 1132953623,
+   "collectionName": "Literally Literary",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "- Confederacy of Dunces by John Kennedy Toole - Literally Literary - With: Guest Kelly RidgewaySean O'Brien, Joseph Bonier & Sean Fau-Burnitz",
+   "country": "ESP",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts125/v4/4f/51/df/4f51df75-6f51-f80d-055e-13d956a8effc/mza_1843899854321735725.jpg/160x160bb.jpg"
+  },
+  {
+   "collectionViewUrl": "https://itunes.apple.com/es/podcast/thinking-with-the-church/id1191409203?mt=2&uo=4",
+   "trackViewUrl": "https://podcasts.apple.com/es/podcast/episode-5-divine-playmates-part-2-of-a/id1191409203?i=1000499383765&uo=4",
+   "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts115/v4/5a/97/43/5a9743ef-548f-387b-5a7f-532caf0d51af/mza_13866402821546650594.jpg/60x60bb.jpg",
+   "trackTimeMillis": 3027000,
+   "contentAdvisoryRating": "Clean",
+   "episodeFileExtension": "mp3",
+   "episodeContentType": "audio",
+   "artistIds": [],
+   "previewUrl": "https://api.spreaker.com/download/episode/10568210/episode_5_divine_playmates.mp3",
+   "episodeUrl": "https://api.spreaker.com/download/episode/10568210/episode_5_divine_playmates.mp3",
+   "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts115/v4/5a/97/43/5a9743ef-548f-387b-5a7f-532caf0d51af/mza_13866402821546650594.jpg/600x600bb.jpg",
+   "genres": [
+    {
+     "name": "Religion & Spirituality",
+     "id": "1314"
+    }
+   ],
+   "episodeGuid": "https://api.spreaker.com/episode/10568210",
+   "closedCaptioning": "none",
+   "trackId": 1000499383765,
+   "trackName": "Episode 5: Divine Playmates (Part 2 of a conversation with Prof. Nicolas Steeves SJ)",
+   "releaseDate": "2017-02-05T21:29:46Z",
+   "shortDescription": "This week, we spend more time with Prof. Nicolas Steeves SJ, of the Pontifical Gregorian University. Prof. Steeves is a Jesuit priest who teaches Fundamental Theology at the “Greg” – as it is affectionately known by its alumni. You can hear Part O",
+   "feedUrl": "https://www.spreaker.com/show/2065829/episodes/feed",
+   "collectionId": 1191409203,
+   "collectionName": "Thinking with the Church",
+   "kind": "podcast-episode",
+   "wrapperType": "podcastEpisode",
+   "description": "This week, we spend more time with Prof. Nicolas Steeves SJ, of the Pontifical Gregorian University. Prof. Steeves is a Jesuit priest who teaches Fundamental Theology at the “Greg” – as it is affectionately known by its alumni. You can hear Part One of our conversation in Episode 4 of the podcast, which you’ll find, along with show notes, at www.thinkingwiththechurch.wordpress.com.\nThere, we talk about the role of imagination in theology – and we pull on several threads that we do not really tie up. So, in this episode, you can hear us tying those bows. Before we tie them, though, we delve more deeply into the questions we left open, including: Ignatian spirituality; how Martin Luther King’s “I Have a Dream” speech works on the imagination, and what Fundamental Theology is.",
+   "country": "ESP",
+   "artworkUrl160": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts115/v4/5a/97/43/5a9743ef-548f-387b-5a7f-532caf0d51af/mza_13866402821546650594.jpg/160x160bb.jpg"
+  }
+ ]
+}

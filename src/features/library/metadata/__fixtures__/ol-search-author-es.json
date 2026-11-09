@@ -1,0 +1,185 @@
+{
+ "numFound": 19,
+ "start": 0,
+ "numFoundExact": true,
+ "num_found": 19,
+ "documentation_url": "https://openlibrary.org/dev/docs/api/search",
+ "q": "",
+ "offset": null,
+ "docs": [
+  {
+   "author_key": [
+    "OL5980983A"
+   ],
+   "author_name": [
+    "Irene Vallejo"
+   ],
+   "cover_i": 9689877,
+   "edition_count": 19,
+   "first_publish_year": 2020,
+   "key": "/works/OL20770492W",
+   "language": [
+    "fre",
+    "spa",
+    "cat",
+    "ita",
+    "baq",
+    "arg",
+    "glg",
+    "eng"
+   ],
+   "subtitle": "La invención de los libros en el mundo antiguo",
+   "title": "El infinito en un junco",
+   "editions": {
+    "numFound": 19,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL51103235M",
+      "title": "El infinito en un junco",
+      "subtitle": "Adaptación gráfica",
+      "cover_i": 15138954,
+      "language": [
+       "spa"
+      ],
+      "publisher": [
+       "Debate"
+      ],
+      "publish_date": [
+       "2024"
+      ],
+      "isbn": [
+       "9788419399151",
+       "8419399159"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_key": [
+    "OL5980983A"
+   ],
+   "author_name": [
+    "Irene Vallejo"
+   ],
+   "cover_i": 10373350,
+   "edition_count": 2,
+   "first_publish_year": 2020,
+   "key": "/works/OL21456723W",
+   "language": [
+    "spa"
+   ],
+   "title": "El futuro recordado",
+   "editions": {
+    "numFound": 2,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL53320372M",
+      "title": "Futuro Recordado / the Remembered Future",
+      "language": [
+       "spa"
+      ],
+      "publisher": [
+       "Random House Espanol"
+      ],
+      "publish_date": [
+       "2023"
+      ],
+      "isbn": [
+       "9786073820967",
+       "6073820968"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_key": [
+    "OL5980983A"
+   ],
+   "author_name": [
+    "Irene Vallejo"
+   ],
+   "cover_i": 7350239,
+   "edition_count": 2,
+   "first_publish_year": 2015,
+   "key": "/works/OL17112185W",
+   "language": [
+    "spa"
+   ],
+   "title": "El silbido del arquero",
+   "editions": {
+    "numFound": 2,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL40151188M",
+      "title": "Silbido Del Arquero / the Bowmans Whistle",
+      "cover_i": 14703024,
+      "language": [
+       "spa"
+      ],
+      "publisher": [
+       "Penguin Random House Grupo Editorial"
+      ],
+      "publish_date": [
+       "2023"
+      ],
+      "isbn": [
+       "9786073820974",
+       "6073820976"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_key": [
+    "OL5980983A"
+   ],
+   "author_name": [
+    "Irene Vallejo"
+   ],
+   "cover_i": 14147651,
+   "edition_count": 3,
+   "first_publish_year": 2001,
+   "key": "/works/OL13078250W",
+   "language": [
+    "spa"
+   ],
+   "title": "El teatro en Madrid a mediados del siglo XIX",
+   "editions": {
+    "numFound": 3,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL20401952M",
+      "title": "El teatro en Madrid a mediados del siglo XIX",
+      "subtitle": "cartelera teatral (1854-1864)",
+      "cover_i": 14147651,
+      "language": [
+       "spa"
+      ],
+      "publisher": [
+       "Secretario de Publicaciones e Intercambio Editorial, Universidad de Valladolid",
+       "Ediciones Universidad de Valladolid"
+      ],
+      "publish_date": [
+       "2001"
+      ],
+      "isbn": [
+       "8484481530",
+       "9788484481539"
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}
