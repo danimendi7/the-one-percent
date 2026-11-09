@@ -83,6 +83,8 @@ export interface Goal {
   reviewSince?: LocalDate | null
   /** Obstacles met and process adjustments made, oldest first. Absent on goals saved before it existed. */
   processLog?: GoalLogEntry[]
+  /** Library books this goal is about. Shown beside its figures, never part of them. */
+  bookIds?: string[]
   habits: GoalHabitLink[]
   checkpoints: Checkpoint[]
   version?: number

@@ -286,6 +286,9 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       removeGoalLog(goalId, entryId) {
         submit({ type: "goal.log_remove", op_id: uuidv4(), goal_id: goalId, entry_id: entryId })
       },
+      setGoalBook(goalId, itemId, linked) {
+        submit({ type: "goal.book_set", op_id: uuidv4(), goal_id: goalId, item_id: itemId, linked })
+      },
       setGoalReview(id, review) {
         submit({ type: "goal.set_review", op_id: uuidv4(), goal_id: id, review_since: review ? view().today : null })
       },

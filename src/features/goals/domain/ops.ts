@@ -135,7 +135,7 @@ function dedupeLinks(links: GoalHabitLink[]): GoalHabitLink[] {
 export function createGoal(state: HabitsState, input: GoalInput, meta: { id: string; now: string }): HabitsState {
   if (state.goals.some((g) => g.id === meta.id)) return state
   if (Object.keys(validateGoal(input, state)).length) return state
-  const goal: Goal = { id: meta.id, ...normalize(input), state: "active", closedOn: null, archivedOn: null, reviewSince: null, processLog: [], version: 1, createdAt: meta.now, updatedAt: meta.now }
+  const goal: Goal = { id: meta.id, ...normalize(input), state: "active", closedOn: null, archivedOn: null, reviewSince: null, processLog: [], bookIds: [], version: 1, createdAt: meta.now, updatedAt: meta.now }
   return { ...state, goals: [...state.goals, goal] }
 }
 
@@ -209,6 +209,17 @@ export function removeGoalLogEntry(state: HabitsState, goalId: string, entryId: 
 /** Newest day first; within a day, the last one written first. */
 export function goalLogNewestFirst(log: GoalLogEntry[] | undefined): GoalLogEntry[] {
   return [...(log ?? [])].reverse().sort((a, b) => (a.on < b.on ? 1 : a.on > b.on ? -1 : 0))
+}
+
+export const GOAL_BOOKS_LIMIT = 100
+
+/** Desired state: linked or not. A full list changes nothing. */
+export function setGoalBook(state: HabitsState, goalId: string, itemId: string, linked: boolean): HabitsState {
+  const g = state.goals.find((x) => x.id === goalId)
+  if (!g) return state
+  const ids = g.bookIds ?? []
+  if (ids.includes(itemId) === linked || (linked && ids.length >= GOAL_BOOKS_LIMIT)) return state
+  return replace(state, { ...g, bookIds: linked ? [...ids, itemId] : ids.filter((id) => id !== itemId) })
 }
 
 /** Desired state for one milestone: done on a date, or not done (null). */

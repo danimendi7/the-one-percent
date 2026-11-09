@@ -13,6 +13,7 @@ import {
   goalsForHabit,
   restoreGoal,
   setCheckpointDone,
+  setGoalBook,
   setGoalReview,
   setGoalState,
   setMeasurement,
@@ -142,6 +143,18 @@ describe("goal reducers", () => {
     it("cleans control characters", () => {
       expect(cleanLogText("a\u0007b\tc")).toBe("ab c")
     })
+  })
+
+  it("linking a book is a desired state that leaves the definition alone and survives an edit", () => {
+    const s1 = withGoal()
+    const s2 = setGoalBook(s1, "g1", "b1", true)
+    expect(s2.goals[0].bookIds).toEqual(["b1"])
+    expect(s2.goals[0].version).toBe(s1.goals[0].version)
+    expect(setGoalBook(s2, "g1", "b1", true)).toBe(s2)
+    expect(updateGoal(s2, "g1", input({ title: "Otro" }), NOW).goals[0].bookIds).toEqual(["b1"])
+    expect(setGoalBook(s2, "g1", "b1", false).goals[0].bookIds).toEqual([])
+    expect(setGoalBook(s1, "g1", "b1", false)).toBe(s1)
+    expect(setGoalBook(s1, "nope", "b1", true)).toBe(s1)
   })
 
   it("review is a desired state that keeps its first date and no other field", () => {
