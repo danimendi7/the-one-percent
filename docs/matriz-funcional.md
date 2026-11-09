@@ -26,7 +26,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Goals & Systems | Progreso real frente a esperado | IV | `domain/progress.ts` y su test, CI | — | — |
 | Goals & Systems | Estados archivado y en revisión | IV | `goalStatusView`, `supabase/migrations/20261109090000_goal_review.sql`, `e2e/goals.spec.ts`, `tests/integration/goals.int.test.ts`, CI | — | — |
 | Goals & Systems | Obstáculos y ajustes de procesos | IV | `goal-log.tsx`, `supabase/migrations/20261109100000_goal_process_log.sql`, `e2e/goals.spec.ts`, `tests/integration/goals.int.test.ts`, CI | — | — |
-| Goals & Systems | Vínculo con libros | ND | Sin referencias a la biblioteca | Objetivo de lectura (C3) | Baja |
+| Goals & Systems | Vínculo con libros | IV | `goal-books.tsx`, `goals/domain/books.ts`, `supabase/migrations/20261109110000_goal_books.sql`, `e2e/goals.spec.ts`, `tests/integration/goals.int.test.ts`, CI | Objetivo «leer N libros» con resultado derivado (aplazado, P15) | Baja |
 | Deep Work | Temporizador, proyectos, duración prevista y real, calidad | IV | `focus_sessions`, `rating`, `focus.int.test.ts`, E2E, CI | — | — |
 | Deep Work | Estadísticas por día, semana y proyecto | IV | `domain/metrics.ts`, `focus-analytics.tsx`, CI | — | — |
 | Deep Work | Interrupciones | ND | Sin campo ni interfaz (solo pausas en `segments`) | Anotar interrupciones (C4) | Media |

@@ -96,6 +96,32 @@ test.describe("goals (demo data, fixed clock)", () => {
     expect(consoleErrors).toEqual([])
   })
 
+  test("books: linked from the Library with their progress, and unlinked without touching the book", async ({ page, consoleErrors }) => {
+    await page.goto("/goals/demo-goal-10k")
+    const books = page.getByRole("region", { name: "Libros vinculados" })
+    await expect(books.getByText("Sin libros vinculados.")).toBeVisible()
+
+    await books.getByRole("combobox", { name: "Vincular un libro" }).click()
+    await page.getByRole("option", { name: "Outlive" }).click()
+    await books.getByRole("combobox", { name: "Vincular un libro" }).click()
+    await page.getByRole("option", { name: "Hábitos atómicos" }).click()
+
+    const rows = books.getByRole("list", { name: "Libros del objetivo" }).getByRole("listitem")
+    await expect(rows).toHaveCount(2)
+    await expect(books.getByText("1 de 2 terminados")).toBeVisible()
+    await expect(rows.filter({ hasText: "Outlive" })).toContainText("43%")
+    await expect(rows.filter({ hasText: "Hábitos atómicos" })).toContainText("100%")
+
+    await books.getByRole("button", { name: "Desvincular Hábitos atómicos" }).click()
+    await expect(rows).toHaveCount(1)
+    await expect(books.getByText("0 de 1 terminados")).toBeVisible()
+    expect(serious(await new AxeBuilder({ page }).withTags(WCAG).analyze())).toEqual([])
+
+    await rows.getByRole("link", { name: /Outlive/ }).click()
+    await expect(page).toHaveURL(/id=demo-book-outlive$/)
+    expect(consoleErrors).toEqual([])
+  })
+
   test("the three data states are explicit: enough history, few points, none (N/D, never 0 %)", async ({ page }) => {
     await page.goto("/goals/demo-goal-10k")
     await expect(page.getByText(/A este ritmo llegarías a la meta/)).toBeVisible()

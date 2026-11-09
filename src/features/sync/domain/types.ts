@@ -78,6 +78,7 @@ export type Op =
   | { type: "goal.set_review"; op_id: string; goal_id: string; review_since: LocalDate | null }
   | { type: "goal.log_add"; op_id: string; goal_id: string; entry: GoalLogEntry }
   | { type: "goal.log_remove"; op_id: string; goal_id: string; entry_id: string }
+  | { type: "goal.book_set"; op_id: string; goal_id: string; item_id: string; linked: boolean }
   | { type: "goal.checkpoint.set"; op_id: string; goal_id: string; checkpoint_id: string; done_on: LocalDate | null }
   | {
       type: "goal.measure"
@@ -312,6 +313,7 @@ export interface WireGoal extends WireGoalFields {
   /** Absent in payloads stored before the column existed. */
   review_since?: LocalDate | null
   process_log?: GoalLogEntry[]
+  book_ids?: string[]
   version: number
   created_at: string
   updated_at: string

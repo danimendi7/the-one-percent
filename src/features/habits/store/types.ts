@@ -53,6 +53,7 @@ export interface GoalActions {
   archiveGoal(id: string): void
   restoreGoal(id: string): void
   setGoalReview(id: string, review: boolean): void
+  setGoalBook(goalId: string, itemId: string, linked: boolean): void
   addGoalLog(goalId: string, kind: GoalLogKind, text: string): void
   removeGoalLog(goalId: string, entryId: string): void
   setMeasurement(goalId: string, date: LocalDate, value: number | null, note?: string | null): MeasureResult

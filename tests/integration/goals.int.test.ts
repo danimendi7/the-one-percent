@@ -340,3 +340,37 @@ describe("process log (additive column)", () => {
     expect((await log()).process_log).toHaveLength(1)
   })
 })
+
+describe("books of a goal (additive column)", () => {
+  const g = randomUUID()
+  const bookOfA = randomUUID()
+  const bookOfB = randomUUID()
+  const link = (item: string, linked = true, goal = g) => ({ type: "goal.book_set", op_id: opId("bk"), goal_id: goal, item_id: item, linked })
+  const row = async () => (await pull(a)).goals.find((x) => x.id === g) as unknown as { version: number; title: string; book_ids: string[] }
+  const insertBook = async (id: string, owner: TestUser) => {
+    const res = await apply(owner, [{ type: "library.item.create", op_id: opId("lib"), id, kind: "book", fields: { title: "Un libro" }, at: new Date().toISOString() }])
+    expect(res[0].status).toBe("applied")
+  }
+
+  it("links only the owner's live books, once, without bumping the version", async () => {
+    await apply(a, [create(numericGoal(g, start))])
+    await insertBook(bookOfA, a)
+    await insertBook(bookOfB, b)
+    const res = await apply(a, [link(bookOfA), link(bookOfA), link(bookOfB), link(randomUUID()), link("no-es-un-id")])
+    expect(res.map((r) => r.status)).toEqual(["applied", "applied", "rejected", "rejected", "rejected"])
+    expect(res[2].code).toBe("book_not_found")
+    expect(await row()).toMatchObject({ book_ids: [bookOfA], version: 1 })
+  })
+
+  it("an edit from a client that does not know the column keeps the links", async () => {
+    const before = await row()
+    await apply(a, [{ type: "goal.update", op_id: opId("u"), goal_id: g, base_version: before.version, goal: numericGoal(g, start, { title: "Bajar a 77 kg" }), habits: [], checkpoints: [] }])
+    expect(await row()).toMatchObject({ title: "Bajar a 77 kg", book_ids: [bookOfA] })
+  })
+
+  it("another account cannot touch the links, and unlinking is idempotent", async () => {
+    expect((await apply(b, [link(bookOfB)]))[0]).toMatchObject({ status: "rejected", code: "goal_not_found" })
+    expect((await apply(a, [link(bookOfA, false), link(bookOfA, false)])).map((r) => r.status)).toEqual(["applied", "applied"])
+    expect((await row()).book_ids).toEqual([])
+  })
+})

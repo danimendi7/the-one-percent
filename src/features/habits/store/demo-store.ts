@@ -30,6 +30,7 @@ import {
   createGoal,
   restoreGoal,
   setCheckpointDone,
+  setGoalBook,
   setGoalReview,
   setGoalState,
   setMeasurement,
@@ -228,6 +229,9 @@ export const demoBackend: Backend = {
     },
     removeGoalLog(goalId, entryId) {
       commit(removeGoalLogEntry(getSnapshot().state, goalId, entryId))
+    },
+    setGoalBook(goalId, itemId, linked) {
+      commit(setGoalBook(getSnapshot().state, goalId, itemId, linked))
     },
     setGoalReview(id, review) {
       const s = getSnapshot()

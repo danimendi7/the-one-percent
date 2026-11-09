@@ -16,6 +16,7 @@ import {
   createGoal,
   restoreGoal,
   setCheckpointDone,
+  setGoalBook,
   setGoalReview,
   setGoalState,
   setMeasurement,
@@ -106,6 +107,8 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return addGoalLogEntry(state, op.goal_id, op.entry)
     case "goal.log_remove":
       return removeGoalLogEntry(state, op.goal_id, op.entry_id)
+    case "goal.book_set":
+      return setGoalBook(state, op.goal_id, op.item_id, op.linked)
     case "goal.set_review":
       return setGoalReview(state, op.goal_id, op.review_since)
     case "goal.checkpoint.set":
