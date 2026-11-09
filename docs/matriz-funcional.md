@@ -37,7 +37,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Knowledge OS | Avisos que no deciden un texto (D108) | IV | Commit `0530bdd`, CI | — | — |
 | Knowledge OS | Borradores temporales de asistentes (M4g.5 §23-1, D102) | IV | `metadata/assistant-draft.ts`, `add-book.spec.ts`, `add-podcast.spec.ts`, CI | — | — |
 | Knowledge OS | Atribución de ediciones separadas (M4g.5 §23-2, D101) | IV | `metadata/attribution.ts`, `add-book.spec.ts`, CI | — | — |
-| Knowledge OS | Actualizar datos de lo ya guardado (M4g.5 §8) | ND | Sin `metadata-update` | A6 | Alta |
+| Knowledge OS | Actualizar datos de lo ya guardado (M4g.5 §8) | SP | `metadata/diff.ts` y sus unitarias; `metadata-update.tsx`; `e2e/metadata-update.spec.ts`, pendiente de la CI de su PR | CI (A6) | Alta |
 | Knowledge OS | Cerebro: ideas, búsqueda, relaciones | IV | `brain-view.tsx`, `knowledge/domain`, `knowledge.spec.ts`, CI | — | — |
 | Knowledge OS | Active Recall | ND | Sin código | D1–D3 | Alta |
 | Knowledge OS | Daily Discovery / Tema de hoy | P | Pantalla demo, no guarda nada | D4, D5 | Alta |

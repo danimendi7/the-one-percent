@@ -140,6 +140,25 @@ test.describe("library (demo)", () => {
     await expect(page.getByTestId("note")).toHaveCount(3)
   })
 
+  test("leaving after a refused deletion leaves a notice that stays until it is really saved (M4g.5)", async ({ page }) => {
+    await page.goto(OUTLIVE)
+    await expect(page.getByRole("heading", { level: 1, name: "Outlive" })).toBeVisible()
+    await page.evaluate(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException("full", "QuotaExceededError")
+      }
+    })
+    await page.getByTestId("delete").click()
+    await page.getByTestId("delete-confirm").click()
+    await expect(page.getByTestId("form-error")).toBeVisible()
+
+    await page.getByRole("navigation", { name: "Navegación principal" }).getByRole("link").first().click()
+    await expect(page).not.toHaveURL(/\/knowledge\/library\/item/)
+    const notice = page.getByText(/Un cambio no se ha podido guardar en este dispositivo/)
+    await expect(notice).toBeVisible()
+    await expect(page.getByRole("button", { name: "Reintentar" })).toBeVisible()
+  })
+
   test("after a refused deletion «Reintentar» stores it, leaves the page, and the book stays gone (M4g.5)", async ({ page }) => {
     await page.goto(OUTLIVE)
     await expect(page.getByRole("heading", { level: 1, name: "Outlive" })).toBeVisible()

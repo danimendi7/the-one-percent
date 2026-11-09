@@ -1,7 +1,7 @@
 import type { ExternalRef } from "@/features/knowledge/domain/types"
 import { ATTRIBUTION } from "./types"
 
-function isOpenLibrary(url: string): boolean {
+export function isOpenLibrary(url: string): boolean {
   try {
     const host = new URL(url).hostname
     return host === "openlibrary.org" || host.endsWith(".openlibrary.org")

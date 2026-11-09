@@ -37,7 +37,7 @@ export function titleKey(title: string): string {
   return tokenize(title.split(/\s[:.]\s|:\s/)[0] ?? title).join(" ")
 }
 
-function isbn13Of(isbn13: string | null, isbn10: string | null): string | null {
+export function isbn13Of(isbn13: string | null, isbn10: string | null): string | null {
   if (isbn13 && isValidIsbn13(compactIsbn(isbn13))) return compactIsbn(isbn13)
   return isbn10 ? isbn10to13(isbn10) : null
 }

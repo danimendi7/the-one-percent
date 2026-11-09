@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useRef, useState } from "react"
-import { BookOpen, ExternalLink, Heart, Link2, Pencil, Plus, Trash2 } from "lucide-react"
+import { BookOpen, ExternalLink, Heart, Link2, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -18,6 +18,8 @@ import { DEMO_NOTICE } from "@/features/knowledge/demo"
 import { libraryActions, useLibrary } from "./store/use-library"
 import type { LibrarySnapshot } from "./store/types"
 import { dataAttribution } from "./metadata/attribution"
+import { updateLabel } from "./metadata/diff"
+import { MetadataUpdateSheet } from "./components/metadata-update"
 import { NoteCard, QuickCapture, refusalText } from "./components/knowledge-notes"
 import { BackLink, BOOKS_HREF, CoverArt, itemHref, LIBRARY_HREF, PODCASTS_HREF, ProgressLine, RatingInput, showHref, StatusPill, SyncLine } from "./components/library-ui"
 import { LibraryConflicts, LibrarySyncBanner } from "./components/library-sync"
@@ -162,6 +164,7 @@ export function ItemDetail({ id }: { id: string }) {
   const snap = useLibrary()
   const router = useRouter()
   const form = useContentForm(snap?.state, snap?.source)
+  const [updating, setUpdating] = useState(false)
   const afterLeaving = useRef<() => void>(() => undefined)
   const removal = useDeviceSave((href) => {
     router.push(href)
@@ -257,6 +260,11 @@ export function ItemDetail({ id }: { id: string }) {
               <Button variant="outline" onClick={() => form.open({ kind: item.kind, item })} data-testid="edit">
                 <Pencil aria-hidden /> Editar
               </Button>
+              {snap.source === "account" && (
+                <Button variant="outline" onClick={() => setUpdating(true)} data-testid="update-data">
+                  <RefreshCw aria-hidden /> {updateLabel(item)}
+                </Button>
+              )}
               <DeleteButton label={item.kind === "book" ? "libro" : "episodio"} notes={noteCount} onConfirm={remove} />
             </div>
           </section>
@@ -308,6 +316,7 @@ export function ItemDetail({ id }: { id: string }) {
         </div>
       </article>
       {form.sheet}
+      {snap.source === "account" && <MetadataUpdateSheet open={updating} onOpenChange={setUpdating} target={{ entity: "item", id }} state={s} />}
     </Chrome>
   )
 }
@@ -323,6 +332,7 @@ export function ShowDetail({ id }: { id: string }) {
   const snap = useLibrary()
   const router = useRouter()
   const form = useContentForm(snap?.state, snap?.source)
+  const [updating, setUpdating] = useState(false)
   const afterLeaving = useRef<() => void>(() => undefined)
   const removal = useDeviceSave((href) => {
     router.push(href)
@@ -364,6 +374,11 @@ export function ShowDetail({ id }: { id: string }) {
             <Button variant="outline" onClick={() => form.open({ kind: "show", show })}>
               <Pencil aria-hidden /> Editar
             </Button>
+            {snap.source === "account" && (
+              <Button variant="outline" onClick={() => setUpdating(true)} data-testid="update-data">
+                <RefreshCw aria-hidden /> {updateLabel(show)}
+              </Button>
+            )}
             <DeleteButton label="programa" notes={0} onConfirm={remove} />
           </div>
         </div>
@@ -411,6 +426,7 @@ export function ShowDetail({ id }: { id: string }) {
         </section>
       </div>
       {form.sheet}
+      {snap.source === "account" && <MetadataUpdateSheet open={updating} onOpenChange={setUpdating} target={{ entity: "show", id }} state={snap.state} />}
     </Chrome>
   )
 }
