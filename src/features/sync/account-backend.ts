@@ -279,6 +279,9 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       archiveGoal(id) {
         submit({ type: "goal.archive", op_id: uuidv4(), goal_id: id, archived_on: view().today })
       },
+      setGoalReview(id, review) {
+        submit({ type: "goal.set_review", op_id: uuidv4(), goal_id: id, review_since: review ? view().today : null })
+      },
       restoreGoal(id) {
         submit({ type: "goal.restore", op_id: uuidv4(), goal_id: id })
       },

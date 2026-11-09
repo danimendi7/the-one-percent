@@ -255,3 +255,45 @@ describe("edits, milestones and state", () => {
     expect(["applied", "conflict"]).toContain(res[0].status)
   })
 })
+
+describe("in review (additive column)", () => {
+  const g = randomUUID()
+  const setReview = (id: string, on: string | null) => ({ type: "goal.set_review", op_id: opId("rv"), goal_id: id, review_since: on })
+  const snapshot = async () =>
+    (await db((c) => c.query("select title, state, closed_on::text, archived_on::text, baseline, target, due_date::text from public.goals where id = $1", [g]))).rows[0]
+
+  it("puts a goal in and out of review and pulls it, leaving every other value intact", async () => {
+    expect((await apply(a, [create(numericGoal(g, start)), measure(g, today, 80)])).map((r) => r.status)).toEqual(["applied", "applied"])
+    const before = await snapshot()
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ review_since: null, version: 1 })
+
+    expect((await apply(a, [setReview(g, today)]))[0].status).toBe("applied")
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ review_since: today, state: "active", version: 2 })
+
+    expect((await apply(a, [setReview(g, addDays(today, 1))]))[0].status).toBe("applied")
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ review_since: today, version: 2 })
+
+    expect((await apply(a, [setReview(g, null)]))[0].status).toBe("applied")
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ review_since: null, version: 3 })
+
+    expect(await snapshot()).toEqual(before)
+    expect((await pull(a)).measurements.find((m) => m.goal_id === g)).toMatchObject({ observed_on: today, deleted: false })
+    expect(Number((await pull(a)).measurements.find((m) => m.goal_id === g)!.value)).toBe(80)
+  })
+
+  it("an edit from a client that does not know the column keeps the review", async () => {
+    await apply(a, [setReview(g, today)])
+    const version = (await pull(a)).goals.find((x) => x.id === g)!.version
+    const res = await apply(a, [{ type: "goal.update", op_id: opId("u"), goal_id: g, base_version: version, goal: numericGoal(g, start, { title: "Bajar a 77 kg" }), habits: [], checkpoints: [] }])
+    expect(res[0].status).toBe("applied")
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ title: "Bajar a 77 kg", review_since: today })
+  })
+
+  it("rejects dates far from today and goals of another account", async () => {
+    const res = await apply(a, [setReview(g, addDays(today, 5))])
+    expect(res[0]).toMatchObject({ status: "rejected", code: "invalid_review_date" })
+    const other = await apply(b, [setReview(g, today)])
+    expect(other[0]).toMatchObject({ status: "rejected", code: "goal_not_found" })
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ review_since: today })
+  })
+})
