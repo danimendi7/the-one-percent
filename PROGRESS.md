@@ -8,10 +8,10 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 
 | ID | Tarea | Criterio de aceptación | MVP | Esfuerzo | Depende de | Estado | PR / preview |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| A0 | Auditoría, Plan Maestro, matriz, roadmap y plan | Existen los documentos de la orden §4 y §7 | Sí | high | — | en curso | — |
-| A1 | Integrar `fix/library-notice-autodismiss` (M4g, H1, D108) y añadir `npm run verify` | `npm run verify` correcto; `git diff` de la rama frente a la integrada vacío salvo configuración de Skynet | Sí | high | A0 | pendiente | — |
-| A2 | Recuperar la corrección del e2e de cierre simultáneo | `reviews-account.spec.ts` igual al del worktree copiado; 0 flaky en CI | Sí | medium | A1 | pendiente | — |
-| A3 | M4g.5: borrar y volver espera a `saved()`; aviso al cerrar el asistente durante la espera | E2E: borrar y volver sin red conserva el borrado tras recargar | Sí | high | A1 | pendiente | — |
+| A0 | Auditoría, Plan Maestro, matriz, roadmap y plan | Existen los documentos de la orden §4 y §7 | Sí | high | — | hecha | #1 |
+| A1 | Integrar `fix/library-notice-autodismiss` (M4g, H1, D108) y añadir `npm run verify` | `npm run verify` correcto; `git diff` de la rama frente a la integrada vacío salvo configuración de Skynet | Sí | high | A0 | hecha | #2 |
+| A2 | Recuperar la corrección del e2e de cierre simultáneo | `reviews-account.spec.ts` igual al del worktree copiado; 0 flaky en CI | Sí | medium | A1 | hecha | #2 |
+| A3 | M4g.5: borrar y volver espera a `saved()`; aviso si un guardado se rechaza tras salir | E2E: borrar y volver sin red conserva el borrado tras recargar; unitarias de la decisión de aviso (el aviso en sí no tiene E2E) | Sí | high | A1 | en curso | #3 |
 | A4 | M4g.5 §23-1: borradores temporales de asistentes (D102) | Unitarias de caducidad y limpieza; E2E: reabrir recupera lo escrito | Sí | high | A1 | pendiente | — |
 | A5 | M4g.5 §23-2: atribución de ediciones separadas (D101) | Unitaria de la derivación; E2E: la ficha muestra la fuente | Sí | medium | A1 | pendiente | — |
 | A6 | M4g.5 §8: buscar y actualizar datos de lo ya guardado | Unitarias del comparador; E2E: solo rellena vacíos; un único `update` por aplicación | Sí | xhigh | A1 | pendiente | — |

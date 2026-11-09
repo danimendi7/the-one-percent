@@ -4,6 +4,7 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-09 | Un guardado rechazado cuando el usuario ya salió se avisa con un aviso que no caduca y ofrece «Reintentar» | Impedir cerrar el asistente durante la espera | M4g.5 dejaba abierta esta decisión. El aviso no bloquea a nadie y cubre también el formulario manual; no decide nada por sí mismo, así que no contradice D108 |
 | 2026-11-09 | Toda migración debe ser aditiva y compatible con el código desplegado en `main` | Migraciones que cambien o eliminen columnas | Por decisión de Dani, staging es la misma base que usa la app desplegada: un cambio incompatible rompería esa app |
 | 2026-11-09 | M4g.5 incluye sus dos definiciones (`m4g-plan` §8 y §23) | Atender solo el endurecimiento de §23 | La orden pide cerrar los pendientes de M4g.5 sin distinguir; es la opción que no deja requisitos fuera |
 | 2026-11-09 | Agrupar tareas relacionadas en una misma PR | Una PR por tarea | Cada PR ejecuta la CI completa (16–40 min) en un repositorio privado con minutos limitados |
