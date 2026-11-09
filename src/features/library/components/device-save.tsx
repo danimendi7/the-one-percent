@@ -34,17 +34,23 @@ export function useDeviceSave(onSaved: (value: string) => void) {
   const [written, setWritten] = useState<string | null>(null)
   const pending = useRef<string | null>(null)
   const alive = useRef(true)
+  // Refused and still not retried: leaving now takes the «Reintentar» away, so a notice replaces it.
+  const refused = useRef(false)
   const done = useRef(onSaved)
   useEffect(() => {
     done.current = onSaved
   }, [onSaved])
   useEffect(() => {
     alive.current = true
-    return () => void (alive.current = false)
+    return () => {
+      alive.current = false
+      if (refused.current) warnNotOnDevice()
+    }
   }, [])
 
   async function settle(value: string) {
     pending.current = value
+    refused.current = false
     setWritten(value)
     setState("saving")
     const slow = setTimeout(() => setState((s) => (s === "saving" ? "slow" : s)), SLOW_SAVE_MS)
@@ -52,7 +58,10 @@ export function useDeviceSave(onSaved: (value: string) => void) {
     clearTimeout(slow)
     if (outcome === "warn") return warnNotOnDevice()
     if (outcome === "done") return
-    if (outcome === "retry") return setState("failed")
+    if (outcome === "retry") {
+      refused.current = true
+      return setState("failed")
+    }
     done.current(value)
   }
 

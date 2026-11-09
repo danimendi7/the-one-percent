@@ -11,10 +11,10 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | A0 | Auditoría, Plan Maestro, matriz, roadmap y plan | Existen los documentos de la orden §4 y §7 | Sí | high | — | hecha | #1 |
 | A1 | Integrar `fix/library-notice-autodismiss` (M4g, H1, D108) y añadir `npm run verify` | `npm run verify` correcto; `git diff` de la rama frente a la integrada vacío salvo configuración de Skynet | Sí | high | A0 | hecha | #2 |
 | A2 | Recuperar la corrección del e2e de cierre simultáneo | `reviews-account.spec.ts` igual al del worktree copiado; 0 flaky en CI | Sí | medium | A1 | hecha | #2 |
-| A3 | M4g.5: borrar y volver espera a `saved()`; aviso si un guardado se rechaza tras salir | E2E: borrar y volver sin red conserva el borrado tras recargar; unitarias de la decisión de aviso (el aviso en sí no tiene E2E) | Sí | high | A1 | en curso | #3 |
-| A4 | M4g.5 §23-1: borradores temporales de asistentes (D102) | Unitarias de caducidad y limpieza; E2E: reabrir recupera lo escrito | Sí | high | A1 | en curso | #3 |
-| A5 | M4g.5 §23-2: atribución de ediciones separadas (D101) | Unitaria de la derivación; E2E: la ficha muestra la fuente | Sí | medium | A1 | en curso | #3 |
-| A6 | M4g.5 §8: buscar y actualizar datos de lo ya guardado | Unitarias del comparador; E2E: solo rellena vacíos; un único `update` por aplicación | Sí | xhigh | A1 | pendiente | — |
+| A3 | M4g.5: borrar y volver espera a `saved()`; aviso si un guardado se rechaza tras salir | E2E: borrar y volver sin red conserva el borrado tras recargar; unitarias de la decisión de aviso (el aviso en sí no tiene E2E) | Sí | high | A1 | hecha | #3 |
+| A4 | M4g.5 §23-1: borradores temporales de asistentes (D102) | Unitarias de caducidad y limpieza; E2E: reabrir recupera lo escrito | Sí | high | A1 | hecha | #3 |
+| A5 | M4g.5 §23-2: atribución de ediciones separadas (D101) | Unitaria de la derivación; E2E: la ficha muestra la fuente | Sí | medium | A1 | hecha | #3 |
+| A6 | M4g.5 §8: buscar y actualizar datos de lo ya guardado | Unitarias del comparador; E2E: solo rellena vacíos; un único `update` por aplicación | Sí | xhigh | A1 | en curso | #4 |
 | A7 | M4g.5 §23-6: repaso de privacidad e integridad y prueba de integración | Test de integración de los casos M y N con vínculos; `/dev/*` con 404; sin secretos en el repo | Sí | xhigh | A1 | pendiente | — |
 | A8 | M4g.5 §23-3/4/5: ajustes de iPhone y guía de VoiceOver, teclado y sin red | Capturas a 375 px sin solapes; `docs/guia-dispositivo.md` | Sí | medium | A1 | pendiente | — |
 | A9 | Cierre de M4g.5 en matriz y documentación | Matriz actualizada con evidencia | Sí | medium | A3–A8 | pendiente | — |
@@ -56,7 +56,9 @@ Estados: pendiente · en curso · hecha · bloqueada · PR lista para fusionar
 
 _Ninguno por ahora._
 
-**Pendiente autorizable (Dani):** proveedor de IA generativa; servicio de envío programado de push si tuviera coste; publicación en `main` y producción; prueba real en iPhone.
+**Limitación conocida:** la prueba de humo contra un preview da 10 de 22. Las 12 restantes pasan todos sus pasos y fallan solo en la aserción final de la consola, porque la CSP de la app bloquea la barra de comentarios que Vercel inyecta en los previews (`vercel.live/_next-live/feedback/feedback.js`). En la CI, sobre el build local, pasan las 22. Medido en la PR #3.
+
+**Pendiente autorizable (Dani):** proveedor de IA generativa; servicio de envío programado de push si tuviera coste; publicación en `main` y producción; prueba real en iPhone; desactivar la barra de comentarios de Vercel en los previews (ajuste del proyecto en la nube), que dejaría en verde esa prueba de humo.
 
 ## Cambios de alcance
 
