@@ -49,6 +49,7 @@ import { parseFilter, periodRange, scopeHabits, serializeFilter, type AnalyticsF
 import { DrillSheet, type DrillRequest } from "./drill-sheet"
 import { FocusAnalytics } from "@/features/focus/components/focus-analytics"
 import { MindAnalytics } from "@/features/mind/components/mind-analytics"
+import { RelationsPanel } from "./relations-panel"
 
 const DIMENSION_OPTIONS: { value: DimensionId | "all"; label: string }[] = [
   { value: "all", label: "Todas las dimensiones" },
@@ -185,6 +186,7 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
       onPhase={(phase) => setFilter({ phase })}
     />
   )
+  const relationsPanel = <RelationsPanel state={model.state} today={model.today} range={range} />
   if (model.all.length === 0) {
     return (
       <div className="space-y-6">
@@ -202,6 +204,7 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
         </div>
         {model.state.focusSessions.length > 0 && focus}
         {Object.keys(model.state.checkins).length > 0 && mind}
+        {Object.keys(model.state.checkins).length > 0 && relationsPanel}
       </div>
     )
   }
@@ -264,6 +267,8 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
       {focus}
 
       {mind}
+
+      {relationsPanel}
 
       <section className="panel rounded-2xl p-5" aria-labelledby="how-title">
         <h2 id="how-title" className="text-base font-semibold">
