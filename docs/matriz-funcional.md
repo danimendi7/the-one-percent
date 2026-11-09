@@ -15,7 +15,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Habit Engine | Crear, editar, archivar, frecuencias, calendario | IV | `features/habits`, `e2e/habits.spec.ts`, CI | — | — |
 | Habit Engine | Registro rápido y descansos sin contar como incumplimiento | IV | `cell-state.ts`, `metrics.ts`, tests, CI | — | — |
 | Habit Engine | Rachas y cumplimiento a 30 días | IV | `habit-metrics.tsx`, `metrics.ts`, CI | — | — |
-| Habit Engine | Historial de auditoría de cambios | P | Se escribe en `audit_logs`; sin lectura en `src` | Vista de historial (C6) | Media |
+| Habit Engine | Historial de auditoría de cambios | IV | `audit_logs`, `habits/domain/history.ts`, `habit-history.int.test.ts`, `account.spec.ts`, CI | — | — |
 | Habit Engine | Sincronización y offline | IV | `features/sync` (14 tests), `sync.int.test.ts`, `offline.spec.ts`, CI | — | — |
 | Life Analytics | Descriptivo: series, heatmap, comparativas | SP | `analytics-view.tsx`, `catalog.ts`, `domain/comparisons.ts`, `e2e/analytics.spec.ts`; comparativas pendientes de la CI de su PR | CI (B3) | Media |
 | Life Analytics | Diagnóstico: cruces multivariables | SP | `domain/relations.ts`, `relations-panel.tsx`, `e2e/analytics.spec.ts`; pendientes de la CI de su PR | CI (B1, B2) | Alta |

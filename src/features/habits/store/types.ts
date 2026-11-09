@@ -1,3 +1,4 @@
+import type { AuditRow } from "@/features/habits/domain/history"
 import type { LocalDate } from "../domain/dates"
 import type { HabitInput, SetEntryResult } from "../domain/ops"
 import type { HabitsState } from "../domain/types"
@@ -123,6 +124,8 @@ export interface HabitActions extends Partial<GoalActions>, Partial<FocusActions
   resetDemo?(): void
   /** Account only */
   syncNow?(): void
+  /** The change history of a habit, read from the cloud (C6). */
+  loadHabitHistory?(habitId: string): Promise<AuditRow[]>
   setTimezone?(timezone: string): void
   dismissNotice?(id: string): void
   reapplyNotice?(id: string): void
