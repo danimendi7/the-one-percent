@@ -1,6 +1,6 @@
 import type { Browser, BrowserContext, Page, Route, TestInfo } from "@playwright/test"
 import AxeBuilder from "@axe-core/playwright"
-import { expect, isMobile, test } from "./fixtures"
+import { expect, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
 import { setConnection, strictOffline } from "./support/offline"
 import { db } from "../tests/integration/setup"
@@ -344,7 +344,6 @@ test.describe("update saved data (account)", () => {
   })
 
   test("two devices: a description written elsewhere while this one filled it is kept to decide, and the other fields still arrive", async ({ browser, page, context }, info) => {
-    test.skip(isMobile(info.project.name), "covered once")
     test.slow()
     await strictOffline(context)
     await signIn(page, account)
@@ -380,7 +379,6 @@ test.describe("update saved data (account)", () => {
   })
 
   test("a marked field changed elsewhere while the comparison was open is not overwritten", async ({ browser, page }, info) => {
-    test.skip(isMobile(info.project.name), "covered once")
     test.slow()
     await signIn(page, account)
     await providers(page, openLibrary)

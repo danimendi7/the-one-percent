@@ -4,6 +4,7 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-09 | Las pruebas de dos dispositivos de A6 se ejecutan también en móvil, sin `test.skip` | Subir de 27 a 29 las omisiones esperadas por la CI | Ese número está en `.github/workflows/ci.yml`, que Skynet no modifica, y ejecutarlas da más cobertura sin relajar ninguna comprobación |
 | 2026-11-09 | Al aplicar datos de un proveedor, la ficha se compara otra vez: si un campo marcado cambió mientras se revisaba, no se aplica nada y el comparador se muestra de nuevo | Aplicar sobre lo que haya | La base solo protege la descripción; el resto se decide por fecha, y lo recién escrito en otro dispositivo se habría sobrescrito sin aviso |
 | 2026-11-09 | El comparador muestra bloqueados, con su motivo, unas páginas o una duración por debajo del progreso o de las notas y un vínculo que ya tiene otra ficha | Ofrecerlos y dejar que falle al guardar | La base los rechaza o dejarían notas que ya no se pueden editar; explicarlo antes evita un error sin salida |
 | 2026-11-09 | El comparador ignora mayúsculas y espacios, pero no los acentos | Reutilizar `normalize`, que también los ignora | Con `normalize`, «Cien anos» y «Cien años» serían iguales y no se podría corregir el título |
