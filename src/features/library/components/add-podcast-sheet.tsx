@@ -222,7 +222,7 @@ function ShowsStep({
     <div className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="border-b border-border px-5 pt-5 pb-4">
         <SheetTitle className="text-lg">Añadir podcast</SheetTitle>
-        <SheetDescription>Busca el programa por nombre o creador; después eliges el episodio.</SheetDescription>
+        <SheetDescription className="max-md:sr-only">Busca el programa por nombre o creador; después eliges el episodio.</SheetDescription>
         <form role="search" aria-label="Buscar programas" className="relative mt-3" onSubmit={(e) => (e.preventDefault(), onRetry())}>
           <Label htmlFor={`${id}-q`} className="sr-only">
             Programa o creador
@@ -258,7 +258,7 @@ function ShowsStep({
           {status}
         </p>
         {current && search.status === "error" && search.code !== "unauthorized" && (
-          <Button variant="outline" size="sm" className="mx-2 mb-2" onClick={onRetry} data-testid="show-search-retry">
+          <Button variant="outline" size="touch-sm" className="mx-2 mb-2" onClick={onRetry} data-testid="show-search-retry">
             Reintentar
           </Button>
         )}
@@ -405,13 +405,32 @@ function EpisodesStep({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="border-b border-border px-5 pt-4 pb-3">
-        {canGoBack && (
-          <Button variant="ghost" size="sm" className="-ml-2 w-fit" onClick={onBack} disabled={device.locked} data-testid="episodes-back">
-            <ArrowLeft aria-hidden /> Programas
-          </Button>
-        )}
+        {/* One row for both actions, clear of the close button: the list needs the height above the keyboard. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pr-10">
+          {canGoBack && (
+            <Button variant="ghost" size="touch-sm" className="-ml-2 w-fit" onClick={onBack} disabled={device.locked} data-testid="episodes-back">
+              <ArrowLeft aria-hidden /> Programas
+            </Button>
+          )}
+          {device.locked ? (
+            <Button variant="outline" size="touch-sm" onClick={saveShowOnly} disabled={device.waiting} aria-busy={device.waiting} data-testid="save-show">
+              {device.waiting && <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden />}
+              {device.waiting ? SAVING_LABEL : "Reintentar"}
+            </Button>
+          ) : owned ? (
+            <Button asChild variant="outline" size="touch-sm">
+              <Link href={showHref(owned.id)} data-testid="open-show">
+                En tu Biblioteca · abrir
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="touch-sm" onClick={saveShowOnly} data-testid="save-show">
+              Seguir el programa
+            </Button>
+          )}
+        </div>
         <div className="flex items-center gap-3">
-          <div className="w-14 shrink-0">
+          <div className="w-10 shrink-0 md:w-14">
             <CoverArt seed={show.id} title={show.title} kind="show" size="sm" cover={show.cover ? { source: "external", url: show.cover } : null} />
           </div>
           <div className="min-w-0 flex-1">
@@ -422,24 +441,6 @@ function EpisodesStep({
             </SheetTitle>
             <SheetDescription className="truncate">{show.publisher ?? "Creador desconocido"}</SheetDescription>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          {device.locked ? (
-            <Button variant="outline" size="sm" onClick={saveShowOnly} disabled={device.waiting} aria-busy={device.waiting} data-testid="save-show">
-              {device.waiting && <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden />}
-              {device.waiting ? SAVING_LABEL : "Reintentar"}
-            </Button>
-          ) : owned ? (
-            <Button asChild variant="outline" size="sm">
-              <Link href={showHref(owned.id)} data-testid="open-show">
-                En tu Biblioteca · abrir
-              </Link>
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={saveShowOnly} data-testid="save-show">
-              Seguir el programa
-            </Button>
-          )}
         </div>
         <div className="relative mt-2">
           <Label htmlFor={`${id}-f`} className="sr-only">
@@ -470,7 +471,7 @@ function EpisodesStep({
               {errorText(list.code, list.retryAfter)}
             </p>
             {list.code !== "unauthorized" && (
-              <Button variant="outline" size="sm" onClick={() => (older ? searchOlder() : (setRecent({ status: "loading" }), setAttempt((a) => a + 1)))}>
+              <Button variant="outline" size="touch-sm" onClick={() => (older ? searchOlder() : (setRecent({ status: "loading" }), setAttempt((a) => a + 1)))}>
                 Reintentar
               </Button>
             )}
@@ -499,7 +500,7 @@ function EpisodesStep({
           </Button>
         )}
         {older && (
-          <Button variant="ghost" size="sm" className="mx-2 mt-3" onClick={() => setOlder(null)} data-testid="back-recent">
+          <Button variant="ghost" size="touch-sm" className="mx-2 mt-3" onClick={() => setOlder(null)} data-testid="back-recent">
             Ver los recientes
           </Button>
         )}
@@ -674,7 +675,7 @@ function ConfirmEpisode({
   const field = (k: EpisodeField, extra: React.ComponentProps<typeof Input> = {}) => (
     <div className="space-y-1.5">
       <Label htmlFor={f(k)}>{FIELD_LABEL[k]}</Label>
-      <Input id={f(k)} value={draft.values[k]} onChange={edit(k)} aria-invalid={!!errors[k]} aria-describedby={errors[k] ? f(`${k}-err`) : undefined} {...extra} />
+      <Input id={f(k)} value={draft.values[k]} onChange={edit(k)} aria-invalid={!!errors[k]} aria-describedby={errors[k] ? f(`${k}-err`) : undefined} {...extra} className={cn("max-md:h-11", extra.className)} />
       {errors[k] && (
         <p id={f(`${k}-err`)} className="text-xs text-warning">
           {errors[k]}
@@ -688,7 +689,7 @@ function ConfirmEpisode({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="border-b border-border px-5 pt-4 pb-3">
-        <Button variant="ghost" size="sm" className="-ml-2 w-fit" onClick={onBack} disabled={device.locked} data-testid="confirm-back">
+        <Button variant="ghost" size="touch-sm" className="-ml-2 w-fit" onClick={onBack} disabled={device.locked} data-testid="confirm-back">
           <ArrowLeft aria-hidden /> Episodios
         </Button>
         <SheetTitle asChild>
@@ -724,7 +725,7 @@ function ConfirmEpisode({
             {twin && program === NEW_SHOW && (
               <div className="space-y-2 rounded-xl border border-signal/40 bg-signal/5 p-3 text-xs" role="status" data-testid="show-twin">
                 <p>Ya tienes un programa «{twin.title}» creado a mano. ¿Es el mismo?</p>
-                <Button size="sm" variant="outline" onClick={() => setProgram(twin.id)} data-testid="use-twin">
+                <Button size="touch-sm" variant="outline" onClick={() => setProgram(twin.id)} data-testid="use-twin">
                   Usar «{twin.title}»
                 </Button>
               </div>
@@ -777,7 +778,7 @@ function ConfirmEpisode({
           {episode.sourceUrl && (
             <>
               {" · "}
-              <a href={episode.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
+              <a href={episode.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 underline-offset-2 hover:underline md:min-h-0">
                 ver en Apple Podcasts <ExternalLink className="inline size-3" aria-hidden />
               </a>
             </>
@@ -789,7 +790,7 @@ function ConfirmEpisode({
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-signal" aria-hidden />
               {top.level === "exact" ? `Este episodio ya está en tu Biblioteca: «${topItem.title}».` : `Puede que ya lo tengas: «${topItem.title}» en el mismo programa.`}
             </p>
-            <Button asChild variant={top.level === "exact" ? "default" : "outline"} size="sm">
+            <Button asChild variant={top.level === "exact" ? "default" : "outline"} size="touch-sm">
               <Link href={itemHref(topItem.id)} data-testid="open-existing">
                 Abrir el existente
               </Link>

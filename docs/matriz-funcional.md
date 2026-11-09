@@ -4,7 +4,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 
 **Estados:** IV = implementada y validada · P = implementada parcialmente · SP = implementada sin pruebas suficientes · ND = planificada pero no desarrollada · NV = no verificable con la información disponible.
 
-**Validación:** «CI» es la suite E2E e integración en verde sobre `ce693b6` (run 42624132154, PR #4; una pasada con 0 flaky). Ninguna fila incluye prueba en dispositivo real.
+**Validación:** «CI» es la suite E2E e integración en verde sobre `3227ace` (run 42628421621, PR #5; una pasada con 0 flaky). Ninguna fila incluye prueba en dispositivo real.
 
 | Módulo | Funcionalidad | Estado actual | Evidencia | Trabajo pendiente | Prioridad |
 | --- | --- | --- | --- | --- | --- |
@@ -38,7 +38,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Knowledge OS | Borradores temporales de asistentes (M4g.5 §23-1, D102) | IV | `metadata/assistant-draft.ts`, `add-book.spec.ts`, `add-podcast.spec.ts`, CI | — | — |
 | Knowledge OS | Atribución de ediciones separadas (M4g.5 §23-2, D101) | IV | `metadata/attribution.ts`, `add-book.spec.ts`, CI | — | — |
 | Knowledge OS | Actualizar datos de lo ya guardado (M4g.5 §8) | IV | `metadata/diff.ts`, `metadata-update.tsx`, `e2e/metadata-update.spec.ts`, CI | — | — |
-| Knowledge OS | Repaso de privacidad e integridad (M4g.5 §23-6) | SP | `docs/security-checklist.md`; casos M y N con vínculos en `library-sync.int.test.ts`, pendientes de la CI de su PR | CI (A7) | Alta |
+| Knowledge OS | Repaso de privacidad e integridad (M4g.5 §23-6) | IV | `docs/security-checklist.md`, casos M y N con vínculos en `library-sync.int.test.ts`, CI | — | — |
 | Knowledge OS | Cerebro: ideas, búsqueda, relaciones | IV | `brain-view.tsx`, `knowledge/domain`, `knowledge.spec.ts`, CI | — | — |
 | Knowledge OS | Active Recall | ND | Sin código | D1–D3 | Alta |
 | Knowledge OS | Daily Discovery / Tema de hoy | P | Pantalla demo, no guarda nada | D4, D5 | Alta |
@@ -51,7 +51,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Motivation Engine | Perfiles, reglas, horas de silencio, tope diario | ND | Ajustes demo que no guardan | E5, E6 | Alta |
 | Notificaciones | Bandeja dentro de la app | ND | Sin código | E7 | Alta |
 | Notificaciones | Push | ND | Sin `pushManager` en `src` | E8; el envío programado puede requerir autorización | Media |
-| Transversal | PWA y arranque sin red | SP | `manifest.ts`, `public/sw.js`, `upgrade.spec.ts`, CI; iPhone sin probar | Guía de dispositivo (A8) | Media |
+| Transversal | PWA y arranque sin red | SP | `manifest.ts`, `public/sw.js`, `upgrade.spec.ts`, CI; iPhone sin probar | Prueba real con `docs/guia-dispositivo.md` (Dani) | Media |
 | Transversal | Autenticación, lista de acceso y RLS | IV | `account.spec.ts`, `metadata-auth.int.test.ts`, M2.5 | Repaso final (A7) | Alta |
 | Transversal | Respaldo y restauración | SP | `backup*.mjs`, `restore-drill.mjs`, `backup-strategy.md`; simulacro sin repetir | Simulacro (F3) | Media |
 | Transversal | Exportación | IV | `settings-view.tsx`, E2E, CI | — | — |

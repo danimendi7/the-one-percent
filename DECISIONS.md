@@ -4,6 +4,8 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-09 | Los asistentes usan un tamaño de botón nuevo (`touch-sm`, 44 px en móvil y 36 en escritorio) y `sm` no cambia | Subir `sm` a 44 px en toda la app | `sm` se usa en otras pantallas que A8 no revisa; el repaso general es de F2 |
+| 2026-11-09 | La descripción del primer paso de los asistentes queda solo para VoiceOver en móvil | Mantenerla visible | Repite lo que dice el campo y con el teclado abierto ocupaba 40 px de la lista; el lector de pantalla la sigue leyendo |
 | 2026-11-09 | Las pruebas de dos dispositivos de A6 se ejecutan también en móvil, sin `test.skip` | Subir de 27 a 29 las omisiones esperadas por la CI | Ese número está en `.github/workflows/ci.yml`, que Skynet no modifica, y ejecutarlas da más cobertura sin relajar ninguna comprobación |
 | 2026-11-09 | Al aplicar datos de un proveedor, la ficha se compara otra vez: si un campo marcado cambió mientras se revisaba, no se aplica nada y el comparador se muestra de nuevo | Aplicar sobre lo que haya | La base solo protege la descripción; el resto se decide por fecha, y lo recién escrito en otro dispositivo se habría sobrescrito sin aviso |
 | 2026-11-09 | El comparador muestra bloqueados, con su motivo, unas páginas o una duración por debajo del progreso o de las notas y un vínculo que ya tiene otra ficha | Ofrecerlos y dejar que falle al guardar | La base los rechaza o dejarían notas que ya no se pueden editar; explicarlo antes evita un error sin salida |
