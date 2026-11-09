@@ -4,6 +4,7 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-10 | El usuario de `focus.int.test.ts` vive en una zona donde ya pasaron las 4 de la mañana, y la corrección va en la PR #15 | Relanzar la CI de día, u omitir la prueba de madrugada | Las sesiones empiezan hasta 3 h antes de ahora y se leen en «hoy»: entre las 00:00 y las 03:00 caían en el día anterior. La app acierta y la suposición era de la prueba. La CI exige 0 fallos y esto volvería a pasar |
 | 2026-11-09 | El repaso es una pantalla propia de Cerebro (`/knowledge/brain/repaso`), con una pestaña y su contador junto a Ideas y Aplicaciones | Una entrada más en la navegación principal | P16 define Cerebro como el centro de Ideas y Repaso. La ruta es estática y va en la caché offline |
 | 2026-11-09 | Crear una tarjeta desde una idea pone la idea como respuesta sin recortarla, y la pregunta la escribe la persona | Recortar a 2.000 caracteres o generar la pregunta | Recortar perdería texto sin avisar; si no cabe, el formulario lo dice. Una pregunta generada exigiría IA, fuera de la restricción económica |
 | 2026-11-09 | La demo trae cuatro tarjetas de ejemplo, etiquetadas; una cuenta nueva no trae ninguna | Demo vacía | Sin ejemplos no se ve cómo funciona el repaso. Las cuentas solo muestran lo que escribe su dueño |
