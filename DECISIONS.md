@@ -4,6 +4,7 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-09 | La corrección del detalle tardío de una edición va en la PR #8, junto a C1 | Una PR aparte | La CI de C1 la detectó y exige 0 inestables, así que C1 no se podía fusionar sin ella; cada pasada cuesta unos 25 min |
 | 2026-11-09 | «En revisión» es una fecha opcional (`review_since`) junto al estado, no un valor nuevo de `state` | Añadir `in_review` a `state` | La app desplegada usa la misma base y trata todo lo que no sea `active` como cerrado: un valor nuevo le haría ver esos objetivos como terminados. La columna opcional no le afecta |
 | 2026-11-09 | Un objetivo en revisión sigue midiéndose y sigue en el Resumen, pero se lista solo en el filtro «Revisión» | Sacarlo del Resumen | Revisar un objetivo es pensarlo de nuevo, no cerrarlo, y así las cifras y las revisiones congeladas no cambian |
 | 2026-11-09 | El filtro de estado es «Activos · Revisión · Cerrados · Archivo», y «Cerrados» reúne conseguidos y abandonados | Un filtro «Completados» como dice el Plan, más otro de abandonados | Cinco opciones no caben a 375 px, y llamar «completado» a un abandonado sería falso. La tarjeta dice cuál es cada uno |

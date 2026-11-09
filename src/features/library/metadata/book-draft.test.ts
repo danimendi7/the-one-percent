@@ -50,6 +50,28 @@ describe("book draft (M4g.3)", () => {
     expect(d.touched.sort()).toEqual(["pageCount", "publisher", "title"])
   })
 
+  it("a detail that arrives after changing edition cannot overwrite the chosen edition", () => {
+    const chosen = { ...other, editionId: "OL-CHOSEN", publisher: "Debate", year: 2021, pageCount: 460, language: "es", isbn13: "9788417860790", isbn10: null, cover: null }
+    const late = { ...siruela, editionId: "OL-FIRST", publisher: "Siruela", year: 2019, pageCount: 452, language: "en", description: "Desde la obra", topicSuggestions: ["Historia"] }
+    const before = applyEdition(createDraft({ ...siruela, editionId: "OL-FIRST" }), chosen)
+    const d = applyDetail(before, late)
+    for (const f of ["publisher", "year", "pageCount", "language", "isbn"] as const) expect(d.values[f]).toBe(before.values[f])
+    expect(d.isbns).toEqual(before.isbns)
+    expect([d.cover, d.useCover]).toEqual([before.cover, before.useCover])
+    expect(d.source.editionId).toBe("OL-CHOSEN")
+    // What belongs to the work, not to an edition, still arrives.
+    expect(d.values.description).toBe("Desde la obra")
+    expect(d.topicSuggestions).toEqual(["Historia"])
+  })
+
+  it("a detail for the same edition, or for a result without one, still fills its fields", () => {
+    const first = { ...siruela, editionId: "OL-FIRST", publisher: null, year: null }
+    const detail = { ...siruela, editionId: "OL-FIRST", publisher: "Siruela", year: 2019 }
+    expect(applyDetail(createDraft(first), detail).values).toMatchObject({ publisher: "Siruela", year: "2019" })
+    const workOnly = { ...first, editionId: null }
+    expect(applyDetail(createDraft(workOnly), detail).values).toMatchObject({ publisher: "Siruela", year: "2019" })
+  })
+
   it("the late detail fills what was missing but never empties a field", () => {
     const detail = bookFromRecords(parseWork(olWorkInfinito), parseEdition({ ...olEditionHabitos, key: "/books/OL28108908M" }), null)!
     const d = applyDetail(createDraft(siruela), { ...detail, publisher: null, isbn13: null, isbn10: null })

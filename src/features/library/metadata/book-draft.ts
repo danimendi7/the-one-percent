@@ -85,13 +85,19 @@ export function applyEdition(d: BookDraft, edition: BookResult): BookDraft {
 /**
  * The detail of the chosen work and edition, arriving after the sheet opened: it may add what the
  * search did not carry (description, pages, topic suggestions). It fills untouched fields where
- * it has a value and never empties one (same edition: what the search said is still true).
+ * it has a value and never empties one (same edition: what the search said is still true). If the
+ * user chose another edition while it travelled, only what belongs to the work is taken.
  */
 export function applyDetail(d: BookDraft, detail: BookResult): BookDraft {
   const next = valuesOf({ ...detail, creators: detail.creators ?? d.source.creators })
   const values = { ...d.values }
-  for (const f of Object.keys(values) as DraftField[]) if (!d.touched.includes(f) && next[f] !== "" && (f !== "title" || detail.editionId === d.source.editionId)) values[f] = next[f]
-  const cover = d.cover ?? detail.cover
+  const sameEdition = detail.editionId === d.source.editionId
+  const otherEdition = !sameEdition && !!d.source.editionId
+  for (const f of Object.keys(values) as DraftField[]) {
+    if (d.touched.includes(f) || next[f] === "" || (f === "title" && !sameEdition) || (otherEdition && EDITION_FIELDS.includes(f))) continue
+    values[f] = next[f]
+  }
+  const cover = otherEdition ? d.cover : (d.cover ?? detail.cover)
   return {
     ...d,
     source: { ...d.source, workTitle: d.source.workTitle ?? detail.workTitle },
