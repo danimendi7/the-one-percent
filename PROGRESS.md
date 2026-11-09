@@ -15,8 +15,8 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | A4 | M4g.5 §23-1: borradores temporales de asistentes (D102) | Unitarias de caducidad y limpieza; E2E: reabrir recupera lo escrito | Sí | high | A1 | hecha | #3 |
 | A5 | M4g.5 §23-2: atribución de ediciones separadas (D101) | Unitaria de la derivación; E2E: la ficha muestra la fuente | Sí | medium | A1 | hecha | #3 |
 | A6 | M4g.5 §8: buscar y actualizar datos de lo ya guardado | Unitarias del comparador; E2E: solo rellena vacíos; un único `update` por aplicación | Sí | xhigh | A1 | hecha | #4 |
-| A7 | M4g.5 §23-6: repaso de privacidad e integridad y prueba de integración | Test de integración de los casos M y N con vínculos; `/dev/*` con 404; sin secretos en el repo | Sí | xhigh | A1 | en curso | #5 |
-| A8 | M4g.5 §23-3/4/5: ajustes de iPhone y guía de VoiceOver, teclado y sin red | Capturas a 375 px sin solapes; `docs/guia-dispositivo.md` | Sí | medium | A1 | pendiente | — |
+| A7 | M4g.5 §23-6: repaso de privacidad e integridad y prueba de integración | Test de integración de los casos M y N con vínculos; `/dev/*` con 404; sin secretos en el repo | Sí | xhigh | A1 | hecha | #5 |
+| A8 | M4g.5 §23-3/4/5: ajustes de iPhone y guía de VoiceOver, teclado y sin red | Capturas a 375 px sin solapes; `docs/guia-dispositivo.md` | Sí | medium | A1 | en curso | — |
 | A9 | Cierre de M4g.5 en matriz y documentación | Matriz actualizada con evidencia | Sí | medium | A3–A8 | pendiente | — |
 | B1 | Dominio de relaciones entre variables con tamaño de muestra y limitaciones | Unitarias: sin resultado por debajo del mínimo; incluye periodo, n y variables | Sí | high | A1 | pendiente | — |
 | B2 | Vista «Relaciones» en Analytics, sin lenguaje causal | E2E de la vista; test que prohíbe vocabulario causal | Sí | high | B1 | pendiente | — |
@@ -56,7 +56,7 @@ Estados: pendiente · en curso · hecha · bloqueada · PR lista para fusionar
 
 _Ninguno por ahora._
 
-**Limitación conocida:** la prueba de humo contra un preview da 10 de 22. Las 12 restantes pasan todos sus pasos y fallan solo en la aserción final de la consola, porque la CSP de la app bloquea la barra de comentarios que Vercel inyecta en los previews (`vercel.live/_next-live/feedback/feedback.js`). En la CI, sobre el build local, pasan las 22. Medido en la PR #3.
+**Limitación conocida:** la prueba de humo contra un preview da 10 de 22. Las 12 restantes pasan todos sus pasos y fallan solo en la aserción final de la consola, porque la CSP de la app bloquea la barra de comentarios que Vercel inyecta en los previews (`vercel.live/_next-live/feedback/feedback.js`). En la CI, sobre el build local, pasan las 22. Medido en las PR #3, #4 y #5.
 
 **Pendiente autorizable (Dani):** proveedor de IA generativa; servicio de envío programado de push si tuviera coste; publicación en `main` y producción; prueba real en iPhone; desactivar la barra de comentarios de Vercel en los previews (ajuste del proyecto en la nube), que dejaría en verde esa prueba de humo.
 
