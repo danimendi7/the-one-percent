@@ -1,5 +1,6 @@
 "use client"
 
+import { fetchHabitHistory } from "./habit-history"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { setEntry, type HabitInput } from "@/features/habits/domain/ops"
 import { addGoalLogEntry, cleanLogText, setCheckpointDone, setMeasurement, validateGoal } from "@/features/goals/domain/ops"
@@ -251,6 +252,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       restoreHabit(id) {
         submit({ type: "habit.restore", op_id: uuidv4(), habit_id: id })
       },
+      loadHabitHistory: (id) => fetchHabitHistory(sb, id),
       setRestDay(date, rest) {
         submit({
           type: "rest_day.set",

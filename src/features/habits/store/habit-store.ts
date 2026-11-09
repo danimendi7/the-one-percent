@@ -90,6 +90,7 @@ export const habitActions: HabitActions & GoalActions & FocusActions & MindActio
   restoreHabit: (...a) => active().restoreHabit(...a),
   setRestDay: (...a) => active().setRestDay(...a),
   exportJson: () => active().exportJson(),
+  loadHabitHistory: (...a) => need(active().loadHabitHistory)(...a),
   addGoal: (input) => need(active().addGoal)(input),
   updateGoal: (...a) => need(active().updateGoal)(...a),
   setGoalState: (...a) => need(active().setGoalState)(...a),

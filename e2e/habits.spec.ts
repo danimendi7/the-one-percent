@@ -8,6 +8,18 @@ const todayCell = (page: Page, habit: string) =>
   page.getByRole("region", { name: "Hoy" }).getByRole("button", { name: new RegExp(`^${habit}, miércoles, 21 de octubre`) })
 
 test.describe("habit tracker (local demo)", () => {
+  test("the change history says honestly that the demo keeps none", async ({ page, consoleErrors }, info) => {
+    await page.goto("/habits")
+    if (isMobile(info.project.name)) await page.getByRole("radio", { name: "Semana" }).click()
+    await page.getByRole("button", { name: /^Editar / }).first().click()
+    const history = page.getByRole("dialog").getByTestId("habit-history")
+    await expect(history).toContainText("Historial de cambios")
+    await history.locator("summary").click()
+    await expect(history).toContainText("Demo: aquí no se guarda el historial")
+    await expect(history.getByTestId("habit-history-item")).toHaveCount(0)
+    expect(consoleErrors).toEqual([])
+  })
+
   test("one tap marks a habit, metrics update, state persists and undo works", async ({ page }) => {
     await page.goto("/habits")
     await expect(todayMetric(page)).toHaveAccessibleName("2 de 8 hábitos de hoy")

@@ -27,8 +27,8 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | C2 | Objetivos: registro de obstáculos y ajustes | Unitarias; E2E | Sí | high | C1 | hecha | #9 |
 | C3 | Objetivos vinculados a libros | Unitaria del progreso; E2E | Sí | high | C1 | hecha | #10 |
 | C4 | Deep Work: anotar interrupciones (migración aditiva) | Integración y E2E; sesiones antiguas intactas | Sí | xhigh | A1 | hecha | #11 |
-| C5 | Revisión diaria (migración aditiva) | Integración; E2E del ciclo; revisiones anteriores intactas | Sí | xhigh | A1 | PR lista para fusionar | #12 |
-| C6 | Historial de cambios de un hábito | Integración con RLS; E2E | Sí | high | A1 | pendiente | — |
+| C5 | Revisión diaria (migración aditiva) | Integración; E2E del ciclo; revisiones anteriores intactas | Sí | xhigh | A1 | hecha | #12 |
+| C6 | Historial de cambios de un hábito | Integración con RLS; E2E | Sí | high | A1 | PR lista para fusionar | #13 |
 | D1 | Active Recall: dominio de repaso espaciado | Unitarias de Again/Hard/Good/Easy y calendario | Sí | high | A9 | pendiente | — |
 | D2 | Active Recall: persistencia, RLS y sincronización | Integración de RLS y sincronización | Sí | xhigh | D1 | pendiente | — |
 | D3 | Active Recall: sesión de repaso desde ideas | E2E, también sin red | Sí | high | D2 | pendiente | — |

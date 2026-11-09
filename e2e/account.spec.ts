@@ -263,6 +263,30 @@ test.describe("account mode", () => {
     await other.close()
   })
 
+  test("a habit shows its real changes: created and renamed, with the old and new name", async ({ page, consoleErrors }, info) => {
+    test.slow()
+    await signIn(page, account)
+    await createHabit(page, "Leer", account.id)
+    await page.goto("/habits")
+    if (isMobile(info.project.name)) await page.getByRole("radio", { name: "Semana" }).click()
+    await page.getByRole("button", { name: "Editar Leer" }).first().click()
+    const sheet = page.getByRole("dialog")
+    await sheet.getByLabel("Nombre").fill("Leer en papel")
+    await sheet.getByRole("button", { name: "Guardar cambios" }).click()
+    await expect(sheet).toBeHidden()
+    await expect.poll(() => countRows("select count(*)::int n from public.audit_logs where user_id = $1 and entity_type = 'habit' and action = 'update'", [account.id]), { timeout: 15_000 }).toBe(1)
+
+    await page.getByRole("button", { name: "Editar Leer en papel" }).first().click()
+    const history = page.getByRole("dialog").getByTestId("habit-history")
+    await history.locator("summary").click()
+    const items = history.getByTestId("habit-history-item")
+    await expect(items).toHaveCount(2)
+    await expect(items.first()).toContainText("Nombre: «Leer» → «Leer en papel»")
+    await expect(items.last()).toContainText("Creado")
+    await expect(items.last()).toContainText("«Leer»")
+    expect(consoleErrors).toEqual([])
+  })
+
   test("demo data is never imported automatically; the selective import skips seeded records", async ({ page, context, baseURL }) => {
     // 1) Use the demo in this browser and make one real tap on a template habit
     await context.addCookies([{ name: "top_mode", value: "demo", url: baseURL! }])
