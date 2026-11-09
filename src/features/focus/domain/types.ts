@@ -29,6 +29,8 @@ export interface FocusSession {
   /** Day (profile timezone) the session STARTED: it counts there even past midnight (decision 2). */
   localDate: LocalDate
   rating: number | null
+  /** How many times it was interrupted. null or absent: not noted, which is not the same as 0. */
+  interruptions?: number | null
   version?: number
   createdAt: string
   updatedAt: string
@@ -49,3 +51,4 @@ export const PAUSE_RECOVERY_MS = 30 * 60_000
 export const PROJECT_MAX = 60
 export const PLANNED_OUTPUT_MAX = 200
 export const ACTUAL_OUTPUT_MAX = 500
+export const MAX_INTERRUPTIONS = 99

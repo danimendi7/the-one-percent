@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 import { activeMs, instantAtActive } from "../domain/time"
 import { MIN_ACTIVE_SECONDS, type FocusSession } from "../domain/types"
 import type { FocusModel } from "../use-focus"
-import { minutesLabel, RatingInput, reasonText } from "./focus-ui"
+import { InterruptionsInput, minutesLabel, RatingInput, reasonText } from "./focus-ui"
 
 /**
  * «Cierre». Opened after «Terminar», which pauses the session first so its time freezes on
@@ -39,6 +39,7 @@ function CloseForm({ fm, session, onDone }: { fm: FocusModel; session: FocusSess
   const [minutes, setMinutes] = useState(String(Math.min(720, Math.max(1, Math.round(realSeconds / 60)))))
   const [actual, setActual] = useState("")
   const [rating, setRating] = useState<number | null>(null)
+  const [interruptions, setInterruptions] = useState<number | null>(null)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const tooShort = realSeconds < MIN_ACTIVE_SECONDS
   const m = Number(minutes)
@@ -49,7 +50,7 @@ function CloseForm({ fm, session, onDone }: { fm: FocusModel; session: FocusSess
     if (tooShort || minutesError) return
     // Lowering the minutes cuts the session at the moment it reached them.
     const trim = m * 60 < realSeconds - 30 ? instantAtActive(session.segments, m * 60, frozenAt) : null
-    const r = fm.api.finishFocus(session.id, { trimTo: trim === null ? null : new Date(trim).toISOString(), actualOutput: actual || null, rating })
+    const r = fm.api.finishFocus(session.id, { trimTo: trim === null ? null : new Date(trim).toISOString(), actualOutput: actual || null, rating, interruptions })
     if (!r.ok) return toast.error(reasonText(r.reason))
     toast.success(`Bloque guardado · ${minutesLabel(m)}`, { description: fm.saved ? undefined : "Sin guardar en tu cuenta: el servidor aún no admite sesiones." })
     onDone()
@@ -100,6 +101,7 @@ function CloseForm({ fm, session, onDone }: { fm: FocusModel; session: FocusSess
           <Textarea id={ids.actual} value={actual} onChange={(e) => setActual(e.target.value)} maxLength={500} rows={2} placeholder="Qué has conseguido" />
         </div>
         <RatingInput value={rating} onChange={setRating} />
+        <InterruptionsInput value={interruptions} onChange={setInterruptions} />
       </div>
       <SheetFooter className="pb-safe flex-row items-center gap-2 border-t border-border px-5 py-4">
         {confirmDiscard ? (

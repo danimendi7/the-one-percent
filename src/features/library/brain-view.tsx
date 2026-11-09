@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { Brain, Link2, Search, SlidersHorizontal, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -293,13 +293,14 @@ function groupNotes(state: KnowledgeState, notes: KnowledgeNote[], by: "contenid
  */
 export function BrainView() {
   const snap = useLibrary()
-  const router = useRouter()
   const pathname = usePathname()
   const sp = useSearchParams()
   const b = useMemo(() => parseBrainQuery((k) => sp.get(k)), [sp])
+  // From the address bar, not this render: two quick taps must build on each other.
   const set = (p: Partial<BrainQuery>) => {
-    const qs = brainQueryString({ ...b, ...p })
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+    const current = new URLSearchParams(window.location.search)
+    const qs = brainQueryString({ ...parseBrainQuery((k) => current.get(k)), ...p })
+    window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname)
   }
 
   // The box answers at once; the URL follows a moment later (no history entry per keystroke).

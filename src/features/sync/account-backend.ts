@@ -349,9 +349,9 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       finishFocus(id, input) {
         const at = engine.clientTime()
         const actual = cleanText(input.actualOutput, ACTUAL_OUTPUT_MAX)
-        const r = finishSession(view().state, id, { at, trimTo: input.trimTo, actualOutput: actual, rating: input.rating })
+        const r = finishSession(view().state, id, { at, trimTo: input.trimTo, actualOutput: actual, rating: input.rating, interruptions: input.interruptions })
         if (!r.ok) return { ok: false, reason: r.reason }
-        submit({ type: "focus.finish", op_id: uuidv4(), session_id: id, at, trim_to: input.trimTo ?? null, actual_output: actual, rating: input.rating ?? null })
+        submit({ type: "focus.finish", op_id: uuidv4(), session_id: id, at, trim_to: input.trimTo ?? null, actual_output: actual, rating: input.rating ?? null, interruptions: input.interruptions ?? null })
         return { ok: true }
       },
       editFocus(id, input) {
@@ -369,6 +369,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
           planned_output: cleanText(input.plannedOutput, PLANNED_OUTPUT_MAX),
           actual_output: cleanText(input.actualOutput, ACTUAL_OUTPUT_MAX),
           rating: input.rating,
+          interruptions: input.interruptions,
           at,
         })
         return { ok: true }

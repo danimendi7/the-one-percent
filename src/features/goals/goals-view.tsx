@@ -32,14 +32,20 @@ function useGoalFilters() {
   const rawView = params.get("estado")
   const horizon = (HORIZONS as string[]).includes(rawHorizon ?? "") ? (rawHorizon as HorizonFilter) : "all"
   const view = (STATUS_VIEWS as string[]).includes(rawView ?? "") ? (rawView as GoalStatusView) : "active"
-  const write = (v: GoalStatusView, h: HorizonFilter) => {
-    const query = new URLSearchParams()
-    if (v !== "active") query.set("estado", v)
-    if (h !== "all") query.set("plazo", h)
+  // From the address bar, not this render: two quick taps must build on each other.
+  const write = (key: "estado" | "plazo", value: string | null) => {
+    const query = new URLSearchParams(window.location.search)
+    if (value === null) query.delete(key)
+    else query.set(key, value)
     const search = query.toString()
     window.history.replaceState(null, "", search ? `${pathname}?${search}` : pathname)
   }
-  return { view, horizon, setView: (v: GoalStatusView) => write(v, horizon), setHorizon: (h: HorizonFilter) => write(view, h) }
+  return {
+    view,
+    horizon,
+    setView: (v: GoalStatusView) => write("estado", v === "active" ? null : v),
+    setHorizon: (h: HorizonFilter) => write("plazo", h === "all" ? null : h),
+  }
 }
 
 export function GoalsView() {

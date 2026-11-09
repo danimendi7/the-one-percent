@@ -1,9 +1,11 @@
 "use client"
 
-import { Star } from "lucide-react"
+import { Minus, Plus, Star } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import type { FocusRejection } from "../domain/ops"
+import { MAX_INTERRUPTIONS } from "../domain/types"
 
 export const FOCUS_REASON: Record<string, string> = {
   session_active: "Ya hay un bloque en curso. Termínalo o descártalo antes de empezar otro.",
@@ -14,6 +16,7 @@ export const FOCUS_REASON: Record<string, string> = {
   invalid_habit: "Solo se pueden vincular hábitos de duración.",
   too_short: "Menos de 1 minuto efectivo: no se guarda.",
   invalid_rating: "La valoración va de 1 a 5.",
+  invalid_interruptions: "Las interrupciones van de 0 a 99.",
   segments_future: "Las horas no pueden estar en el futuro.",
   segments_order: "La hora de fin no puede ser anterior a la de inicio.",
   segments_overlap: "Los tramos de la sesión se solapan.",
@@ -37,6 +40,28 @@ export function minutesLabel(min: number): string {
 export const NO_PROJECT_LABEL = "Sin proyecto"
 
 /** Optional 1–5 rating. Tapping the selected value clears it. ≥ 44 px targets. */
+/** Starts as «Sin anotar»: untouched it records nothing rather than a made-up 0. */
+export function InterruptionsInput({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
+  return (
+    <div>
+      <p id="focus-interruptions" className="mb-2 text-sm font-medium">
+        Interrupciones <span className="font-normal text-text-tertiary">(opcional)</span>
+      </p>
+      <div role="group" aria-labelledby="focus-interruptions" className="flex items-center gap-2">
+        <Button type="button" variant="outline" size="icon" className="size-11" aria-label="Una interrupción menos" disabled={value === null} onClick={() => onChange(value === 0 || value === null ? null : value - 1)}>
+          <Minus />
+        </Button>
+        <output className="num min-w-24 text-center text-sm" data-testid="interruptions-value">
+          {value === null ? "Sin anotar" : value}
+        </output>
+        <Button type="button" variant="outline" size="icon" className="size-11" aria-label="Una interrupción más" disabled={value === MAX_INTERRUPTIONS} onClick={() => onChange((value ?? 0) + 1)}>
+          <Plus />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function RatingInput({ value, onChange, label = "Valoración (opcional)" }: { value: number | null; onChange: (v: number | null) => void; label?: string }) {
   return (
     <fieldset>

@@ -283,3 +283,49 @@ describe("habit fed by focus (decision 1): materialised once, never logged twice
     expect((await pull(a)).focus_sessions.some((s) => s.id === id)).toBe(false)
   })
 })
+
+describe("interruptions (additive column)", () => {
+  let u: TestUser
+  const s1 = randomUUID()
+  const s2 = randomUUID()
+  type Row = { id: string; version: number; rating: number | null; interruptions: number | null; segments: unknown[] }
+  const row = async (id: string) => (await pull(u)).focus_sessions.find((x) => x.id === id) as unknown as Row
+  const edit = (id: string, r: Row, extra: Record<string, unknown> = {}) => ({
+    type: "focus.edit", op_id: opId("fe"), session_id: id, base_version: r.version, segments: r.segments, habit_id: null, project: "Tesis",
+    planned_output: null, actual_output: null, rating: r.rating, ...extra,
+  })
+
+  beforeAll(async () => {
+    u = await createTestUser("fi")
+  })
+  afterAll(async () => {
+    await deleteTestUser(u)
+  })
+
+  it("a session finished without the key stays not noted, never 0", async () => {
+    const t = NOW() - min(200)
+    expect((await apply(u, [start(s1, t), finish(s1, t + min(40))])).map((r) => r.status)).toEqual(["applied", "applied"])
+    expect((await row(s1)).interruptions).toBeNull()
+  })
+
+  it("records the number at the close, keeps it through an edit that does not know the key, and changes it through one that does", async () => {
+    const t = NOW() - min(120)
+    await apply(u, [start(s2, t), finish(s2, t + min(40), { interruptions: 3 })])
+    expect((await row(s2)).interruptions).toBe(3)
+
+    expect((await apply(u, [edit(s2, await row(s2))]))[0].status).toBe("applied")
+    expect(await row(s2)).toMatchObject({ interruptions: 3, project: "Tesis" })
+
+    expect((await apply(u, [edit(s2, await row(s2), { interruptions: 0 })]))[0].status).toBe("applied")
+    expect((await row(s2)).interruptions).toBe(0)
+    expect((await apply(u, [edit(s2, await row(s2), { interruptions: null })]))[0].status).toBe("applied")
+    expect((await row(s2)).interruptions).toBeNull()
+  })
+
+  it("rejects numbers out of range and leaves the session as it was", async () => {
+    const before = await row(s1)
+    expect((await apply(u, [edit(s1, before, { interruptions: 100 })]))[0].status).toBe("rejected")
+    expect((await apply(u, [edit(s1, before, { interruptions: -1 })]))[0].status).toBe("rejected")
+    expect(await row(s1)).toMatchObject({ version: before.version, interruptions: null })
+  })
+})

@@ -72,6 +72,7 @@ export function toFocusSession(w: WireFocusSession): FocusSession {
     state: w.state,
     localDate: w.local_date,
     rating: w.rating,
+    interruptions: w.interruptions ?? null,
     version: w.version,
     createdAt: w.created_at,
     updatedAt: w.updated_at,

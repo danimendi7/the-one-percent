@@ -14,6 +14,7 @@ import {
 } from "./time"
 import {
   ACTUAL_OUTPUT_MAX,
+  MAX_INTERRUPTIONS,
   MAX_ACTIVE_SECONDS,
   MAX_PLANNED_MINUTES,
   MIN_ACTIVE_SECONDS,
@@ -40,6 +41,7 @@ export type FocusRejection =
   | "invalid_habit"
   | "too_short"
   | "invalid_rating"
+  | "invalid_interruptions"
   | `segments_${SegmentsError}`
 
 export type FocusResult = { ok: true; state: HabitsState } | { ok: false; state: HabitsState; reason: FocusRejection }
@@ -160,6 +162,11 @@ export interface FinishInput {
   trimTo?: string | null
   actualOutput?: string | null
   rating?: number | null
+  interruptions?: number | null
+}
+
+function interruptionsOk(n: number | null | undefined): boolean {
+  return n === null || n === undefined || (Number.isInteger(n) && n >= 0 && n <= MAX_INTERRUPTIONS)
 }
 
 function ratingOk(r: number | null | undefined): boolean {
@@ -172,6 +179,7 @@ export function finishSession(state: HabitsState, id: string, input: FinishInput
   if (!s) return no(state, "session_not_found")
   if (s.state === "finished") return no(state, "not_active")
   if (!ratingOk(input.rating)) return no(state, "invalid_rating")
+  if (!interruptionsOk(input.interruptions)) return no(state, "invalid_interruptions")
   let segments = pauseSegments(s.segments, Date.parse(input.at))
   if (input.trimTo) segments = trimSegments(segments, Date.parse(input.trimTo))
   if (activeSeconds(segments) < MIN_ACTIVE_SECONDS) return no(state, "too_short")
@@ -183,6 +191,7 @@ export function finishSession(state: HabitsState, id: string, input: FinishInput
     segments,
     actualOutput: cleanText(input.actualOutput, ACTUAL_OUTPUT_MAX),
     rating: input.rating ?? null,
+    interruptions: input.interruptions ?? null,
     version: (s.version ?? 1) + 1,
     updatedAt: input.at,
   }
@@ -196,6 +205,8 @@ export interface EditInput {
   plannedOutput: string | null
   actualOutput: string | null
   rating: number | null
+  /** Absent (an operation queued by an older version): what was noted stays. */
+  interruptions?: number | null
 }
 
 /** Edit a finished session after the fact (hours, texts, rating, habit). Both affected days are re-derived. */
@@ -207,6 +218,7 @@ export function editSession(state: HabitsState, id: string, input: EditInput, no
   if (segErr) return no(state, `segments_${segErr}`)
   if (activeSeconds(input.segments) < MIN_ACTIVE_SECONDS) return no(state, "too_short")
   if (!ratingOk(input.rating)) return no(state, "invalid_rating")
+  if (!interruptionsOk(input.interruptions)) return no(state, "invalid_interruptions")
   const habitErr = habitError(state, input.habitId)
   if (habitErr) return no(state, habitErr)
   const next: FocusSession = {
@@ -218,6 +230,7 @@ export function editSession(state: HabitsState, id: string, input: EditInput, no
     plannedOutput: cleanText(input.plannedOutput, PLANNED_OUTPUT_MAX),
     actualOutput: cleanText(input.actualOutput, ACTUAL_OUTPUT_MAX),
     rating: input.rating,
+    interruptions: input.interruptions === undefined ? (s.interruptions ?? null) : input.interruptions,
     version: (s.version ?? 1) + 1,
     updatedAt: now,
   }

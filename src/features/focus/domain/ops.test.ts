@@ -102,6 +102,9 @@ describe("finish and discard (decision 3)", () => {
   it("rejects ratings outside 1–5", () => {
     const s = must(startSession(base(), { id: "a", habitId: null, project: null, plannedOutput: null, plannedMinutes: 25, at: at("09:00") }))
     expect(finishSession(s, "a", { at: at("09:30"), rating: 6 })).toMatchObject({ reason: "invalid_rating" })
+    expect(finishSession(s, "a", { at: at("09:30"), interruptions: -1 })).toMatchObject({ reason: "invalid_interruptions" })
+    expect(finishSession(s, "a", { at: at("09:30"), interruptions: 100 })).toMatchObject({ reason: "invalid_interruptions" })
+    expect(finishSession(s, "a", { at: at("09:30"), interruptions: 1.5 })).toMatchObject({ reason: "invalid_interruptions" })
   })
 
   it("finishing twice (two devices) is refused the second time", () => {
@@ -121,6 +124,17 @@ describe("habit fed by focus (decision 1: derived, never logged twice)", () => {
     expect(s.entries[entryKey(DW, TODAY)]?.value).toBe(45)
     s = discardSession(s, "b", at("12:00"))
     expect(s.entries[entryKey(DW, TODAY)]).toBeUndefined()
+  })
+
+  it("interruptions: an edit without the field keeps them, and an explicit value replaces them", () => {
+    const started = must(startSession(fed(), { id: "a", habitId: DW, project: "Tesis", plannedOutput: null, plannedMinutes: 50, at: at("09:00") }))
+    const finished = must(finishSession(started, "a", { at: at("09:50"), interruptions: 3 }))
+    expect(finished.focusSessions[0].interruptions).toBe(3)
+    const { segments, habitId } = finished.focusSessions[0]
+    const base = { segments, habitId, project: "Tesis", plannedOutput: null, actualOutput: null, rating: null }
+    expect(must(editSession(finished, "a", base, at("12:00"))).focusSessions[0].interruptions).toBe(3)
+    expect(must(editSession(finished, "a", { ...base, interruptions: 0 }, at("12:00"))).focusSessions[0].interruptions).toBe(0)
+    expect(must(editSession(finished, "a", { ...base, interruptions: null }, at("12:00"))).focusSessions[0].interruptions).toBeNull()
   })
 
   it("editing the hours recomputes both the old and the new day", () => {

@@ -98,6 +98,18 @@ test.describe("Cerebro · search and filters (demo)", () => {
     expect(consoleErrors).toEqual([])
   })
 
+  test("two filters tapped one right after the other are both kept", async ({ page }) => {
+    await page.goto("/knowledge/brain")
+    await page.getByTestId("filters-open").click()
+    await page.getByTestId("filters").evaluate((sheet) => {
+      const tap = (name: string) => [...sheet.querySelectorAll("button")].find((b) => b.textContent?.trim() === name)!.click()
+      tap("Podcasts")
+      tap("Pendiente")
+    })
+    await expect(page).toHaveURL(/origen=podcasts/)
+    await expect(page).toHaveURL(/estado=planned/)
+  })
+
   test("search works with no connection, over the device copy", async ({ page, context, consoleErrors }) => {
     await page.goto("/knowledge/brain")
     await expect(page.getByTestId("brain-count")).toHaveText("15 notas")

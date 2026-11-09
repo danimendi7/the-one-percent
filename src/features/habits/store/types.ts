@@ -74,7 +74,7 @@ export interface FocusActions {
   startFocus(input: FocusStartInput): ({ ok: true; id: string }) | { ok: false; reason: FocusRejection }
   pauseFocus(id: string): void
   resumeFocus(id: string): void
-  finishFocus(id: string, input: { trimTo?: string | null; actualOutput?: string | null; rating?: number | null }): FocusOutcome
+  finishFocus(id: string, input: { trimTo?: string | null; actualOutput?: string | null; rating?: number | null; interruptions?: number | null }): FocusOutcome
   editFocus(id: string, input: EditInput): FocusOutcome
   discardFocus(id: string): void
   setHabitSource(habitId: string, source: "focus" | null): void
