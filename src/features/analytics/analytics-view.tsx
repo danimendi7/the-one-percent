@@ -50,6 +50,8 @@ import { DrillSheet, type DrillRequest } from "./drill-sheet"
 import { FocusAnalytics } from "@/features/focus/components/focus-analytics"
 import { MindAnalytics } from "@/features/mind/components/mind-analytics"
 import { ComparisonsPanel } from "./comparisons-panel"
+import { ForecastPanel } from "./forecast-panel"
+import { LearningPanel } from "./learning-panel"
 import { RelationsPanel } from "./relations-panel"
 
 const DIMENSION_OPTIONS: { value: DimensionId | "all"; label: string }[] = [
@@ -270,6 +272,10 @@ function Content({ model, filter, setFilter }: { model: HabitsModel; filter: Ana
       {mind}
 
       <ComparisonsPanel state={model.state} today={model.today} />
+
+      <ForecastPanel state={model.state} ctx={model.ctx} today={model.today} />
+
+      <LearningPanel range={range} timeZone={model.state.timezone} periodLabel={periodLabel} />
 
       {relationsPanel}
 

@@ -2,6 +2,26 @@ import AxeBuilder from "@axe-core/playwright"
 import { expect, test } from "./fixtures"
 
 test.describe("analytics drilldown and filters (demo data, fixed clock)", () => {
+  test("«La próxima semana» gives a figure with its margin, or the reason there is none", async ({ page }) => {
+    await page.goto("/analytics")
+    const panel = page.getByRole("region", { name: "La próxima semana" })
+    await expect(panel.getByTestId("projection")).toHaveCount(2)
+    for (const item of await panel.getByTestId("projection").all()) await expect(item).toContainText(/(rondaría .+ \(entre .+ y .+\)|Hacen falta al menos 6 semanas)/)
+  })
+
+  test("«Aprendizaje» reads the Library and follows the period", async ({ page, consoleErrors }) => {
+    await page.goto("/analytics?periodo=365")
+    const panel = page.getByRole("region", { name: "Aprendizaje" })
+    await expect(panel).toContainText("En el último año")
+    const year = Number(await panel.getByTestId("learning-books").locator("dd").first().innerText())
+    expect(year).toBeGreaterThan(0)
+
+    await page.goto("/analytics?periodo=7")
+    await expect(panel).toContainText("En los últimos 7 días")
+    expect(Number(await panel.getByTestId("learning-books").locator("dd").first().innerText())).toBeLessThanOrEqual(year)
+    expect(consoleErrors).toEqual([])
+  })
+
   test("«Comparativas» sets the last closed week and month against the one before", async ({ page, consoleErrors }) => {
     await page.goto("/analytics")
     const panel = page.getByRole("region", { name: "Comparativas" })
