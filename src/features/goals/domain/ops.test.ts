@@ -4,9 +4,11 @@ import type { HabitsState } from "@/features/habits/domain/types"
 import {
   archiveGoal,
   createGoal,
+  goalStatusView,
   goalsForHabit,
   restoreGoal,
   setCheckpointDone,
+  setGoalReview,
   setGoalState,
   setMeasurement,
   updateGoal,
@@ -89,6 +91,33 @@ describe("goal reducers", () => {
     const s3 = archiveGoal(s2, "g1", TODAY)
     expect(archiveGoal(s3, "g1", TODAY)).toBe(s3)
     expect(restoreGoal(s3, "g1").goals[0].archivedOn).toBeNull()
+  })
+
+  it("review is a desired state that keeps its first date and no other field", () => {
+    const s1 = withGoal()
+    const s2 = setGoalReview(s1, "g1", TODAY)
+    expect(s2.goals[0]).toEqual({ ...s1.goals[0], reviewSince: TODAY })
+    expect(setGoalReview(s2, "g1", "2026-10-28")).toBe(s2)
+    expect(setGoalReview(s2, "g1", null).goals[0].reviewSince).toBeNull()
+    expect(setGoalReview(s1, "g1", null)).toBe(s1)
+    expect(setGoalReview(s1, "missing", TODAY)).toBe(s1)
+  })
+
+  it("editing a goal in review does not take it out of review", () => {
+    const s = setGoalReview(withGoal(), "g1", TODAY)
+    expect(updateGoal(s, "g1", input({ title: "Bajar a 77 kg" }), NOW).goals[0]).toMatchObject({ title: "Bajar a 77 kg", reviewSince: TODAY })
+  })
+
+  it("every goal belongs to exactly one list, and a review only counts while it is open", () => {
+    const view = (p: Partial<Parameters<typeof goalStatusView>[0]>) => goalStatusView({ state: "active", archivedOn: null, reviewSince: null, ...p })
+    expect(view({})).toBe("active")
+    expect(view({ reviewSince: TODAY })).toBe("review")
+    expect(view({ state: "achieved" })).toBe("closed")
+    expect(view({ state: "abandoned", reviewSince: TODAY })).toBe("closed")
+    expect(view({ archivedOn: TODAY })).toBe("archived")
+    expect(view({ state: "achieved", archivedOn: TODAY, reviewSince: TODAY })).toBe("archived")
+    // Goals saved before this field existed have no value at all.
+    expect(goalStatusView({ state: "active" })).toBe("active")
   })
 })
 

@@ -14,6 +14,7 @@ import {
   createGoal,
   restoreGoal,
   setCheckpointDone,
+  setGoalReview,
   setGoalState,
   setMeasurement,
   updateGoal,
@@ -99,6 +100,8 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return archiveGoal(state, op.goal_id, op.archived_on)
     case "goal.restore":
       return restoreGoal(state, op.goal_id)
+    case "goal.set_review":
+      return setGoalReview(state, op.goal_id, op.review_since)
     case "goal.checkpoint.set":
       return setCheckpointDone(state, op.goal_id, op.checkpoint_id, op.done_on, today)
     case "goal.measure":

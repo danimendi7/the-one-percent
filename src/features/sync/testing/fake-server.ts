@@ -266,6 +266,7 @@ export class FakeServer {
       case "goal.set_state":
       case "goal.archive":
       case "goal.restore":
+      case "goal.set_review":
       case "goal.checkpoint.set": {
         const id = op.type === "goal.create" ? op.goal.id : op.goal_id
         const existing = this.goals.get(id)
@@ -278,7 +279,7 @@ export class FakeServer {
         if (!goal || (after === before && op.type === "goal.create")) return reject("invalid_goal")
         if (after !== before) {
           // Like the SQL: every definition/state change bumps the version.
-          const bump = op.type === "goal.set_state" || op.type === "goal.archive" || op.type === "goal.restore"
+          const bump = op.type === "goal.set_state" || op.type === "goal.archive" || op.type === "goal.restore" || op.type === "goal.set_review"
           this.goals.set(id, { seq: this.next(), data: bump ? { ...goal, version: (existing?.data.version ?? 1) + 1 } : goal })
         }
         return { op_id: op.op_id, status: "applied" }

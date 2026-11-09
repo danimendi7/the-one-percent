@@ -4,6 +4,9 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-09 | «En revisión» es una fecha opcional (`review_since`) junto al estado, no un valor nuevo de `state` | Añadir `in_review` a `state` | La app desplegada usa la misma base y trata todo lo que no sea `active` como cerrado: un valor nuevo le haría ver esos objetivos como terminados. La columna opcional no le afecta |
+| 2026-11-09 | Un objetivo en revisión sigue midiéndose y sigue en el Resumen, pero se lista solo en el filtro «Revisión» | Sacarlo del Resumen | Revisar un objetivo es pensarlo de nuevo, no cerrarlo, y así las cifras y las revisiones congeladas no cambian |
+| 2026-11-09 | El filtro de estado es «Activos · Revisión · Cerrados · Archivo», y «Cerrados» reúne conseguidos y abandonados | Un filtro «Completados» como dice el Plan, más otro de abandonados | Cinco opciones no caben a 375 px, y llamar «completado» a un abandonado sería falso. La tarjeta dice cuál es cada uno |
 | 2026-11-09 | La PR #7 agrupa B1–B5 y el cierre documental A9 | Una PR por tarea | Comparten la misma pantalla y sus archivos; cada pasada de CI cuesta unos 25 min de un cupo limitado |
 | 2026-11-09 | Relaciones con correlación de Spearman, mínimo de 14 días con ambos datos y sin afirmar patrón por debajo de 0,3 | Pearson; mínimo de 7 días | Las escalas 1–5 solo tienen orden y Pearson se deja llevar por valores extremos; con menos días un coeficiente varía demasiado. Es fácil de ajustar: son constantes |
 | 2026-11-09 | Las comparativas solo usan semanas y meses cerrados, y piden 3 días con check-in por semana y 7 por mes | Comparar la semana en curso con la anterior | Poner unos pocos días frente a siete da cambios que no existen. Coincide con los periodos de las revisiones |

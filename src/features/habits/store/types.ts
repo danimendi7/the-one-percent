@@ -52,6 +52,7 @@ export interface GoalActions {
   setGoalState(id: string, state: GoalState): void
   archiveGoal(id: string): void
   restoreGoal(id: string): void
+  setGoalReview(id: string, review: boolean): void
   setMeasurement(goalId: string, date: LocalDate, value: number | null, note?: string | null): MeasureResult
   setCheckpoint(goalId: string, checkpointId: string, doneOn: LocalDate | null): void
 }

@@ -75,6 +75,7 @@ export type Op =
   | { type: "goal.set_state"; op_id: string; goal_id: string; state: GoalState; on: LocalDate }
   | { type: "goal.archive"; op_id: string; goal_id: string; archived_on: LocalDate }
   | { type: "goal.restore"; op_id: string; goal_id: string }
+  | { type: "goal.set_review"; op_id: string; goal_id: string; review_since: LocalDate | null }
   | { type: "goal.checkpoint.set"; op_id: string; goal_id: string; checkpoint_id: string; done_on: LocalDate | null }
   | {
       type: "goal.measure"
@@ -306,6 +307,8 @@ export interface WireGoal extends WireGoalFields {
   state: GoalState
   closed_on: LocalDate | null
   archived_on: LocalDate | null
+  /** Absent in payloads stored before the column existed. */
+  review_since?: LocalDate | null
   version: number
   created_at: string
   updated_at: string

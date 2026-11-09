@@ -28,6 +28,7 @@ import {
   createGoal,
   restoreGoal,
   setCheckpointDone,
+  setGoalReview,
   setGoalState,
   setMeasurement,
   updateGoal,
@@ -218,6 +219,10 @@ export const demoBackend: Backend = {
     archiveGoal(id) {
       const s = getSnapshot()
       commit(archiveGoal(s.state, id, s.today))
+    },
+    setGoalReview(id, review) {
+      const s = getSnapshot()
+      commit(setGoalReview(s.state, id, review ? s.today : null))
     },
     restoreGoal(id) {
       commit(restoreGoal(getSnapshot().state, id))

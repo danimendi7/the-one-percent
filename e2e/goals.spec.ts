@@ -23,6 +23,46 @@ test.describe("goals (demo data, fixed clock)", () => {
     expect(consoleErrors).toEqual([])
   })
 
+  test("status filters: every goal stays reachable, in the URL, without clipped labels", async ({ page, consoleErrors }) => {
+    await page.goto("/goals/demo-goal-10k")
+    await page.getByRole("button", { name: "Más acciones" }).click()
+    await page.getByRole("menuitem", { name: "Marcar en revisión" }).click()
+    await expect(page.locator("header").getByText("En revisión", { exact: true })).toBeVisible()
+    await page.getByRole("link", { name: "Objetivos", exact: true }).first().click()
+
+    await expect(page.getByRole("region", { name: "Principales" }).getByRole("article")).toHaveCount(2)
+    await page.getByRole("radio", { name: "Revisión" }).click()
+    await expect(page).toHaveURL(/\/goals\?estado=review$/)
+    const card = page.getByRole("article", { name: /Correr 10 km/ })
+    await expect(card.getByText("En revisión", { exact: true })).toBeVisible()
+    await expect(page.getByRole("article")).toHaveCount(1)
+
+    await page.getByRole("radio", { name: "Largo" }).click()
+    await expect(page).toHaveURL(/\/goals\?estado=review&plazo=long$/)
+    await expect(page.getByText(/No hay objetivos en revisión a largo plazo/)).toBeVisible()
+    await page.getByRole("radio", { name: "Todos" }).click()
+
+    await card.getByRole("link", { name: /Correr 10 km/ }).click()
+    await page.getByRole("button", { name: "Más acciones" }).click()
+    await page.getByRole("menuitem", { name: "Archivar" }).click()
+    await page.getByRole("link", { name: "Objetivos", exact: true }).first().click()
+    await page.getByRole("radio", { name: "Archivo" }).click()
+    await expect(page).toHaveURL(/\/goals\?estado=archived$/)
+    await expect(page.getByRole("article", { name: /Correr 10 km/ })).toBeVisible()
+    await page.getByRole("radio", { name: "Revisión" }).click()
+    await expect(page.getByText("No hay objetivos en revisión.")).toBeVisible()
+
+    await page.getByRole("radio", { name: "Cerrados" }).click()
+    await expect(page.getByText("No hay objetivos cerrados.")).toBeVisible()
+    await page.reload()
+    await expect(page.getByRole("radio", { name: "Cerrados" })).toHaveAttribute("aria-checked", "true")
+
+    const clipped = await page.getByRole("radio").evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth).map((e) => e.textContent))
+    expect(clipped).toEqual([])
+    expect(serious(await new AxeBuilder({ page }).withTags(WCAG).analyze())).toEqual([])
+    expect(consoleErrors).toEqual([])
+  })
+
   test("the three data states are explicit: enough history, few points, none (N/D, never 0 %)", async ({ page }) => {
     await page.goto("/goals/demo-goal-10k")
     await expect(page.getByText(/A este ritmo llegarías a la meta/)).toBeVisible()

@@ -69,6 +69,8 @@ export interface Goal {
   /** Day the state became achieved/abandoned. */
   closedOn?: LocalDate | null
   archivedOn?: LocalDate | null
+  /** Day it was put in review. Still measured and still active: a flag to rethink it, not a closure. */
+  reviewSince?: LocalDate | null
   habits: GoalHabitLink[]
   checkpoints: Checkpoint[]
   version?: number
