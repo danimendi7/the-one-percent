@@ -4,6 +4,7 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-09 | El borrador de los asistentes se escribe con efectos de layout, en el mismo paso que muestra el cambio | Esperar en la prueba a que se escriba, o guardar también en `pagehide` | La traza de la PR #9 muestra la recarga 8 ms después del cambio y el detalle llegado mucho antes: con efectos normales la recarga podía ganar al guardado. Esperar en la prueba dejaría el hueco en la app. La corrección del detalle tardío de la PR #8 sigue siendo necesaria, pero no explicaba esta inestabilidad |
 | 2026-11-09 | Obstáculos y ajustes son una lista dentro del objetivo (`process_log`), no una tabla nueva | Tabla `goal_notes` con su RLS y su sincronización | Comparte la seguridad y la sincronización del objetivo, y añadir una nota no sube la versión, así que no choca con una edición desde otro dispositivo. Tope de 200 notas de 500 caracteres |
 | 2026-11-09 | Las notas se añaden o se borran, con confirmación, pero no se editan | Editarlas en su sitio | Es un registro de lo que pasó; para corregir una errata basta con borrarla y escribirla otra vez |
 | 2026-11-09 | La corrección del detalle tardío de una edición va en la PR #8, junto a C1 | Una PR aparte | La CI de C1 la detectó y exige 0 inestables, así que C1 no se podía fusionar sin ella; cada pasada cuesta unos 25 min |

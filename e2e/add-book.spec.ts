@@ -336,6 +336,23 @@ test.describe("add a book with search (account)", () => {
     expect(await countRows("select count(*)::int n from public.library_items where user_id = $1 and deleted_at is null", [account.id])).toBe(1)
   })
 
+  test("a change is already in the draft in the task that applies it, so a reload cannot beat it (D102)", async ({ page }) => {
+    await providers(page, library)
+    await openAssistant(page)
+    await page.getByTestId("book-search").fill("infinito")
+    await page.getByTestId("book-result").first().click()
+    await expect(page.getByTestId("confirm-pages")).toHaveValue("452")
+    await page.getByTestId("change-edition").click()
+
+    const saved = await page.getByTestId("edition-option").filter({ hasText: "Debate" }).evaluate(async (option: HTMLElement) => {
+      option.click()
+      // Microtasks only: no timer or frame may run between the click and the read.
+      for (let i = 0; i < 3; i++) await Promise.resolve()
+      return Object.keys(sessionStorage).filter((k) => k.startsWith("top:draft:")).map((k) => sessionStorage.getItem(k)).join("")
+    })
+    expect(saved).toContain('"publisher":"Debate"')
+  })
+
   test("what was typed in the search comes back after a reload, with its results (D102)", async ({ page }) => {
     await providers(page, library)
     await openAssistant(page)
