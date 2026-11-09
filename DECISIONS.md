@@ -4,6 +4,7 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-09 | Fusionar la PR #3 con la prueba de humo del preview en 10 de 22, porque los 12 fallos son solo la barra de Vercel bloqueada por la CSP | Permitir `vercel.live` en la CSP, filtrar ese error en la prueba o tocar el proyecto de Vercel | Lo primero debilita la seguridad, lo segundo altera una prueba y lo tercero es un cambio en la nube sin autorización. La CI completa está en verde con 0 inestables y la fusión en la rama de desarrollo se deshace con un `revert` |
 | 2026-11-09 | La ficha muestra también la atribución guardada del proveedor, no solo la derivada de ediciones separadas | Mostrar solo el caso de D101 | Si no, una edición separada diría la fuente y el libro original no, siendo este el que la tiene registrada |
 | 2026-11-09 | Pasar al formulario manual desde un asistente no borra su borrador | Borrarlo al pasar a manual | D102 no lo incluye entre los borrados y el formulario manual no tiene borrador propio: si se recarga ahí, lo escrito sigue recuperable. Como mucho queda una oferta sobrante hasta 24 h |
 | 2026-11-09 | La PR #3 agrupa A3, A4 y A5 | Una PR para A3 y otra para A4 y A5 | La CI de A3 había que repetirla por la corrección de accesibilidad; así se gasta una sola pasada sobre el código ya combinado |
