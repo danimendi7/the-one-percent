@@ -4,7 +4,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 
 **Estados:** IV = implementada y validada · P = implementada parcialmente · SP = implementada sin pruebas suficientes · ND = planificada pero no desarrollada · NV = no verificable con la información disponible.
 
-**Validación:** «CI» es la suite E2E e integración en verde sobre `072332f` (run 42611688795, PR #3; una pasada con 0 flaky). Ninguna fila incluye prueba en dispositivo real.
+**Validación:** «CI» es la suite E2E e integración en verde sobre `ce693b6` (run 42624132154, PR #4; una pasada con 0 flaky). Ninguna fila incluye prueba en dispositivo real.
 
 | Módulo | Funcionalidad | Estado actual | Evidencia | Trabajo pendiente | Prioridad |
 | --- | --- | --- | --- | --- | --- |
@@ -37,7 +37,8 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Knowledge OS | Avisos que no deciden un texto (D108) | IV | Commit `0530bdd`, CI | — | — |
 | Knowledge OS | Borradores temporales de asistentes (M4g.5 §23-1, D102) | IV | `metadata/assistant-draft.ts`, `add-book.spec.ts`, `add-podcast.spec.ts`, CI | — | — |
 | Knowledge OS | Atribución de ediciones separadas (M4g.5 §23-2, D101) | IV | `metadata/attribution.ts`, `add-book.spec.ts`, CI | — | — |
-| Knowledge OS | Actualizar datos de lo ya guardado (M4g.5 §8) | SP | `metadata/diff.ts` y sus unitarias; `metadata-update.tsx`; `e2e/metadata-update.spec.ts`, pendiente de la CI de su PR | CI (A6) | Alta |
+| Knowledge OS | Actualizar datos de lo ya guardado (M4g.5 §8) | IV | `metadata/diff.ts`, `metadata-update.tsx`, `e2e/metadata-update.spec.ts`, CI | — | — |
+| Knowledge OS | Repaso de privacidad e integridad (M4g.5 §23-6) | SP | `docs/security-checklist.md`; casos M y N con vínculos en `library-sync.int.test.ts`, pendientes de la CI de su PR | CI (A7) | Alta |
 | Knowledge OS | Cerebro: ideas, búsqueda, relaciones | IV | `brain-view.tsx`, `knowledge/domain`, `knowledge.spec.ts`, CI | — | — |
 | Knowledge OS | Active Recall | ND | Sin código | D1–D3 | Alta |
 | Knowledge OS | Daily Discovery / Tema de hoy | P | Pantalla demo, no guarda nada | D4, D5 | Alta |

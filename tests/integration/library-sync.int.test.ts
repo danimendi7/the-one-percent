@@ -389,6 +389,92 @@ describe("N · podcasts added offline on two devices (M4g.4)", () => {
   })
 })
 
+describe("M/N · Cerebro links made offline on a copy the server refuses (M4g.5)", () => {
+  const linksOf = async (...ids: string[]) =>
+    (await db((c) => c.query("select a_id, b_id from public.knowledge_links where user_id = $1 and deleted_at is null and (a_id = any($2::uuid[]) or b_id = any($2::uuid[]))", [small.id, ids]))).rows
+  const codes = (e: SyncEngine) => e.getSnapshot().notices.map((n) => n.code).sort()
+  const shownLinks = (e: SyncEngine, id: string) => Object.values(e.getSnapshot().library.links).filter((l) => l.a.id === id || l.b.id === id)
+
+  async function seedIdea(body: string) {
+    const seed = await device(small)
+    const id = seed.engine.libraryCreate("note", { item_id: null, note_type: "idea", body })
+    await settle(seed.engine)
+    return { type: "note" as const, id }
+  }
+
+  it("M · no orphan link reaches the server, the device is told, the texts stay and a link can be made again", async () => {
+    const idea = await seedIdea("Idea que se enlaza (M)")
+    const a = await device(small)
+    const b = await device(small)
+    a.net.online = false
+    b.net.online = false
+    const work = { external_provider: "openlibrary", external_id: "OL30000001W", external_attribution: "Datos: Open Library" }
+    const bookA = a.engine.libraryCreate("item", { title: "Obra con vínculos", ...work }, { kind: "book" })
+    const bookB = b.engine.libraryCreate("item", { title: "Obra con vínculos", ...work }, { kind: "book" })
+    const noteB = b.engine.libraryCreate("note", { item_id: bookB, note_type: "idea", body: "Nota enlazada de B" })
+    b.engine.librarySetLink({ type: "item", id: bookB }, idea, true)
+    b.engine.librarySetLink({ type: "note", id: noteB }, idea, true)
+    b.engine.librarySetLink({ type: "item", id: bookId }, idea, true)
+    a.net.online = true
+    await settle(a.engine)
+    b.net.online = true
+    await settle(b.engine)
+
+    // Only the link between two live records exists; nothing points to what was refused.
+    expect(await linksOf(bookB, noteB)).toEqual([])
+    expect(await linksOf(idea.id)).toHaveLength(1)
+    expect(shownLinks(b.engine, bookB)).toEqual([])
+    expect(codes(b.engine)).toEqual(["duplicate_external", "item_deleted", "link_target_not_found", "link_target_not_found"])
+
+    // Known limit (m4g-plan §22.2-B): the texts survive reopening; a refused link is told once.
+    b.engine.stop()
+    const r = (await device(small, { storage: b.storage, store: b.store })).engine
+    expect(codes(r)).toEqual(["duplicate_external", "item_deleted"])
+
+    const kept = r.getSnapshot().notices.find((n) => n.code === "item_deleted")!
+    expect(r.resolveLibraryText(kept.id, "existing", bookA)).toBe(true)
+    await settle(r)
+    const moved = (await db((c) => c.query("select id, item_id from public.knowledge_notes where user_id = $1 and body = 'Nota enlazada de B' and deleted_at is null", [small.id]))).rows
+    expect(moved).toMatchObject([{ item_id: bookA }])
+    r.librarySetLink({ type: "note", id: moved[0].id }, idea, true)
+    await settle(r)
+    expect(await linksOf(moved[0].id)).toHaveLength(1)
+  })
+
+  it("N · the same for a refused show and its episode: once placed on the existing show, the episode can be linked", async () => {
+    const idea = await seedIdea("Idea que se enlaza (N)")
+    const a = await device(small)
+    const b = await device(small)
+    a.net.online = false
+    b.net.online = false
+    const apple = { external_provider: "itunes", external_attribution: "Datos: Apple Podcasts" }
+    const showA = a.engine.libraryCreate("show", { title: "Programa con vínculos", external_id: "1999999001", ...apple })
+    const showB = b.engine.libraryCreate("show", { title: "Programa con vínculos", external_id: "1999999001", ...apple })
+    const epB = b.engine.libraryCreate("item", { title: "Episodio con vínculos", show_id: showB, external_id: "1999999002", ...apple }, { kind: "episode" })
+    b.engine.librarySetLink({ type: "show", id: showB }, idea, true)
+    b.engine.librarySetLink({ type: "item", id: epB }, idea, true)
+    a.net.online = true
+    await settle(a.engine)
+    b.net.online = true
+    await settle(b.engine)
+
+    expect(await linksOf(showB, epB)).toEqual([])
+    expect(codes(b.engine)).toEqual(["duplicate_external", "link_target_not_found", "link_target_not_found", "show_not_found"])
+
+    b.engine.stop()
+    const r = (await device(small, { storage: b.storage, store: b.store })).engine
+    expect(codes(r)).toEqual(["duplicate_external", "show_not_found"])
+
+    const episode = r.getSnapshot().notices.find((n) => n.code === "show_not_found")!
+    expect(r.resolveLibraryText(episode.id, "show", showA)).toBe(true)
+    await settle(r)
+    expect((await db((c) => c.query("select show_id from public.library_items where id = $1 and deleted_at is null", [epB]))).rows).toEqual([{ show_id: showA }])
+    r.librarySetLink({ type: "item", id: epB }, idea, true)
+    await settle(r)
+    expect(await linksOf(epB)).toHaveLength(1)
+  })
+})
+
 describe("K/L · lost copy and two accounts", () => {
   it("K · the library copy is lost while edits wait offline: it is rebuilt and the edits still reach the server once", async () => {
     const d = await device(small)
