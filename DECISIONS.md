@@ -4,6 +4,7 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-10 | «Recordadas» cuenta toda respuesta salvo «Otra vez», y con ninguna respuesta no se muestra porcentaje | Contar solo Bien y Fácil; mostrar 0 % | «Difícil» también es recordar, con esfuerzo. Un 0 % sin respuestas sería una cifra inventada |
 | 2026-11-10 | El catálogo de temas es contenido estático de la app, y la base solo guarda lo de cada persona: sus temas y sus valoraciones | Tabla `discovery_topics` con el catálogo, como en la especificación | El PRD pide temas curados sin clave de API y sin conexión. Copiar el catálogo a cada cuenta duplicaría contenido que no es de nadie |
 | 2026-11-10 | Ningún tema puede figurar como verificado: los curados son «Síntesis sin verificar» y un test prohíbe enlaces, años y estudios con nombre en el catálogo | Mantener el estado `verified` para el futuro | No hay recuperación de fuentes. Si nada puede marcarlo, nada lo afirmará por error. Volverá con un proveedor autorizado |
 | 2026-11-10 | El tema de hoy se elige por reglas: una función de la fecha sobre lo aún no decidido, evitando categorías con media ≤ 4 y al menos 2 valoraciones | Elegir al azar; o generar con IA | Da el mismo tema todo el día y en todos los dispositivos, sin proveedor de pago, y cumple el PRD: no insistir en lo que no gusta |

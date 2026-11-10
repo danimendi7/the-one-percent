@@ -42,7 +42,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Knowledge OS | Asistentes en el iPhone: espacio y 44 px (M4g.5 §23-3) | SP | `e2e/assistant-iphone.spec.ts`, CI, capturas `iphone-teclado-*`; teclado simulado | Prueba real en iPhone con `docs/guia-dispositivo.md` (Dani) | Media |
 | Knowledge OS | Medición en iPhone y guía de VoiceOver y sin red (M4g.5 §23-4/5) | NV | `docs/guia-dispositivo.md` escrita; nadie la ha ejecutado | Ejecutar la guía y apuntar el resultado (Dani) | Media |
 | Knowledge OS | Cerebro: ideas, búsqueda, relaciones | IV | `brain-view.tsx`, `knowledge/domain`, `knowledge.spec.ts`, CI | — | — |
-| Knowledge OS | Active Recall | IV | `features/recall`, `/knowledge/brain/repaso`, `20261109150000_recall.sql`, `recall.int.test.ts`, `recall*.spec.ts`, `offline.spec.ts`, CI | Conexión con Analytics (D6) | Media |
+| Knowledge OS | Active Recall | IV | `features/recall`, `/knowledge/brain/repaso`, `20261109150000_recall.sql`, `recall.int.test.ts`, `recall*.spec.ts`, `offline.spec.ts`, Analytics y Cerebro (`stats.ts`), CI | — | — |
 | Knowledge OS | Daily Discovery / Tema de hoy | IV | `features/discover`, `20261110090000_discovery.sql`, `discovery.int.test.ts`, `discover*.spec.ts`, CI | Temas generados por IA: pendiente autorizable | — |
 | Mind & Energy | Check-in, historial, tendencias, filtros | IV | `features/mind`, `checkins.int.test.ts`, E2E, CI | — | — |
 | Life Review | Semanal y mensual, decisiones, cierre | IV | `features/reviews`, `reviews*.int.test.ts`, E2E, CI | Corrección del e2e flaky (A2) | Alta |

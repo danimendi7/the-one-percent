@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { randomUUID } from "node:crypto"
-import { addDays, adminClient, anonClient, createTestUser, db, deleteTestUser, opId, type TestUser } from "./setup"
+import { addDays, anonClient, createTestUser, db, deleteTestUser, opId, type TestUser } from "./setup"
 
 /** D4 · Daily Discovery persistence against real PostgreSQL: RLS, writes only through operations, two devices. LOCAL stack only. */
 
