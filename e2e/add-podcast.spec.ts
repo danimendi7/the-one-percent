@@ -1,3 +1,4 @@
+import { SHELL_PAGES } from "./support/shell"
 import type { Page, Route } from "@playwright/test"
 import AxeBuilder from "@axe-core/playwright"
 import { expect, test } from "./fixtures"
@@ -342,7 +343,7 @@ test.describe("add a podcast offline through the queue (account, service worker)
         const names = (await caches.keys()).filter((n) => n.startsWith("top-shell-"))
         return names.length === 1 ? (await (await caches.open(names[0])).keys()).filter((k) => !new URL(k.url).pathname.includes(".") && !new URL(k.url).pathname.startsWith("/_next/")).length : -1
       }), { timeout: 60_000 })
-      .toBe(19)
+      .toBe(SHELL_PAGES)
     await page.getByTestId("add-menu").click()
     await page.getByRole("menuitem", { name: "Episodio" }).click()
     await chooseRuina(page)

@@ -1,5 +1,7 @@
 "use client"
 
+import { answerOutcome, validateCardText } from "@/features/recall/domain/ops"
+import { recallAnswerOp, recallCreateOp } from "./domain/recall-wire"
 import { fetchHabitHistory } from "./habit-history"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { setEntry, type HabitInput } from "@/features/habits/domain/ops"
@@ -255,6 +257,26 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         submit({ type: "habit.restore", op_id: uuidv4(), habit_id: id })
       },
       loadHabitHistory: (id) => fetchHabitHistory(sb, id),
+      addRecallCard(input) {
+        const text = validateCardText(input.question, input.answer)
+        if (!text.ok) return text
+        const id = uuidv4()
+        submit(recallCreateOp({ id, question: text.question, answer: text.answer, sourceType: input.sourceNoteId ? "note" : null, sourceId: input.sourceNoteId, today: view().today, at: engine.clientTime() }, uuidv4()))
+        return { ok: true, id }
+      },
+      answerRecallCard(cardId, grade) {
+        const { state, today } = view()
+        const card = state.recall.cards[cardId]
+        if (!card) return false
+        submit(recallAnswerOp(answerOutcome(card, { attemptId: uuidv4(), grade, respondedAt: engine.clientTime(), today }), uuidv4()))
+        return true
+      },
+      suspendRecallCard(cardId, suspended) {
+        submit({ type: "recall.suspend", op_id: uuidv4(), card_id: cardId, suspended_on: suspended ? view().today : null })
+      },
+      deleteRecallCard(cardId) {
+        submit({ type: "recall.delete", op_id: uuidv4(), card_id: cardId })
+      },
       setRestDay(date, rest) {
         submit({
           type: "rest_day.set",

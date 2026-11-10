@@ -36,6 +36,7 @@ const SHELL = [
   "/knowledge/library/item",
   "/knowledge/library/show",
   "/knowledge/brain",
+  "/knowledge/brain/repaso",
   "/knowledge/discover",
   "/more",
   "/settings",

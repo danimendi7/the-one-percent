@@ -5,7 +5,7 @@
  * data. Used when there is no account (explore mode) or Supabase is not
  * configured. Never synced, never imported automatically into an account.
  */
-import { emptyRecall } from "@/features/recall/domain/ops"
+import { addCard, answerOutcome, emptyRecall, recordAnswer, removeCard, setSuspended, validateCardText } from "@/features/recall/domain/ops"
 import { useSyncExternalStore } from "react"
 import { clearDemoLibrary, createDemoLibrary } from "@/features/library/store/demo-library"
 import { localDateInZone, type LocalDate } from "../domain/dates"
@@ -341,6 +341,29 @@ export const demoBackend: Backend = {
     },
     resolveReviewText: () => false,
     reviewSyncState: () => "local",
+    addRecallCard(input) {
+      const text = validateCardText(input.question, input.answer)
+      if (!text.ok) return text
+      const s = getSnapshot()
+      const id = uuidv4()
+      commit({ ...s.state, recall: addCard(s.state.recall, { id, question: text.question, answer: text.answer, sourceType: input.sourceNoteId ? "note" : null, sourceId: input.sourceNoteId, today: s.today, at: new Date().toISOString() }) })
+      return { ok: true, id }
+    },
+    answerRecallCard(cardId, grade) {
+      const s = getSnapshot()
+      const card = s.state.recall.cards[cardId]
+      if (!card) return false
+      commit({ ...s.state, recall: recordAnswer(s.state.recall, answerOutcome(card, { attemptId: uuidv4(), grade, respondedAt: new Date().toISOString(), today: s.today })) })
+      return true
+    },
+    suspendRecallCard(cardId, suspended) {
+      const s = getSnapshot()
+      commit({ ...s.state, recall: setSuspended(s.state.recall, cardId, suspended ? s.today : null) })
+    },
+    deleteRecallCard(cardId) {
+      const s = getSnapshot()
+      commit({ ...s.state, recall: removeCard(s.state.recall, cardId) })
+    },
     resetDemo() {
       const s = getSnapshot()
       commit(createDemoState(s.today, s.state.timezone))

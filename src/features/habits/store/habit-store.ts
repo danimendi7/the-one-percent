@@ -6,7 +6,7 @@
  * engine + Supabase). The backend is chosen by <DataSourceProvider>.
  */
 import { useSyncExternalStore } from "react"
-import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions, ReviewActions } from "./types"
+import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions, RecallActions, ReviewActions } from "./types"
 import type { ReviewKind } from "@/features/reviews/domain/types"
 
 export type { HabitsSnapshot, DataSource, SyncInfo } from "./types"
@@ -67,6 +67,11 @@ export function reviewsEnabled(kind?: ReviewKind): boolean {
   return snap?.reviews !== false && (kind !== "day" || snap?.dailyReviews !== false)
 }
 
+/** False only for an account whose server lacks the Active Recall migration: cards then wait on the device. */
+export function recallEnabled(): boolean {
+  return backend?.getSnapshot()?.recall !== false
+}
+
 /** True when the active data source stores check-ins (an account needs the M3.3 migration). */
 export function checkinsEnabled(): boolean {
   return !!backend?.actions.setCheckin && backend.getSnapshot()?.checkins !== false
@@ -82,7 +87,11 @@ function active(): HabitActions {
   return backend.actions
 }
 
-export const habitActions: HabitActions & GoalActions & FocusActions & MindActions & ReviewActions = {
+export const habitActions: HabitActions & GoalActions & FocusActions & MindActions & ReviewActions & RecallActions = {
+  addRecallCard: (...a) => need(active().addRecallCard)(...a),
+  answerRecallCard: (...a) => need(active().answerRecallCard)(...a),
+  suspendRecallCard: (...a) => need(active().suspendRecallCard)(...a),
+  deleteRecallCard: (...a) => need(active().deleteRecallCard)(...a),
   setEntry: (...a) => active().setEntry(...a),
   addHabit: (...a) => active().addHabit(...a),
   updateHabit: (...a) => active().updateHabit(...a),

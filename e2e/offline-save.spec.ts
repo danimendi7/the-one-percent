@@ -1,3 +1,4 @@
+import { SHELL_PAGES } from "./support/shell"
 import type { Page, Route } from "@playwright/test"
 import { expect, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
@@ -18,8 +19,6 @@ import { db } from "../tests/integration/setup"
  */
 test.use({ mode: "account", serviceWorkers: "allow" })
 test.setTimeout(150_000)
-
-const SHELL_PAGES = 19
 
 /** The shell installed and complete, as on a phone that already opened the app (offline.spec.ts). */
 async function prepared(page: Page) {

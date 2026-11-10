@@ -29,9 +29,9 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | C4 | Deep Work: anotar interrupciones (migración aditiva) | Integración y E2E; sesiones antiguas intactas | Sí | xhigh | A1 | hecha | #11 |
 | C5 | Revisión diaria (migración aditiva) | Integración; E2E del ciclo; revisiones anteriores intactas | Sí | xhigh | A1 | hecha | #12 |
 | C6 | Historial de cambios de un hábito | Integración con RLS; E2E | Sí | high | A1 | hecha | #13 |
-| D1 | Active Recall: dominio de repaso espaciado | Unitarias de Again/Hard/Good/Easy y calendario | Sí | high | A9 | PR lista para fusionar | #14 |
-| D2 | Active Recall: persistencia, RLS y sincronización | Integración de RLS y sincronización | Sí | xhigh | D1 | PR lista para fusionar | #14 |
-| D3 | Active Recall: sesión de repaso desde ideas | E2E, también sin red | Sí | high | D2 | pendiente | — |
+| D1 | Active Recall: dominio de repaso espaciado | Unitarias de Again/Hard/Good/Easy y calendario | Sí | high | A9 | hecha | #14 |
+| D2 | Active Recall: persistencia, RLS y sincronización | Integración de RLS y sincronización | Sí | xhigh | D1 | hecha | #14 |
+| D3 | Active Recall: sesión de repaso desde ideas | E2E, también sin red | Sí | high | D2 | PR lista para fusionar | #15 |
 | D4 | Daily Discovery real: temas propios, valoración persistente, sin citas inventadas | Integración; E2E; lo no verificado se etiqueta | Sí | xhigh | A9 | pendiente | — |
 | D5 | Tema de hoy en Command Center con datos reales | E2E; sin datos muestra estado vacío | Sí | medium | D4 | pendiente | — |
 | D6 | Conexión de repasos con Cerebro y Analytics | Unitarias; E2E | Sí | high | D3, B5 | pendiente | — |
@@ -57,6 +57,8 @@ Estados: pendiente · en curso · hecha · bloqueada · PR lista para fusionar
 _Ninguno por ahora._
 
 **Limitación conocida:** la prueba de humo contra un preview da 10 de 22. Las 12 restantes pasan todos sus pasos y fallan solo en la aserción final de la consola, porque la CSP de la app bloquea la barra de comentarios que Vercel inyecta en los previews (`vercel.live/_next-live/feedback/feedback.js`). En la CI, sobre el build local, pasan las 22. Medido en las PR #3, #4 y #5.
+
+**Limitación conocida:** el «hoy» de la app se calcula con el reloj del dispositivo (`localToday` en `engine.ts`), aunque el motor conoce su desfase con el servidor. Un dispositivo con la hora varias horas mal ve el día anterior o el siguiente cerca de la medianoche. Lo destapó la PR #15; no causa pérdida de datos porque el servidor valida las fechas. Por revisar en F2.
 
 **Pendiente autorizable (Dani):** proveedor de IA generativa; servicio de envío programado de push si tuviera coste; publicación en `main` y producción; prueba real en iPhone; desactivar la barra de comentarios de Vercel en los previews (ajuste del proyecto en la nube), que dejaría en verde esa prueba de humo.
 

@@ -4,6 +4,8 @@ import type { Op } from "./domain/types"
 import { FakeServer, fakeTransport } from "./testing/fake-server"
 import { upgradePersisted } from "./domain/persisted"
 import { nextSchedule, newSchedule } from "@/features/recall/domain/schedule"
+import { answerOutcome, addCard, emptyRecall } from "@/features/recall/domain/ops"
+import { recallAnswerOp, recallCreateOp } from "./domain/recall-wire"
 
 /** D2 · Active Recall over the real sync engine: durable offline answers, two devices, deletes. */
 const TODAY = "2026-11-09"
@@ -136,5 +138,30 @@ describe("recall over the sync engine", () => {
   it("a copy saved before recall existed opens with nothing lost", () => {
     const up = upgradePersisted({ cache: { state: { habits: [] } }, queue: [] } as never, TODAY)
     expect(up?.cache.state.recall).toEqual({ cards: {}, attempts: {} })
+  })
+})
+
+describe("the operations the app sends", () => {
+  it("a new card, with its origin, is applied by the server as it was written", async () => {
+    const w = world()
+    const a = await device(w)
+    const note = "22222222-2222-4222-8222-222222222222"
+    a.engine.submit(recallCreateOp({ id: CARD, question: "¿Por qué?", answer: "Porque", sourceType: "note", sourceId: note, today: TODAY, at: "2026-11-09T10:00:00.000Z" }, id("c")))
+    await settle(a.engine)
+    expect(w.server.recallCard(CARD)).toMatchObject({ question: "¿Por qué?", answer: "Porque", source_type: "note", source_id: note, algorithm_version: 1 })
+  })
+
+  it("an answer stores on the server exactly what the device computed", async () => {
+    const w = world()
+    const a = await device(w)
+    a.engine.submit(create())
+    await settle(a.engine)
+    const local = addCard(emptyRecall(), { id: CARD, question: "q", answer: "r", sourceType: null, sourceId: null, today: TODAY, at: "2026-11-09T10:00:00.000Z" }).cards[CARD]
+    const outcome = answerOutcome(local, { attemptId: "attempt-x", grade: "easy", respondedAt: "2026-11-09T11:00:00.000Z", today: TODAY })
+    a.engine.submit(recallAnswerOp(outcome, id("r")))
+    await settle(a.engine)
+    expect(w.server.recallCard(CARD)).toMatchObject({ state: "review", reps: 1, interval_days: 4, ease_factor: 2.5, due_on: "2026-11-13" })
+    expect(w.server.recallAttempts()).toMatchObject([{ id: "attempt-x", grade: "easy", due_on_before: TODAY, due_on_after: "2026-11-13" }])
+    expect(card(a.engine).schedule).toMatchObject({ state: "review", reps: 1, intervalDays: 4, dueOn: "2026-11-13" })
   })
 })

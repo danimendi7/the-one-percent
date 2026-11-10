@@ -71,6 +71,16 @@ async function entry(u: TestUser, habitId: string, date: string) {
   return (await pull(u)).entries.find((e) => e.habit_id === habitId && e.local_date === date)
 }
 
+/**
+ * Several sessions here start up to 3 h before now and are then read on «today». A session belongs
+ * to the day it started, so just after midnight they fall on yesterday: this user lives in a
+ * timezone where it is at least 4 a.m. (run 42716447865 failed at 00:01 in Madrid).
+ */
+function zoneWellPastMidnight(): string {
+  const hour = (timeZone: string) => Number(new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", hourCycle: "h23" }).format(new Date()))
+  return hour("Europe/Madrid") >= 4 ? "Europe/Madrid" : "America/New_York"
+}
+
 let a: TestUser
 let b: TestUser
 let today: string
@@ -80,6 +90,7 @@ const bin = randomUUID()
 beforeAll(async () => {
   a = await createTestUser("fa")
   b = await createTestUser("fb")
+  await db((c) => c.query("update public.profiles set timezone = $1 where id = $2", [zoneWellPastMidnight(), a.id]))
   today = (await pull(a)).server_today
   const res = await apply(a, [habitCreate(dw, addDays(today, -10), "duration"), habitCreate(bin, addDays(today, -10), "binary")])
   expect(res.map((r) => r.status)).toEqual(["applied", "applied"])
