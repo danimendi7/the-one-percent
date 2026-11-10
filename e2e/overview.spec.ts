@@ -82,6 +82,9 @@ test.describe("Command Center states (demo)", () => {
 
   test("shortcuts lead to real places, with no placeholder content", async ({ page }) => {
     await page.goto("/")
+    // On a phone the shortcuts sit below today's list, which grows when the data arrives (on a slow
+    // runner the link moved 440 px between finding it and clicking it): wait for the data first.
+    await expect(page.getByTestId("overview-day")).toHaveAttribute("data-state", "active")
     const shortcuts = page.getByTestId("overview-shortcuts")
     await expect(shortcuts.getByRole("link")).toHaveText([/Hábitos/, /Repaso/, /Revisiones/, /Analytics/])
     await expect(page.getByText("Top 3 de hoy")).toHaveCount(0)

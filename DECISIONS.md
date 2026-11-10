@@ -4,6 +4,7 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-10 | La prueba de «Atajos» espera a que el Resumen tenga los datos antes de pulsar, y la corrección va en la PR #25 | Subir el tiempo de espera o relanzar la CI | En móvil los atajos están debajo de la lista de hoy, que crece al llegar los datos. Con la CPU ×8, el enlace bajó 440 px entre encontrarlo y pulsarlo, y el clic cayó en otro sitio. El salto en sí (los esqueletos no reservan esa altura) queda para el repaso de rendimiento de F2 |
 | 2026-11-10 | F1 empieza con E9 bloqueada | Esperar a E9 | E9 es el envío programado de push, pendiente de autorización; el Resumen no depende de él (los avisos ya están en la bandeja) |
 | 2026-11-10 | El Resumen distingue cuatro estados con una función pura (`overview/domain/day.ts`): sin hábitos, día de descanso planificado, nada programado hoy y día activo con hechos y pendientes; y aparte, lo que quedó sin hacer ayer | Contar también objetivos semanales; mirar toda la semana | Es el mismo criterio que `todayProgress`: un objetivo semanal no falla un día concreto. «Ayer» es el último día cerrado; la semana ya está en Analytics y la matriz |
 | 2026-11-10 | Lo no hecho ayer se dice con tono neutro («Ayer quedaron 2 hábitos sin hacer»), con enlace a la matriz para registrarlo tarde | Color de aviso o de error | El diseño evita la culpa. Basta con que no se confunda con «pendiente» ni con «descanso» |
