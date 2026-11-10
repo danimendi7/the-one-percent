@@ -1,3 +1,4 @@
+import { normalizeMotivation } from "@/features/notifications/domain/settings"
 import type { ExperimentMap } from "@/features/intelligence/domain/experiments"
 import type { DiscoveryState } from "@/features/discover/domain/types"
 import type { RecallState } from "@/features/recall/domain/types"
@@ -59,6 +60,7 @@ export function upgradePersisted(raw: unknown, today: LocalDate): PersistedSync 
         recall: isObject(s.recall) && isObject(s.recall.cards) && isObject(s.recall.attempts) ? (s.recall as unknown as RecallState) : { cards: {}, attempts: {} },
         discovery: isObject(s.discovery) && isObject(s.discovery.topics) && isObject(s.discovery.feedback) ? (s.discovery as unknown as DiscoveryState) : { topics: {}, feedback: {} },
         experiments: isObject(s.experiments) ? (s.experiments as unknown as ExperimentMap) : {},
+        motivation: normalizeMotivation(s.motivation),
       } as PersistedSync["cache"]["state"],
       habitVersion: isObject(c.habitVersion) ? (c.habitVersion as Record<string, number>) : {},
       rowSeq: isObject(c.rowSeq) ? (c.rowSeq as Record<string, number>) : {},

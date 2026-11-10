@@ -1,3 +1,4 @@
+import type { MotivationSettings } from "@/features/notifications/domain/motivation"
 import type { ExperimentMap } from "@/features/intelligence/domain/experiments"
 import type { DiscoveryState } from "@/features/discover/domain/types"
 import type { RecallState } from "@/features/recall/domain/types"
@@ -93,6 +94,8 @@ export interface HabitsState {
   discovery: DiscoveryState
   /** Improvement experiments (E3), keyed by id. */
   experiments: ExperimentMap
+  /** Notification settings (E6), from the profile; the defaults until the user changes them. */
+  motivation: MotivationSettings
 }
 
 export function entryKey(habitId: string, date: LocalDate): string {

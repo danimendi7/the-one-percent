@@ -111,3 +111,18 @@ test.describe("intelligence · account mode", () => {
     await expect.poll(status, { timeout: 15_000 }).toEqual({ status: "finished", note: "Sin cambios claros", metric_kind: "focus" })
   })
 })
+
+test.describe("notification settings · account mode", () => {
+  test("no demo label, and a change is stored in the profile", async ({ page, consoleErrors }) => {
+    await signIn(page, account)
+    await page.goto("/settings/notifications")
+    await synced(page)
+    await expect(page.getByText(/^Demo/)).toHaveCount(0)
+    await page.getByRole("radio", { name: /^Calma/ }).click()
+    await page.getByTestId("motivation-rule-focus").click()
+    const stored = () => db(async (c) => (await c.query("select settings_json -> 'motivation' as m from public.profiles where id = $1", [account.id])).rows[0]?.m ?? null)
+    await expect.poll(async () => (await stored())?.tone, { timeout: 15_000 }).toBe("calm")
+    await expect.poll(async () => (await stored())?.rules?.focus, { timeout: 15_000 }).toBe(true)
+    expect(consoleErrors).toEqual([])
+  })
+})

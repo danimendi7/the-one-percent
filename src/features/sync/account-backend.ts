@@ -1,5 +1,6 @@
 "use client"
 
+import { normalizeMotivation } from "@/features/notifications/domain/settings"
 import { MAX_ACTIVE, validateExperiment } from "@/features/intelligence/domain/experiments"
 import { metricToWire } from "./domain/experiment-wire"
 import { validateOwnTopic } from "@/features/discover/domain/ops"
@@ -83,6 +84,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         recall: e.recall,
         discovery: e.discovery,
         experiments: e.experiments,
+        motivation: e.motivation,
       }
     }
     return snapshot
@@ -265,6 +267,9 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         submit({ type: "habit.restore", op_id: uuidv4(), habit_id: id })
       },
       loadHabitHistory: (id) => fetchHabitHistory(sb, id),
+      setMotivationSettings(settings) {
+        submit({ type: "profile.motivation", op_id: uuidv4(), settings: normalizeMotivation(settings) })
+      },
       startExperiment(input) {
         const v = validateExperiment(input)
         if (!v.ok) return v

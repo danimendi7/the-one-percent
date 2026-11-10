@@ -1,3 +1,4 @@
+import type { MotivationSettings } from "@/features/notifications/domain/motivation"
 import type { Dismissal, FeedbackFields } from "@/features/discover/domain/types"
 import type { CardState, Grade } from "@/features/recall/domain/schedule"
 import type { LocalDate } from "@/features/habits/domain/dates"
@@ -138,6 +139,8 @@ export type Op =
       base_note_seq: number | null
     }
   | { type: "profile.checkin_fields"; op_id: string; am: CheckinField[]; pm: CheckinField[] }
+  /** E6: the whole notification settings, a desired state. */
+  | { type: "profile.motivation"; op_id: string; settings: MotivationSettings }
   // ── Life Review (M3.4): addressed by kind + period start (one review per period) ──
   | {
       type: "review.save"
@@ -515,7 +518,7 @@ export interface PullPayload {
   server_time?: string
   full: boolean
   /** checkin_fields: M3.3, absent from servers without the check-ins migration. */
-  profile: { timezone: string; locale: string; server_seq: number; checkin_fields?: { am: CheckinField[]; pm: CheckinField[] } | null } | null
+  profile: { timezone: string; locale: string; server_seq: number; motivation?: unknown; checkin_fields?: { am: CheckinField[]; pm: CheckinField[] } | null } | null
   dimensions: { slug: DimensionId; name: string }[]
   habits: WireHabit[]
   entries: WireEntry[]
@@ -552,7 +555,7 @@ export interface ServerCache {
   cursor: number
   serverToday: LocalDate
   /** Server capabilities seen in the last pull (a deploy may precede its migration). */
-  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; dailyReviews?: boolean; recall?: boolean; discovery?: boolean; experiments?: boolean; library?: boolean }
+  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; dailyReviews?: boolean; recall?: boolean; discovery?: boolean; experiments?: boolean; motivation?: boolean; library?: boolean }
 }
 
 export type SyncStatus = "synced" | "syncing" | "pending" | "offline" | "error"

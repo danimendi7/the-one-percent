@@ -166,4 +166,6 @@ export const habitsStateSchema = z.object({
   discovery: z.object({ topics: z.record(z.string(), z.any()), feedback: z.record(z.string(), z.any()) }).optional().catch(undefined),
   // Absent in demo data saved before E3.
   experiments: z.record(z.string(), z.any()).optional().catch(undefined),
+  // Absent in demo data saved before E6; normalized on read.
+  motivation: z.any().optional(),
 })

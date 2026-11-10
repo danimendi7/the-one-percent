@@ -5,6 +5,7 @@
  * data. Used when there is no account (explore mode) or Supabase is not
  * configured. Never synced, never imported automatically into an account.
  */
+import { normalizeMotivation } from "@/features/notifications/domain/settings"
 import { addExperiment, closeExperiment, MAX_ACTIVE, removeExperiment, validateExperiment } from "@/features/intelligence/domain/experiments"
 import { addOwnTopic, applyFeedback, emptyDiscovery, removeOwnTopic, validateOwnTopic } from "@/features/discover/domain/ops"
 import { addCard, answerOutcome, emptyRecall, recordAnswer, removeCard, setSuspended, validateCardText } from "@/features/recall/domain/ops"
@@ -68,7 +69,7 @@ export function readDemoState(): HabitsState | null {
     if (!raw) return null
     const parsed = habitsStateSchema.safeParse(JSON.parse(raw))
     if (!parsed.success) return null
-    const data = { ...parsed.data, recall: parsed.data.recall ?? emptyRecall(), discovery: parsed.data.discovery ?? emptyDiscovery(), experiments: parsed.data.experiments ?? {} } as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews"> &
+    const data = { ...parsed.data, recall: parsed.data.recall ?? emptyRecall(), discovery: parsed.data.discovery ?? emptyDiscovery(), experiments: parsed.data.experiments ?? {}, motivation: normalizeMotivation(parsed.data.motivation) } as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews"> &
       Partial<Pick<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews">>
     // Before M3.4 there were no reviews.
     const reviews = data.reviews ?? {}
@@ -343,6 +344,10 @@ export const demoBackend: Backend = {
     },
     resolveReviewText: () => false,
     reviewSyncState: () => "local",
+    setMotivationSettings(settings) {
+      const s = getSnapshot()
+      commit({ ...s.state, motivation: normalizeMotivation(settings) })
+    },
     startExperiment(input) {
       const v = validateExperiment(input)
       if (!v.ok) return v

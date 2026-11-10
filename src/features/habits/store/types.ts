@@ -1,3 +1,4 @@
+import type { MotivationSettings } from "@/features/notifications/domain/motivation"
 import type { ExperimentDays, ExperimentMetric, ExperimentValidation } from "@/features/intelligence/domain/experiments"
 import type { OwnTopicInput, OwnTopicResult } from "@/features/discover/domain/ops"
 import type { FeedbackFields } from "@/features/discover/domain/types"
@@ -55,6 +56,8 @@ export interface HabitsSnapshot {
   discovery?: boolean
   /** False: the server lacks the experiments migration (E3). They stay on the device. */
   experiments?: boolean
+  /** False: the server lacks the notification settings migration (E6). They stay on the device. */
+  motivation?: boolean
   account?: { userId: string; email: string | null }
 }
 
@@ -151,7 +154,12 @@ export interface ExperimentActions {
   deleteExperiment(id: string): void
 }
 
-export interface HabitActions extends Partial<ExperimentActions>, Partial<DiscoveryActions>, Partial<RecallActions>, Partial<GoalActions>, Partial<FocusActions>, Partial<MindActions>, Partial<ReviewActions> {
+/** Notification settings (E6): the whole settings, saved at once. */
+export interface MotivationActions {
+  setMotivationSettings(settings: MotivationSettings): void
+}
+
+export interface HabitActions extends Partial<MotivationActions>, Partial<ExperimentActions>, Partial<DiscoveryActions>, Partial<RecallActions>, Partial<GoalActions>, Partial<FocusActions>, Partial<MindActions>, Partial<ReviewActions> {
   setEntry(habitId: string, date: LocalDate, value: boolean | number | null): SetEntryResult
   addHabit(input: HabitInput): string
   updateHabit(id: string, input: HabitInput): void
