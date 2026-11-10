@@ -44,8 +44,8 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | E7 | Bandeja dentro de la app | E2E; respeta tope y silencio | Sí | high | E6 | hecha | #23 |
 | E8 | Push: suscripción por dispositivo y permiso tras acción clara | Test de navegador; alta y baja independientes por dispositivo | Sí | xhigh | E7 | hecha | #24 |
 | E9 | Envío programado de push en servidor (reglas del Motivation Engine reevaluadas al enviar, registro de entregas sin duplicados) | Integración: un hábito hecho no recibe aviso; un reintento no duplica | Sí | xhigh | E8 | bloqueada | — |
-| F1 | Integración final del Command Center y sus estados | E2E de los cuatro estados del Plan §5.1 | Sí | high | B–E (E9 bloqueada, no la necesita) | PR lista para fusionar | #25 |
-| F2 | Accesibilidad y rendimiento de vistas clave (incluye el salto de diseño del Resumen al cargar en móvil, visto en la PR #25) | `a11y.spec.ts` ampliado; mediciones documentadas | Sí | high | F1 | pendiente | — |
+| F1 | Integración final del Command Center y sus estados | E2E de los cuatro estados del Plan §5.1 | Sí | high | B–E (E9 bloqueada, no la necesita) | hecha | #25 |
+| F2 | Accesibilidad y rendimiento de vistas clave (incluye el salto de diseño del Resumen al cargar en móvil, visto en la PR #25) | `a11y.spec.ts` ampliado; mediciones documentadas | Sí | high | F1 | en curso | — |
 | F3 | Simulacro de respaldo y restauración | `restore:drill` correcto, con resultado documentado | Sí | high | F1 | pendiente | — |
 | F4 | Guía de uso y validación móvil | `docs/guia-uso.md`; capturas móvil y escritorio | Sí | medium | F2 | pendiente | — |
 | F5 | `docs/publicacion.md`: publicar, revertir, separar la base | Procedimiento completo revisado contra el repo | Sí | medium | F2 | pendiente | — |
@@ -59,7 +59,7 @@ Estados: pendiente · en curso · hecha · bloqueada · PR lista para fusionar
 
 **Limitación conocida:** la prueba de humo contra un preview da 10 de 22. Las 12 restantes pasan todos sus pasos y fallan solo en la aserción final de la consola, porque la CSP de la app bloquea la barra de comentarios que Vercel inyecta en los previews (`vercel.live/_next-live/feedback/feedback.js`). En la CI, sobre el build local, pasan las 22. Medido en las PR #3, #4 y #5.
 
-**Limitación conocida:** el «hoy» de la app se calcula con el reloj del dispositivo (`localToday` en `engine.ts`), aunque el motor conoce su desfase con el servidor. Un dispositivo con la hora varias horas mal ve el día anterior o el siguiente cerca de la medianoche. Lo destapó la PR #15; no causa pérdida de datos porque el servidor valida las fechas. Por revisar en F2.
+**Resuelto en F2:** el «hoy» de la app usaba solo el reloj del dispositivo (destapado en la PR #15). Ahora, tras la primera respuesta del servidor, lo corrige con el desfase medido (`engine-today.test.ts`). Antes de esa respuesta sigue valiendo el reloj del dispositivo.
 
 **Pendiente autorizable (Dani):** proveedor de IA generativa; servicio de envío programado de push si tuviera coste; publicación en `main` y producción; prueba real en iPhone; desactivar la barra de comentarios de Vercel en los previews (ajuste del proyecto en la nube), que dejaría en verde esa prueba de humo.
 

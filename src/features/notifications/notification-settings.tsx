@@ -117,7 +117,8 @@ function Settings({ snap }: { snap: HabitsSnapshot }) {
           </div>
           <fieldset>
             <legend className="mb-2 text-sm">Días sin avisos</legend>
-            <div className="grid grid-cols-7 gap-1.5">
+            {/* -mx-3 and a 2 px gap: at 375 px each day gets 44 px to tap instead of 38. */}
+            <div className="-mx-3 grid grid-cols-7 gap-0.5 sm:mx-0 sm:gap-1.5">
               {WEEKDAYS.map((d) => {
                 const on = s.daysOff.includes(d)
                 return (

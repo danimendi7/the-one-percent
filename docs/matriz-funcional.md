@@ -59,8 +59,8 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Transversal | Autenticación, lista de acceso y RLS | IV | `account.spec.ts`, `metadata-auth.int.test.ts`, M2.5 | Repaso final (A7) | Alta |
 | Transversal | Respaldo y restauración | SP | `backup*.mjs`, `restore-drill.mjs`, `backup-strategy.md`; simulacro sin repetir | Simulacro (F3) | Media |
 | Transversal | Exportación | IV | `settings-view.tsx`, E2E, CI | — | — |
-| Transversal | Accesibilidad | SP | `e2e/a11y.spec.ts`, CI; VoiceOver sin probar | Revisión (F2) | Media |
-| Transversal | Rendimiento | SP | `bench-*`, informes M4 | Medición de vistas clave (F2) | Baja |
+| Transversal | Accesibilidad | IV | `e2e/a11y.spec.ts` (axe en 18 pantallas y estados, zonas táctiles de 44 px en móvil en 16), CI; `docs/rendimiento.md` | VoiceOver en iPhone real (Dani, `docs/guia-dispositivo.md`) | Media |
+| Transversal | Rendimiento | IV | `npm run measure:views`, `docs/rendimiento.md`, `reports/f2-views.json`: < 3 s en 4G con CPU ×4, toque de 78 ms, CLS < 0,1; `bench-*` de M4 | Medición en teléfono real | Baja |
 | Transversal | Uso en dispositivo real (móvil y ordenador) | NV | Depende de Dani | Guía (A8, F4) | Media |
 
 Los bloqueadores de Instagram Reels y YouTube Shorts están **excluidos** por decisión expresa.
