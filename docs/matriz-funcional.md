@@ -1,10 +1,10 @@
 # Matriz funcional
 
-Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion` (PR #2). Se actualiza al cerrar cada tarea.
+Estado medido el 2026-11-10 sobre `faee9b2` (`skynet/integracion`, versión candidata). Se actualiza al cerrar cada tarea.
 
 **Estados:** IV = implementada y validada · P = implementada parcialmente · SP = implementada sin pruebas suficientes · ND = planificada pero no desarrollada · NV = no verificable con la información disponible.
 
-**Validación:** «CI» es la suite E2E e integración en verde sobre `d5d4b36` (run 42638530217, PR #6; una pasada con 0 flaky). Ninguna fila incluye prueba en dispositivo real.
+**Validación:** «CI» es la integración continua en verde de la última PR fusionada (#28, run 42812714735). Una pasada, con 0 fallidas y 0 inestables: 1144 unitarias, 231 de integración, 6 del motor en Chromium real, 595 E2E con 27 omisiones previstas y 22 de humo. Ninguna fila incluye prueba en un dispositivo real.
 
 | Módulo | Funcionalidad | Estado actual | Evidencia | Trabajo pendiente | Prioridad |
 | --- | --- | --- | --- | --- | --- |
@@ -12,17 +12,16 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Command Center | Objetivos, Deep Work, check-in, revisión, biblioteca, atajos | IV | `overview-view.tsx`, `overview/domain/day.ts`, `overview.spec.ts`, `overview-account.spec.ts` | — | — |
 | Command Center | Distingue sin datos, descanso, incumplimiento y error de sincronización (Plan §5.1) | IV | `day.test.ts`, `overview.spec.ts` (activo, ayer, descanso), `overview-account.spec.ts` (sin datos, error) | — | — |
 | Command Center | Tarjeta «Tema de hoy» | IV | `overview-view.tsx` con `todayTopic`, `discover.spec.ts`, CI | — | — |
-| Command Center | Distinguir sin datos, descanso, incumplimiento y error de sincronización | SP | `cell-state.ts`, `sync-status.tsx` | Prueba específica (F1) | Media |
 | Habit Engine | Crear, editar, archivar, frecuencias, calendario | IV | `features/habits`, `e2e/habits.spec.ts`, CI | — | — |
 | Habit Engine | Registro rápido y descansos sin contar como incumplimiento | IV | `cell-state.ts`, `metrics.ts`, tests, CI | — | — |
 | Habit Engine | Rachas y cumplimiento a 30 días | IV | `habit-metrics.tsx`, `metrics.ts`, CI | — | — |
 | Habit Engine | Historial de auditoría de cambios | IV | `audit_logs`, `habits/domain/history.ts`, `habit-history.int.test.ts`, `account.spec.ts`, CI | — | — |
 | Habit Engine | Sincronización y offline | IV | `features/sync` (14 tests), `sync.int.test.ts`, `offline.spec.ts`, CI | — | — |
-| Life Analytics | Descriptivo: series, heatmap, comparativas | SP | `analytics-view.tsx`, `catalog.ts`, `domain/comparisons.ts`, `e2e/analytics.spec.ts`; comparativas pendientes de la CI de su PR | CI (B3) | Media |
-| Life Analytics | Diagnóstico: cruces multivariables | SP | `domain/relations.ts`, `relations-panel.tsx`, `e2e/analytics.spec.ts`; pendientes de la CI de su PR | CI (B1, B2) | Alta |
-| Life Analytics | Predictivo | SP | `goal_projection`, `domain/projections.ts`, `forecast-panel.tsx`; pendiente de la CI de su PR | CI (B4) | Baja |
-| Life Analytics | Prescriptivo | ND | Sin código | Experimentos por reglas (E3) | Media |
-| Life Analytics | Dimensión de aprendizaje | SP | `domain/learning.ts`, `learning-panel.tsx`; pendiente de la CI de su PR | CI (B5) | Media |
+| Life Analytics | Descriptivo: series, heatmap, comparativas | IV | `analytics-view.tsx`, `catalog.ts`, `domain/comparisons.ts`, `e2e/analytics.spec.ts`, CI (PR #7) | — | — |
+| Life Analytics | Diagnóstico: cruces multivariables | IV | `domain/relations.ts` (Spearman, mínimo de 14 días, sin lenguaje causal), `relations-panel.tsx`, `e2e/analytics.spec.ts`, CI (PR #7) | — | — |
+| Life Analytics | Predictivo | IV | `goal_projection`, `domain/projections.ts` (6 semanas cerradas como mínimo), `forecast-panel.tsx`, CI (PR #7) | — | — |
+| Life Analytics | Prescriptivo | IV (alcance por decisión) | Experimentos propuestos desde hallazgos con una medida clara (`intelligence/domain/experiments.ts`, E3); el cambio lo elige la persona | Recomendaciones generadas: pendiente autorizable (IA) | — |
+| Life Analytics | Dimensión de aprendizaje | IV | `domain/learning.ts`, `learning-panel.tsx`, repasos en Analytics (D6), CI (PR #7 y #17) | — | — |
 | Goals & Systems | Objetivos, métricas, hitos, fechas, hábitos vinculados | IV | `features/goals`, `goals.int.test.ts`, E2E, CI | — | — |
 | Goals & Systems | Progreso real frente a esperado | IV | `domain/progress.ts` y su test, CI | — | — |
 | Goals & Systems | Estados archivado y en revisión | IV | `goalStatusView`, `supabase/migrations/20261109090000_goal_review.sql`, `e2e/goals.spec.ts`, `tests/integration/goals.int.test.ts`, CI | — | — |
@@ -30,8 +29,8 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Goals & Systems | Vínculo con libros | IV | `goal-books.tsx`, `goals/domain/books.ts`, `supabase/migrations/20261109110000_goal_books.sql`, `e2e/goals.spec.ts`, `tests/integration/goals.int.test.ts`, CI | Objetivo «leer N libros» con resultado derivado (aplazado, P15) | Baja |
 | Deep Work | Temporizador, proyectos, duración prevista y real, calidad | IV | `focus_sessions`, `rating`, `focus.int.test.ts`, E2E, CI | — | — |
 | Deep Work | Estadísticas por día, semana y proyecto | IV | `domain/metrics.ts`, `focus-analytics.tsx`, CI | — | — |
-| Deep Work | Interrupciones | IV | `InterruptionsInput`, `supabase/migrations/20261109120000_focus_interruptions.sql`, `e2e/focus.spec.ts`, `tests/integration/focus.int.test.ts`, CI | Usarlas en métricas e insights (E1) | Media |
-| Deep Work | Cruces con sueño, energía y estrés | P | Solo `mind_energy_focus` | Con B2 | Media |
+| Deep Work | Interrupciones | IV | `InterruptionsInput`, `supabase/migrations/20261109120000_focus_interruptions.sql`, `e2e/focus.spec.ts`, `tests/integration/focus.int.test.ts`, regla `interruptions` de Inteligencia (E1), CI | — | — |
+| Deep Work | Cruces con sueño, energía y estrés | IV | Minutos de enfoque frente a sueño, energía, ánimo y estrés en Relaciones (`relations.ts`, B1/B2) y en los hallazgos, CI | — | — |
 | Knowledge OS | Libros y podcasts: altas, estados, notas, sincronización | IV | `features/library`, `library*.int.test.ts`, E2E, CI | — | — |
 | Knowledge OS | Altas asistidas, metadatos, portadas, duplicados (M4g.1–4) | IV | `/api/metadata/*`, `/api/covers`, `add-book`, `add-podcast`, `covers`, CI | — | — |
 | Knowledge OS | Persistencia antes de navegar (M4-H1, D106) | IV | `offline-save.spec.ts`, CI | — | — |
@@ -46,7 +45,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Knowledge OS | Active Recall | IV | `features/recall`, `/knowledge/brain/repaso`, `20261109150000_recall.sql`, `recall.int.test.ts`, `recall*.spec.ts`, `offline.spec.ts`, Analytics y Cerebro (`stats.ts`), CI | — | — |
 | Knowledge OS | Daily Discovery / Tema de hoy | IV | `features/discover`, `20261110090000_discovery.sql`, `discovery.int.test.ts`, `discover*.spec.ts`, CI | Temas generados por IA: pendiente autorizable | — |
 | Mind & Energy | Check-in, historial, tendencias, filtros | IV | `features/mind`, `checkins.int.test.ts`, E2E, CI | — | — |
-| Life Review | Semanal y mensual, decisiones, cierre | IV | `features/reviews`, `reviews*.int.test.ts`, E2E, CI | Corrección del e2e flaky (A2) | Alta |
+| Life Review | Semanal y mensual, decisiones, cierre | IV | `features/reviews`, `reviews*.int.test.ts`, E2E, CI | — | — |
 | Life Review | Revisión diaria | IV | `kind = 'day'` en `features/reviews`, `20261109130000_daily_reviews.sql`, `reviews.int.test.ts`, `reviews*.spec.ts`, CI | — | — |
 | AI Intelligence | Insights basados en reglas | IV | `features/intelligence` (6 reglas con mínimos), `/intelligence`, `intelligence.spec.ts`, experimentos (`experiments.ts`, `20261110100000_experiments.sql`), CI | — | — |
 | AI Intelligence | Arquitectura de proveedor opcional | IV | `domain/ai-provider.ts` (sin proveedor no hay cliente ni llamadas; solo agregados), estado en `/intelligence`, CI | — | — |
@@ -56,8 +55,8 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Notificaciones | Push: suscripción por dispositivo y notificación de prueba | SP | `notifications/push`, `20261110120000_push_subscriptions.sql`, `/api/push/test`, `sw.js` (push y clic), `push.int.test.ts`, `push-account.spec.ts` con un `PushManager` sustituto | Prueba en dispositivos reales cuando haya claves VAPID en Vercel (Dani) | Media |
 | Notificaciones | Push: envío programado de los avisos | ND | — | E9, pendiente autorizable: claves VAPID, planificador y clave de servicio | Media |
 | Transversal | PWA y arranque sin red | SP | `manifest.ts`, `public/sw.js`, `upgrade.spec.ts`, CI; iPhone sin probar | Prueba real con `docs/guia-dispositivo.md` (Dani) | Media |
-| Transversal | Autenticación, lista de acceso y RLS | IV | `account.spec.ts`, `metadata-auth.int.test.ts`, M2.5 | Repaso final (A7) | Alta |
-| Transversal | Respaldo y restauración | SP | `backup*.mjs`, `restore-drill.mjs`, `backup-strategy.md`; simulacro sin repetir | Simulacro (F3) | Media |
+| Transversal | Autenticación, lista de acceso y RLS | IV | `account.spec.ts`, `metadata-auth.int.test.ts`, `push.int.test.ts`, repaso de A7, M2.5 | — | — |
+| Transversal | Respaldo y restauración | SP | `backup*.mjs`, `restore-drill.mjs`, `backup-strategy.md`; simulacro sin repetir | F3 bloqueada: requiere Docker y la frase de las copias (Dani, `docs/publicacion.md` §1) | Media |
 | Transversal | Exportación | IV | JSON y CSV (hábitos, check-ins, enfoque) en Ajustes: `settings/domain/csv.ts`, `csv.test.ts`, `export.spec.ts`, CI | — | — |
 | Transversal | Accesibilidad | IV | `e2e/a11y.spec.ts` (axe en 18 pantallas y estados, zonas táctiles de 44 px en móvil en 16), CI; `docs/rendimiento.md` | VoiceOver en iPhone real (Dani, `docs/guia-dispositivo.md`) | Media |
 | Transversal | Rendimiento | IV | `npm run measure:views`, `docs/rendimiento.md`, `reports/f2-views.json`: < 3 s en 4G con CPU ×4, toque de 78 ms, CLS < 0,1; `bench-*` de M4 | Medición en teléfono real | Baja |

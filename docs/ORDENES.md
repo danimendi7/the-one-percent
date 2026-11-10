@@ -2,7 +2,9 @@
 
 Skynet atiende primero las órdenes [pendiente]. Marcas: [pendiente] · [planificada] · [hecha] · [bloqueada]
 
-## 2026-11-09 11:33 [planificada]
+## 2026-11-09 11:33 [hecha]
+
+Atendida el 2026-11-10: versión candidata en `skynet/integracion` (ver `DONE.md`). Lo que necesita tu autorización o tu entorno queda como pendiente autorizable: E9 (envío programado de push), F3 (simulacro de restauración), IA generativa, prueba en iPhone real y publicación en `main`.
 
 > # MISIÓN MAESTRA: FINALIZACIÓN INTEGRAL DE THE ONE PERCENT
 > 
