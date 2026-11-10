@@ -67,6 +67,13 @@ describe("silence, cap and spacing", () => {
     expect(rules(input({ settings: { ...only("late"), minGapMinutes: 60 }, sent: [sent("due", "18:00", "due:x")] }))).toEqual(["late"])
   })
 
+  it("with a minimum gap, at most one at a time: two at once would break it", () => {
+    const settings = { ...DEFAULT_SETTINGS, dailyCap: 4, minGapMinutes: 30, rules: { ...DEFAULT_SETTINGS.rules, recall: false } }
+    const sunday = "2026-11-15"
+    expect(rules(input({ today: sunday, settings, time: "19:30" }))).toEqual(["late"])
+    expect(rules(input({ today: sunday, settings: { ...settings, minGapMinutes: 0 }, time: "19:30" }))).toEqual(["late", "review"])
+  })
+
   it("never sends the same reminder twice the same day", () => {
     expect(rules(input({ settings: { ...only("late"), minGapMinutes: 0 }, sent: [sent("late", "19:00")] }))).toEqual([])
   })

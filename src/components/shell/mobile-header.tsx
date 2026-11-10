@@ -9,6 +9,7 @@ import { useHabits } from "@/features/habits/store/habit-store"
 import { FocusPill } from "@/features/focus/components/focus-pill"
 import { BrandMark } from "./brand-mark"
 import { SyncStatus } from "./sync-status"
+import { InboxButton } from "@/features/notifications/inbox/inbox-button"
 
 /** Mobile top bar: brand, persistent shortcut to today's checklist, data status. */
 export function MobileHeader() {
@@ -41,6 +42,7 @@ export function MobileHeader() {
             </span>
             <span className="sr-only">{progress ? `: ${progress.done} de ${progress.total} hábitos hechos` : ""}</span>
           </Link>
+          <InboxButton />
           <SyncStatus compact />
         </div>
       </div>

@@ -218,8 +218,9 @@ export function evaluate(input: EvalInput): Evaluation {
     skipped.push({ rule: n.rule, reason: "Ya se envió." })
     return false
   })
-  const room = s.dailyCap - sentToday.length
-  for (const n of fresh.slice(room)) skipped.push({ rule: n.rule, reason: "No cabe en el tope diario." })
+  // With a minimum gap, two reminders at once would break it: the most important goes now, the rest later.
+  const room = Math.min(s.dailyCap - sentToday.length, s.minGapMinutes > 0 ? 1 : Infinity)
+  for (const n of fresh.slice(room)) skipped.push({ rule: n.rule, reason: room === 1 && s.minGapMinutes > 0 ? "Espera a la separación mínima." : "No cabe en el tope diario." })
   return { nudges: fresh.slice(0, room), skipped }
 }
 
