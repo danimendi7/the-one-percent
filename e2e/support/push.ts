@@ -6,8 +6,8 @@ import type { BrowserContext } from "@playwright/test"
  * browser's: one subscription per browser profile, kept across reloads, with the server key the app
  * asked for. Each browser context is one device. The app, the server and the database are real.
  *
- * It also counts the permission prompts the app opens (`__permissionRequests`), and grants the
- * permission as a person tapping «Permitir» would.
+ * It also stands in for the permission prompt: it counts the prompts the app opens
+ * (`__permissionRequests`) and answers as a person tapping «Permitir» would.
  */
 export async function fakePushDevice(context: BrowserContext): Promise<void> {
   await context.grantPermissions(["notifications"])
@@ -40,12 +40,17 @@ export async function fakePushDevice(context: BrowserContext): Promise<void> {
       localStorage.setItem(KEY, JSON.stringify(raw))
       return make(raw) as unknown as PushSubscription
     }
+    // The permission as a browser reports it: undecided until the app asks, then granted (the person
+    // taps «Permitir»), and kept across reloads. Needed because the headless Chromium of the test run
+    // always reports `Notification.permission` as "denied", even once the permission is granted.
+    const PERMISSION = "e2e:push-permission"
+    Object.defineProperty(Notification, "permission", { configurable: true, get: () => localStorage.getItem(PERMISSION) ?? "default" })
     const w = window as unknown as { __permissionRequests: number }
     w.__permissionRequests = 0
-    const request = Notification.requestPermission.bind(Notification)
     Notification.requestPermission = (async () => {
       w.__permissionRequests++
-      return request()
+      localStorage.setItem(PERMISSION, "granted")
+      return "granted"
     }) as typeof Notification.requestPermission
   })
 }
