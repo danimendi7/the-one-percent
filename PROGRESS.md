@@ -45,15 +45,18 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | E8 | Push: suscripción por dispositivo y permiso tras acción clara | Test de navegador; alta y baja independientes por dispositivo | Sí | xhigh | E7 | hecha | #24 |
 | E9 | Envío programado de push en servidor (reglas del Motivation Engine reevaluadas al enviar, registro de entregas sin duplicados) | Integración: un hábito hecho no recibe aviso; un reintento no duplica | Sí | xhigh | E8 | bloqueada | — |
 | F1 | Integración final del Command Center y sus estados | E2E de los cuatro estados del Plan §5.1 | Sí | high | B–E (E9 bloqueada, no la necesita) | hecha | #25 |
-| F2 | Accesibilidad y rendimiento de vistas clave (incluye el salto de diseño del Resumen al cargar en móvil, visto en la PR #25) | `a11y.spec.ts` ampliado; mediciones documentadas | Sí | high | F1 | PR lista para fusionar | #26 |
-| F3 | Simulacro de respaldo y restauración | `restore:drill` correcto, con resultado documentado | Sí | high | F1 | pendiente | — |
-| F4 | Guía de uso y validación móvil | `docs/guia-uso.md`; capturas móvil y escritorio | Sí | medium | F2 | pendiente | — |
+| F2 | Accesibilidad y rendimiento de vistas clave (incluye el salto de diseño del Resumen al cargar en móvil, visto en la PR #25) | `a11y.spec.ts` ampliado; mediciones documentadas | Sí | high | F1 | hecha | #26 |
+| F3 | Simulacro de respaldo y restauración | `restore:drill` correcto, con resultado documentado | Sí | high | F1 | bloqueada | — |
+| F4 | Guía de uso y validación móvil | `docs/guia-uso.md`; capturas móvil y escritorio | Sí | medium | F2 | en curso | — |
 | F5 | `docs/publicacion.md`: publicar, revertir, separar la base | Procedimiento completo revisado contra el repo | Sí | medium | F2 | pendiente | — |
-| F6 | Documentación final y versión candidata (DONE.md) | Criterios §12 de la orden con evidencia | Sí | high | F1–F5 | pendiente | — |
+| F6 | Documentación final y versión candidata (DONE.md) | Criterios §12 de la orden con evidencia | Sí | high | F1, F2, F4, F5, F7 (F3 bloqueada) | pendiente | — |
+| F7 | Exportación CSV de los registros (PRD §7: «Export JSON and CSV») | Unitarias del CSV (escapes, zona, columnas); E2E: la descarga contiene los registros | Sí | medium | — | pendiente | — |
 
 Estados: pendiente · en curso · hecha · bloqueada · PR lista para fusionar
 
 ## Bloqueos
+
+- **F3 · Simulacro de respaldo y restauración (requiere el entorno de Dani).** `npm run restore:drill` arranca una Supabase aparte en Docker, carga la copia, compara recuentos y sumas por tabla y destruye la pila. `npm run backup` vuelca con `pg_dump` dentro del contenedor. Esta máquina no tiene Docker (`docker: command not found`) ni `pg_dump`. Las copias se cifran con `BACKUP_PASSPHRASE`, que guarda Dani, y la copia de la nube necesita `SUPABASE_DB_URL`, que no está en `.env.local`. Enfoques descartados: (1) ejecutarlo aquí, sin Docker; (2) la copia de la nube, que también usa Docker y una credencial fuera de `.env.local`; (3) GitHub Actions, que sí tiene Docker, pero exigiría tocar `.github/` o levantar una segunda Supabase en cada PR. Procedimiento para Dani en `docs/backup-strategy.md`: `npm run backup -- --source cloud` y después `npm run restore:drill -- <copia>`.
 
 - **E9 · Envío programado de push (pendiente autorizable).** Necesita tres cosas que Skynet no puede hacer sin permiso: (1) claves VAPID en las variables de Vercel (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`), que son configuración en la nube; (2) un planificador que despierte al servidor cada pocos minutos: el Cron de Vercel en el plan Hobby solo se ejecuta una vez al día y solo en producción, el de cada pocos minutos es de pago (Pro), y `pg_cron` en Supabase correría sobre la misma base que usa la app desplegada; (3) una clave de servicio de Supabase en el servidor para leer los datos de cada persona al evaluar, que hoy la app no usa en ningún sitio. Con E8 ya se puede activar el push por dispositivo y enviar la notificación de prueba en cuanto existan las claves; los avisos siguen llegando a la bandeja. Diseño previsto en `DECISIONS.md` (2026-11-10).
 
