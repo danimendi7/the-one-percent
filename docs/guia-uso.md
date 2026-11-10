@@ -80,4 +80,4 @@ Al cerrar una revisión, sus cifras quedan congeladas tal como eran ese día. La
 
 ## Ajustes (`/settings`)
 
-Zona horaria, «Exportar mis datos (JSON)», diagnóstico de sincronización y «Cerrar sesión». Al cerrar sesión puedes elegir «Borrar los datos de este dispositivo», recomendado en dispositivos compartidos. Si hay cambios sin enviar, la app te avisa antes de borrarlos.
+Zona horaria, exportación, diagnóstico de sincronización y «Cerrar sesión». «Exportar mis datos (JSON)» descarga todo. «CSV: hábitos», «CSV: check-ins» y «CSV: enfoque» descargan cada tipo de registro en un fichero para hojas de cálculo: separado por comas, con las fechas en tu zona y los instantes en UTC. Al cerrar sesión puedes elegir «Borrar los datos de este dispositivo», recomendado en dispositivos compartidos. Si hay cambios sin enviar, la app te avisa antes de borrarlos.
