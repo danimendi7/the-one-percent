@@ -4,6 +4,10 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-10 | Seis reglas de insights con ventanas fijas (4 y 8 semanas, última semana cerrada) y mínimos propios; las relaciones reutilizan Life Analytics | Un motor configurable o puntuaciones combinadas | Cada regla es una frase comprobable con su n; sin mínimo alcanzado no dice nada. Los umbrales son constantes fáciles de ajustar |
+| 2026-11-10 | Todo insight lleva la limitación «describe lo ocurrido; no indica la causa», y un test prohíbe vocabulario causal | Confiar en la redacción | El Plan prohíbe presentar correlaciones como causalidad; el test lo impide también en reglas futuras |
+| 2026-11-10 | Inteligencia se etiqueta «Reglas · sin IA» y la IA generativa figura como apagada y pendiente de autorización | Mantener «Llega en la fase M6» | Lo que muestra ya no es una promesa: son reglas. La IA de pago está fuera de la restricción económica |
+| 2026-11-10 | La PR #18 agrupa E1 y E2 | Una PR por tarea | E2 es la pantalla del motor de E1; cada pasada de CI cuesta unos 30 min |
 | 2026-11-10 | «Recordadas» cuenta toda respuesta salvo «Otra vez», y con ninguna respuesta no se muestra porcentaje | Contar solo Bien y Fácil; mostrar 0 % | «Difícil» también es recordar, con esfuerzo. Un 0 % sin respuestas sería una cifra inventada |
 | 2026-11-10 | El catálogo de temas es contenido estático de la app, y la base solo guarda lo de cada persona: sus temas y sus valoraciones | Tabla `discovery_topics` con el catálogo, como en la especificación | El PRD pide temas curados sin clave de API y sin conexión. Copiar el catálogo a cada cuenta duplicaría contenido que no es de nadie |
 | 2026-11-10 | Ningún tema puede figurar como verificado: los curados son «Síntesis sin verificar» y un test prohíbe enlaces, años y estudios con nombre en el catálogo | Mantener el estado `verified` para el futuro | No hay recuperación de fuentes. Si nada puede marcarlo, nada lo afirmará por error. Volverá con un proveedor autorizado |

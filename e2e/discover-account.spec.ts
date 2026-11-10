@@ -80,3 +80,15 @@ test.describe("daily discovery · account mode", () => {
     expect(row).toEqual({ title: "", body: "" })
   })
 })
+
+test.describe("intelligence · account mode", () => {
+  test("a new account sees no demo label and no finding without data", async ({ page, consoleErrors }) => {
+    await signIn(page, account)
+    await page.goto("/intelligence")
+    await synced(page)
+    await expect(page.getByTestId("insights-empty")).toContainText("Aún no hay datos suficientes")
+    await expect(page.getByTestId("insights-rules-badge")).toBeVisible()
+    await expect(page.getByText(/^Demo/)).toHaveCount(0)
+    expect(consoleErrors).toEqual([])
+  })
+})

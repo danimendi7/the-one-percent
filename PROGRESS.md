@@ -34,9 +34,9 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | D3 | Active Recall: sesión de repaso desde ideas | E2E, también sin red | Sí | high | D2 | hecha | #15 |
 | D4 | Daily Discovery real: temas propios, valoración persistente, sin citas inventadas | Integración; E2E; lo no verificado se etiqueta | Sí | xhigh | A9 | hecha | #16 |
 | D5 | Tema de hoy en Command Center con datos reales | E2E; sin datos muestra estado vacío | Sí | medium | D4 | hecha | #16 |
-| D6 | Conexión de repasos con Cerebro y Analytics | Unitarias; E2E | Sí | high | D3, B5 | PR lista para fusionar | #17 |
-| E1 | Motor de insights por reglas con periodo, variables, n y limitaciones | Unitarias; ninguno con muestra insuficiente | Sí | high | B1, C4 | pendiente | — |
-| E2 | Pantalla Inteligencia real, etiquetada como reglas | E2E; sin etiquetas demo | Sí | high | E1 | pendiente | — |
+| D6 | Conexión de repasos con Cerebro y Analytics | Unitarias; E2E | Sí | high | D3, B5 | hecha | #17 |
+| E1 | Motor de insights por reglas con periodo, variables, n y limitaciones | Unitarias; ninguno con muestra insuficiente | Sí | high | B1, C4 | PR lista para fusionar | #18 |
+| E2 | Pantalla Inteligencia real, etiquetada como reglas | E2E; sin etiquetas demo | Sí | high | E1 | PR lista para fusionar | #18 |
 | E3 | Experimentos de mejora medibles | Unitarias; E2E | Sí | high | E2 | pendiente | — |
 | E4 | Adaptador de proveedor IA apagado por defecto | Unitaria: sin proveedor no hay llamadas | Sí | medium | E1 | pendiente | — |
 | E5 | Motivation Engine: reglas y evaluador puro (silencio, tope, reevaluación) | Unitarias: nada para hábito hecho o en descanso | Sí | xhigh | A1 | pendiente | — |
