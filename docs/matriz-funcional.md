@@ -9,7 +9,8 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Módulo | Funcionalidad | Estado actual | Evidencia | Trabajo pendiente | Prioridad |
 | --- | --- | --- | --- | --- | --- |
 | Command Center | Hábitos del día, cumplimiento, semana y 30 días | IV | `overview-view.tsx`, `e2e/habits.spec.ts`, CI | — | — |
-| Command Center | Objetivos, Deep Work, check-in, revisión, biblioteca | P | Componentes reales en `overview-view.tsx` | Integración final de indicadores (F1) | Media |
+| Command Center | Objetivos, Deep Work, check-in, revisión, biblioteca, atajos | IV | `overview-view.tsx`, `overview/domain/day.ts`, `overview.spec.ts`, `overview-account.spec.ts` | — | — |
+| Command Center | Distingue sin datos, descanso, incumplimiento y error de sincronización (Plan §5.1) | IV | `day.test.ts`, `overview.spec.ts` (activo, ayer, descanso), `overview-account.spec.ts` (sin datos, error) | — | — |
 | Command Center | Tarjeta «Tema de hoy» | IV | `overview-view.tsx` con `todayTopic`, `discover.spec.ts`, CI | — | — |
 | Command Center | Distinguir sin datos, descanso, incumplimiento y error de sincronización | SP | `cell-state.ts`, `sync-status.tsx` | Prueba específica (F1) | Media |
 | Habit Engine | Crear, editar, archivar, frecuencias, calendario | IV | `features/habits`, `e2e/habits.spec.ts`, CI | — | — |

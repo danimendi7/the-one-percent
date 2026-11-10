@@ -42,10 +42,10 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | E5 | Motivation Engine: reglas y evaluador puro (silencio, tope, reevaluación) | Unitarias: nada para hábito hecho o en descanso | Sí | xhigh | A1 | hecha | #21 |
 | E6 | Ajustes reales de notificaciones (migración aditiva) | Integración; E2E; sin etiqueta demo | Sí | high | E5 | hecha | #22 |
 | E7 | Bandeja dentro de la app | E2E; respeta tope y silencio | Sí | high | E6 | hecha | #23 |
-| E8 | Push: suscripción por dispositivo y permiso tras acción clara | Test de navegador; alta y baja independientes por dispositivo | Sí | xhigh | E7 | PR lista para fusionar | #24 |
+| E8 | Push: suscripción por dispositivo y permiso tras acción clara | Test de navegador; alta y baja independientes por dispositivo | Sí | xhigh | E7 | hecha | #24 |
 | E9 | Envío programado de push en servidor (reglas del Motivation Engine reevaluadas al enviar, registro de entregas sin duplicados) | Integración: un hábito hecho no recibe aviso; un reintento no duplica | Sí | xhigh | E8 | bloqueada | — |
-| F1 | Integración final del Command Center y sus estados | E2E de los cuatro estados del Plan §5.1 | Sí | high | B–E | pendiente | — |
-| F2 | Accesibilidad y rendimiento de vistas clave | `a11y.spec.ts` ampliado; mediciones documentadas | Sí | high | F1 | pendiente | — |
+| F1 | Integración final del Command Center y sus estados | E2E de los cuatro estados del Plan §5.1 | Sí | high | B–E (E9 bloqueada, no la necesita) | PR lista para fusionar | #25 |
+| F2 | Accesibilidad y rendimiento de vistas clave (incluye el salto de diseño del Resumen al cargar en móvil, visto en la PR #25) | `a11y.spec.ts` ampliado; mediciones documentadas | Sí | high | F1 | pendiente | — |
 | F3 | Simulacro de respaldo y restauración | `restore:drill` correcto, con resultado documentado | Sí | high | F1 | pendiente | — |
 | F4 | Guía de uso y validación móvil | `docs/guia-uso.md`; capturas móvil y escritorio | Sí | medium | F2 | pendiente | — |
 | F5 | `docs/publicacion.md`: publicar, revertir, separar la base | Procedimiento completo revisado contra el repo | Sí | medium | F2 | pendiente | — |
