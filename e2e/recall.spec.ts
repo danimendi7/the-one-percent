@@ -109,6 +109,33 @@ test.describe("active recall (demo)", () => {
     await expect(count(page)).toHaveText("3 tarjetas por repasar · 2 nuevas")
   })
 
+  test("Cerebro and Analytics follow the review: the idea says when it returns, and the answer counts", async ({ page, consoleErrors }) => {
+    // Demo card 1 comes from idea 1 and is overdue.
+    await page.goto("/knowledge/brain?nota=demo-note-1")
+    const chip = page.locator("#note-demo-note-1").getByTestId("note-recall")
+    await expect(chip).toHaveText("Repaso pendiente hoy")
+    await page.goto("/analytics")
+    const panel = page.getByRole("region", { name: "Aprendizaje" })
+    await expect(panel.getByTestId("learning-recall")).toContainText("Sin repasos en este periodo")
+    await expect(panel.getByTestId("learning-recall-due")).toContainText("3")
+
+    await page.goto(URL)
+    await expect(question(page)).toBeVisible()
+    await grade(page, "good")
+    await grade(page, "again")
+    await expect(count(page)).toHaveText("2 tarjetas por repasar · 1 nueva")
+
+    await page.goto("/analytics")
+    await expect(panel.getByTestId("learning-recall").locator("dd").first()).toHaveText("2")
+    await expect(panel.getByTestId("learning-recall")).toContainText("50 % recordadas (1 de 2)")
+    await expect(panel.getByTestId("learning-recall-due").locator("dd").first()).toHaveText("2")
+    await page.goto("/knowledge/brain?nota=demo-note-1")
+    await expect(chip).toHaveText("Repaso en 15 días")
+    await chip.click()
+    await expect(page).toHaveURL(URL)
+    expect(consoleErrors).toEqual([])
+  })
+
   test("with no connection the review goes on", async ({ page, context }) => {
     await page.goto(URL)
     await expect(question(page)).toBeVisible()

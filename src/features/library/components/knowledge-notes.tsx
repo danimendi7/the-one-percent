@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { ArrowRightLeft, GraduationCap, Lightbulb, Link2, MoreHorizontal, Pencil, Plus, Star, Trash2 } from "lucide-react"
 import { RecallCardSheet } from "@/features/recall/components/recall-card-sheet"
+import { NoteRecallChip } from "@/features/recall/components/note-recall-chip"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -412,6 +413,7 @@ export function NoteCard({
             {connections} {connections === 1 ? "conexión" : "conexiones"}
           </Link>
         )}
+        <NoteRecallChip noteId={note.id} />
         <SyncLine state={sync} snap={snap} className="ml-auto" />
       </footer>
       {picker && <KnowledgePicker from={{ type: "note", id: note.id }} mode={picker} snap={snap} open onOpenChange={(v) => !v && setPicker(null)} />}
