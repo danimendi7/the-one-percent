@@ -17,7 +17,11 @@ import { habitActions } from "@/features/habits/store/habit-store"
 import { importCandidates, planDemoImport } from "@/features/sync/domain/demo-import"
 
 export function downloadJson(json: string, filename: string) {
-  const url = URL.createObjectURL(new Blob([json], { type: "application/json" }))
+  download(json, "application/json", filename)
+}
+
+export function download(text: string, type: string, filename: string) {
+  const url = URL.createObjectURL(new Blob([text], { type }))
   const a = document.createElement("a")
   a.href = url
   a.download = filename
