@@ -1,3 +1,4 @@
+import type { ExperimentMap } from "@/features/intelligence/domain/experiments"
 import type { DiscoveryState } from "@/features/discover/domain/types"
 import type { RecallState } from "@/features/recall/domain/types"
 import type { LocalDate, Weekday } from "./dates"
@@ -90,6 +91,8 @@ export interface HabitsState {
   recall: RecallState
   /** Daily Discovery (D4): topics written by the user and what they thought of each topic. */
   discovery: DiscoveryState
+  /** Improvement experiments (E3), keyed by id. */
+  experiments: ExperimentMap
 }
 
 export function entryKey(habitId: string, date: LocalDate): string {

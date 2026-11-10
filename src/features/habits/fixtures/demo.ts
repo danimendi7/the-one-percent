@@ -233,6 +233,7 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
       reviews: {},
       recall: createDemoRecall(today),
       discovery: { topics: {}, feedback: {} },
+      experiments: {},
     },
     today
     ),

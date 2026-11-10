@@ -189,6 +189,10 @@ export type Op =
   | { type: "discovery.topic.create"; op_id: string; topic: { id: string; title: string; category: string; body: string; source_title: string | null; source_url: string | null }; at: string }
   | { type: "discovery.topic.delete"; op_id: string; topic_id: string }
   | { type: "discovery.feedback.set"; op_id: string; topic_key: string; fields: FeedbackFields; local_date: LocalDate; at: string }
+  // ── Experiments (E3) ──
+  | { type: "experiment.create"; op_id: string; experiment: { id: string; title: string; metric_kind: WireExperiment["metric_kind"]; metric_ref: string | null; start_on: LocalDate; days: number }; at: string }
+  | { type: "experiment.close"; op_id: string; experiment_id: string; status: "finished" | "abandoned"; ended_on: LocalDate; note: string | null }
+  | { type: "experiment.delete"; op_id: string; experiment_id: string }
   // ── Library (M4b wire, M4c client): field names are column names (library-wire.ts) ──
   | LibraryOp
 
@@ -431,6 +435,21 @@ export interface WireRestDay {
   server_seq: number
 }
 
+export interface WireExperiment {
+  id: string
+  title: string
+  metric_kind: "habit" | "checkin" | "focus"
+  metric_ref: string | null
+  start_on: LocalDate
+  days: number
+  status: "active" | "finished" | "abandoned"
+  ended_on: LocalDate | null
+  note: string | null
+  created_at: string
+  deleted: boolean
+  server_seq: number
+}
+
 export interface WireDiscoveryTopic {
   id: string
   title: string
@@ -518,6 +537,8 @@ export interface PullPayload {
   /** Daily Discovery (D4). */
   discovery_topics?: WireDiscoveryTopic[]
   topic_feedback?: WireTopicFeedback[]
+  /** Experiments (E3). */
+  experiments?: WireExperiment[]
   /** M4b. The library travels through pull_library; this only says the server stores it and its newest change. */
   library?: { head: number }
   cursor: number
@@ -531,7 +552,7 @@ export interface ServerCache {
   cursor: number
   serverToday: LocalDate
   /** Server capabilities seen in the last pull (a deploy may precede its migration). */
-  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; dailyReviews?: boolean; recall?: boolean; discovery?: boolean; library?: boolean }
+  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; dailyReviews?: boolean; recall?: boolean; discovery?: boolean; experiments?: boolean; library?: boolean }
 }
 
 export type SyncStatus = "synced" | "syncing" | "pending" | "offline" | "error"

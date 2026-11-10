@@ -136,6 +136,7 @@ export interface EngineSnapshot {
   dailyReviews: boolean
   recall: boolean
   discovery: boolean
+  experiments: boolean
   /** Review closes waiting to run (or needing a new decision). */
   closeIntents: CloseIntent[]
   /** Reviews (`kind:periodStart`) with writes still in the queue. */
@@ -300,6 +301,7 @@ export class SyncEngine {
         dailyReviews: !!this.cache.features?.dailyReviews,
         recall: !!this.cache.features?.recall,
         discovery: !!this.cache.features?.discovery,
+        experiments: !!this.cache.features?.experiments,
         closeIntents: this.closeIntents,
         pendingReviews: [...new Set(this.queue.map((q) => reviewOf(q.op)).filter((k): k is string => k !== null))],
         library: applyLibraryOps(this.libConfirmed, this.queue.map((q) => q.op)),
@@ -967,6 +969,7 @@ export class SyncEngine {
     if (op.type.startsWith("library.")) return !!this.cache.features?.library
     if (op.type.startsWith("recall.")) return !!this.cache.features?.recall
     if (op.type.startsWith("discovery.")) return !!this.cache.features?.discovery
+    if (op.type.startsWith("experiment.")) return !!this.cache.features?.experiments
     if (op.type === "review.save" || op.type === "review.close" || op.type === "review.delete") return this.serverTakes(op.kind)
     return true
   }

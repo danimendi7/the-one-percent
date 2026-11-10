@@ -1,3 +1,4 @@
+import type { ExperimentDays, ExperimentMetric, ExperimentValidation } from "@/features/intelligence/domain/experiments"
 import type { OwnTopicInput, OwnTopicResult } from "@/features/discover/domain/ops"
 import type { FeedbackFields } from "@/features/discover/domain/types"
 import type { Grade } from "@/features/recall/domain/schedule"
@@ -52,6 +53,8 @@ export interface HabitsSnapshot {
   recall?: boolean
   /** False: the server lacks the Daily Discovery migration (D4). Feedback stays on the device. */
   discovery?: boolean
+  /** False: the server lacks the experiments migration (E3). They stay on the device. */
+  experiments?: boolean
   account?: { userId: string; email: string | null }
 }
 
@@ -139,7 +142,16 @@ export interface DiscoveryActions {
   setTopicFeedback(topicKey: string, fields: FeedbackFields): void
 }
 
-export interface HabitActions extends Partial<DiscoveryActions>, Partial<RecallActions>, Partial<GoalActions>, Partial<FocusActions>, Partial<MindActions>, Partial<ReviewActions> {
+export type StartExperimentResult = { ok: true; id: string } | Extract<ExperimentValidation, { ok: false }> | { ok: false; field: "active"; reason: "too_many" }
+
+/** Improvement experiments (E3). They start today and close today, in the profile timezone. */
+export interface ExperimentActions {
+  startExperiment(input: { title: string; metric: ExperimentMetric; days: ExperimentDays }): StartExperimentResult
+  closeExperiment(id: string, status: "finished" | "abandoned", note: string | null): void
+  deleteExperiment(id: string): void
+}
+
+export interface HabitActions extends Partial<ExperimentActions>, Partial<DiscoveryActions>, Partial<RecallActions>, Partial<GoalActions>, Partial<FocusActions>, Partial<MindActions>, Partial<ReviewActions> {
   setEntry(habitId: string, date: LocalDate, value: boolean | number | null): SetEntryResult
   addHabit(input: HabitInput): string
   updateHabit(id: string, input: HabitInput): void

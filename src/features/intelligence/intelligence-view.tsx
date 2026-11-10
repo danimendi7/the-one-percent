@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { formatDate } from "@/features/habits/domain/dates"
 import { useHabits } from "@/features/habits/store/habit-store"
 import { INSIGHT_RULES, insights, type Insight } from "./domain/insights"
+import { ExperimentsSection } from "./components/experiments-section"
 
 const PRINCIPLES = [
   { icon: Lock, title: "IA generativa apagada", body: "Todo lo de esta página sale de reglas fijas. Un proveedor de IA queda pendiente de autorización: la app funciona completa sin él." },
@@ -68,6 +69,7 @@ export function IntelligenceView() {
           ))}
         </ul>
       )}
+      {snap && <ExperimentsSection snap={snap} insights={list} />}
       <details className="panel group mt-5 rounded-2xl" data-testid="insight-rules">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 text-sm font-medium [&::-webkit-details-marker]:hidden">
           Cómo se calculan

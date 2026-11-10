@@ -4,6 +4,9 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-10 | Un experimento es un cambio con sus palabras, una medida que ya se registra (hábito, check-in o minutos de foco) y 7, 14, 21 o 28 días; se compara con los mismos días justo antes | Pedir medidas nuevas o un grupo de control | Mide con lo que la persona ya apunta y no añade trabajo. Con una sola persona no hay control posible: por eso dice que no demuestra la causa |
+| 2026-11-10 | Hasta 3 experimentos a la vez, empiezan hoy y el primer cierre es el que queda | Fechas libres o reabrir | Empezar en el pasado permitiría ajustar el resultado a posteriori; un cierre es el registro de lo que pasó |
+| 2026-11-10 | Las propuestas de experimento salen solo de hallazgos con una medida clara, y el cambio lo elige la persona | Proponer el cambio concreto | Recomendar qué cambiar exigiría criterio que las reglas no tienen; sería inventar consejos |
 | 2026-11-10 | Seis reglas de insights con ventanas fijas (4 y 8 semanas, última semana cerrada) y mínimos propios; las relaciones reutilizan Life Analytics | Un motor configurable o puntuaciones combinadas | Cada regla es una frase comprobable con su n; sin mínimo alcanzado no dice nada. Los umbrales son constantes fáciles de ajustar |
 | 2026-11-10 | Todo insight lleva la limitación «describe lo ocurrido; no indica la causa», y un test prohíbe vocabulario causal | Confiar en la redacción | El Plan prohíbe presentar correlaciones como causalidad; el test lo impide también en reglas futuras |
 | 2026-11-10 | Inteligencia se etiqueta «Reglas · sin IA» y la IA generativa figura como apagada y pendiente de autorización | Mantener «Llega en la fase M6» | Lo que muestra ya no es una promesa: son reglas. La IA de pago está fuera de la restricción económica |

@@ -6,7 +6,7 @@
  * engine + Supabase). The backend is chosen by <DataSourceProvider>.
  */
 import { useSyncExternalStore } from "react"
-import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions, RecallActions, ReviewActions, DiscoveryActions } from "./types"
+import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions, RecallActions, ReviewActions, DiscoveryActions, ExperimentActions } from "./types"
 import type { ReviewKind } from "@/features/reviews/domain/types"
 
 export type { HabitsSnapshot, DataSource, SyncInfo } from "./types"
@@ -92,7 +92,10 @@ function active(): HabitActions {
   return backend.actions
 }
 
-export const habitActions: HabitActions & GoalActions & FocusActions & MindActions & ReviewActions & RecallActions & DiscoveryActions = {
+export const habitActions: HabitActions & GoalActions & FocusActions & MindActions & ReviewActions & RecallActions & DiscoveryActions & ExperimentActions = {
+  startExperiment: (...a) => need(active().startExperiment)(...a),
+  closeExperiment: (...a) => need(active().closeExperiment)(...a),
+  deleteExperiment: (...a) => need(active().deleteExperiment)(...a),
   addDiscoveryTopic: (...a) => need(active().addDiscoveryTopic)(...a),
   removeDiscoveryTopic: (...a) => need(active().removeDiscoveryTopic)(...a),
   setTopicFeedback: (...a) => need(active().setTopicFeedback)(...a),

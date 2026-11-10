@@ -21,8 +21,9 @@ import { cleanNote, normalizeConfig, validateConfig, validValue } from "@/featur
 import { addDays } from "@/features/habits/domain/dates"
 import { CHECKIN_FIELDS, DEFAULT_CHECKIN_CONFIG, type CheckinConfig } from "@/features/mind/domain/types"
 import { toCheckin, WIRE_FIELD } from "../domain/checkin-wire"
-import type { WireCheckin, WireDiscoveryTopic, WireRecallAttempt, WireRecallCard, WireReview, WireTopicFeedback } from "../domain/types"
+import type { WireCheckin, WireDiscoveryTopic, WireRecallAttempt, WireRecallCard, WireReview, WireTopicFeedback, WireExperiment } from "../domain/types"
 import { toOwnTopic, toTopicFeedback } from "../domain/discovery-wire"
+import { toExperiment } from "../domain/experiment-wire"
 import { validateCardText } from "@/features/recall/domain/ops"
 import { toRecallAttempt, toRecallCard } from "../domain/recall-wire"
 import { toReview } from "../domain/review-wire"
@@ -64,6 +65,9 @@ export class FakeServer {
   private recallAttemptRows = new Map<string, Row<WireRecallAttempt>>()
   /** false: behave like a server without the Daily Discovery migration (D4). */
   discoverySupported = true
+  /** false: behave like a server without the experiments migration (E3). */
+  experimentsSupported = true
+  private experimentRows = new Map<string, Row<WireExperiment>>()
   private discoveryTopics = new Map<string, Row<WireDiscoveryTopic>>()
   private feedbackRows = new Map<string, Row<WireTopicFeedback> & { stamps: Record<string, number> }>()
   /** Latest change of any data a snapshot is computed from (private.review_data_cursor). */
@@ -160,6 +164,7 @@ export class FakeServer {
       focusSessions: [...this.sessions.values()].filter((r) => !r.data.deleted).map((r) => r.data.session),
       checkins: Object.fromEntries([...this.checkins].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toCheckin({ ...r.data, server_seq: r.seq })])),
       checkinConfig: normalizeConfig(this.checkinConfig ?? DEFAULT_CHECKIN_CONFIG),
+      experiments: Object.fromEntries([...this.experimentRows].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toExperiment({ ...r.data, server_seq: r.seq })])),
       discovery: {
         topics: Object.fromEntries([...this.discoveryTopics].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toOwnTopic({ ...r.data, server_seq: r.seq })])),
         feedback: Object.fromEntries([...this.feedbackRows].map(([k, r]) => [k, toTopicFeedback({ ...r.data, server_seq: r.seq })])),
@@ -340,6 +345,10 @@ export class FakeServer {
         if (!this.reviewsSupported) return reject("unknown_op_type")
         if (op.kind === "day" && !this.dailyReviewsSupported) return reject("invalid_period")
         return this.applyReview(op)
+      case "experiment.create":
+      case "experiment.close":
+      case "experiment.delete":
+        return this.experimentsSupported ? this.applyExperiment(op) : reject("unknown_op_type")
       case "discovery.topic.create":
       case "discovery.topic.delete":
       case "discovery.feedback.set":
@@ -442,6 +451,29 @@ export class FakeServer {
       row
     )
     return done("applied")
+  }
+
+  /** Mirrors private.experiment_op (supabase/migrations/*_experiments.sql). */
+  private applyExperiment(op: Extract<Op, { type: "experiment.create" | "experiment.close" | "experiment.delete" }>): OpResult {
+    const done = (status: OpResult["status"], code?: string): OpResult => ({ op_id: op.op_id, status, ...(code ? { code } : {}) })
+    const write = (data: WireExperiment) => this.experimentRows.set(data.id, { seq: this.nextReview(), data })
+    if (op.type === "experiment.create") {
+      if (!this.experimentRows.has(op.experiment.id)) write({ ...op.experiment, title: op.experiment.title.trim(), status: "active", ended_on: null, note: null, created_at: op.at, deleted: false, server_seq: 0 })
+      return done("applied")
+    }
+    const row = this.experimentRows.get(op.experiment_id)
+    if (op.type === "experiment.delete") {
+      if (row && !row.data.deleted) write({ ...row.data, title: "", note: null, deleted: true })
+      return done("applied")
+    }
+    if (!row || row.data.deleted) return done("rejected", "experiment_not_found")
+    if (row.data.status !== "active") return done("superseded", "already_closed")
+    write({ ...row.data, status: op.status, ended_on: op.ended_on, note: op.note?.trim() || null })
+    return done("applied")
+  }
+
+  experiment(id: string): WireExperiment | null {
+    return this.experimentRows.get(id)?.data ?? null
   }
 
   /** Mirrors private.discovery_op (supabase/migrations/*_discovery.sql). */
@@ -708,6 +740,13 @@ export class FakeServer {
         ? {
             reviews: pick(this.reviews)
               .filter((r) => r.data.kind !== "day" && (!full || !r.data.deleted))
+              .map((r) => ({ ...r.data, server_seq: r.seq })),
+          }
+        : {}),
+      ...(this.experimentsSupported
+        ? {
+            experiments: pick(this.experimentRows)
+              .filter((r) => !full || !r.data.deleted)
               .map((r) => ({ ...r.data, server_seq: r.seq })),
           }
         : {}),
