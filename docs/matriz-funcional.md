@@ -10,7 +10,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | --- | --- | --- | --- | --- | --- |
 | Command Center | Hábitos del día, cumplimiento, semana y 30 días | IV | `overview-view.tsx`, `e2e/habits.spec.ts`, CI | — | — |
 | Command Center | Objetivos, Deep Work, check-in, revisión, biblioteca | P | Componentes reales en `overview-view.tsx` | Integración final de indicadores (F1) | Media |
-| Command Center | Tarjeta «Tema de hoy» | P | Usa `FEATURED_TOPIC` de datos demo | Conectar a Discovery real (D5) | Media |
+| Command Center | Tarjeta «Tema de hoy» | IV | `overview-view.tsx` con `todayTopic`, `discover.spec.ts`, CI | — | — |
 | Command Center | Distinguir sin datos, descanso, incumplimiento y error de sincronización | SP | `cell-state.ts`, `sync-status.tsx` | Prueba específica (F1) | Media |
 | Habit Engine | Crear, editar, archivar, frecuencias, calendario | IV | `features/habits`, `e2e/habits.spec.ts`, CI | — | — |
 | Habit Engine | Registro rápido y descansos sin contar como incumplimiento | IV | `cell-state.ts`, `metrics.ts`, tests, CI | — | — |
@@ -43,7 +43,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Knowledge OS | Medición en iPhone y guía de VoiceOver y sin red (M4g.5 §23-4/5) | NV | `docs/guia-dispositivo.md` escrita; nadie la ha ejecutado | Ejecutar la guía y apuntar el resultado (Dani) | Media |
 | Knowledge OS | Cerebro: ideas, búsqueda, relaciones | IV | `brain-view.tsx`, `knowledge/domain`, `knowledge.spec.ts`, CI | — | — |
 | Knowledge OS | Active Recall | IV | `features/recall`, `/knowledge/brain/repaso`, `20261109150000_recall.sql`, `recall.int.test.ts`, `recall*.spec.ts`, `offline.spec.ts`, CI | Conexión con Analytics (D6) | Media |
-| Knowledge OS | Daily Discovery / Tema de hoy | P | Pantalla demo, no guarda nada | D4, D5 | Alta |
+| Knowledge OS | Daily Discovery / Tema de hoy | IV | `features/discover`, `20261110090000_discovery.sql`, `discovery.int.test.ts`, `discover*.spec.ts`, CI | Temas generados por IA: pendiente autorizable | — |
 | Mind & Energy | Check-in, historial, tendencias, filtros | IV | `features/mind`, `checkins.int.test.ts`, E2E, CI | — | — |
 | Life Review | Semanal y mensual, decisiones, cierre | IV | `features/reviews`, `reviews*.int.test.ts`, E2E, CI | Corrección del e2e flaky (A2) | Alta |
 | Life Review | Revisión diaria | IV | `kind = 'day'` en `features/reviews`, `20261109130000_daily_reviews.sql`, `reviews.int.test.ts`, `reviews*.spec.ts`, CI | — | — |

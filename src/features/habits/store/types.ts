@@ -1,3 +1,5 @@
+import type { OwnTopicInput, OwnTopicResult } from "@/features/discover/domain/ops"
+import type { FeedbackFields } from "@/features/discover/domain/types"
 import type { Grade } from "@/features/recall/domain/schedule"
 import type { AuditRow } from "@/features/habits/domain/history"
 import type { LocalDate } from "../domain/dates"
@@ -48,6 +50,8 @@ export interface HabitsSnapshot {
   dailyReviews?: boolean
   /** False: the server lacks the Active Recall migration (D2). Cards stay on the device. */
   recall?: boolean
+  /** False: the server lacks the Daily Discovery migration (D4). Feedback stays on the device. */
+  discovery?: boolean
   account?: { userId: string; email: string | null }
 }
 
@@ -126,7 +130,16 @@ export interface RecallActions {
   deleteRecallCard(cardId: string): void
 }
 
-export interface HabitActions extends Partial<RecallActions>, Partial<GoalActions>, Partial<FocusActions>, Partial<MindActions>, Partial<ReviewActions> {
+export type AddDiscoveryTopicResult = { ok: true; id: string } | Extract<OwnTopicResult, { ok: false }>
+
+/** Daily Discovery (D4). */
+export interface DiscoveryActions {
+  addDiscoveryTopic(input: OwnTopicInput): AddDiscoveryTopicResult
+  removeDiscoveryTopic(id: string): void
+  setTopicFeedback(topicKey: string, fields: FeedbackFields): void
+}
+
+export interface HabitActions extends Partial<DiscoveryActions>, Partial<RecallActions>, Partial<GoalActions>, Partial<FocusActions>, Partial<MindActions>, Partial<ReviewActions> {
   setEntry(habitId: string, date: LocalDate, value: boolean | number | null): SetEntryResult
   addHabit(input: HabitInput): string
   updateHabit(id: string, input: HabitInput): void

@@ -19,7 +19,8 @@ import { computeHeadline } from "@/features/habits/components/habit-metrics"
 import { TodayChecklist } from "@/features/habits/components/today-checklist"
 import { useHabitsModel, type HabitsModel } from "@/features/habits/components/use-habits-model"
 import { ActiveGoals } from "@/features/goals/components/active-goals"
-import { FEATURED_TOPIC } from "@/features/discover/fixtures"
+import { todayTopic } from "@/features/discover/domain/feed"
+import { useHabits } from "@/features/habits/store/habit-store"
 import { focusToday } from "@/features/focus/domain/metrics"
 import { minutesLabel } from "@/features/focus/components/focus-ui"
 import { useFocusModel } from "@/features/focus/use-focus"
@@ -215,14 +216,17 @@ function FocusCta() {
 function LearnCta() {
   const lib = useLibrary()
   const current = lib ? inProgress(lib.state, 1)[0] : undefined
+  const snap = useHabits()
+  const topic = snap ? todayTopic(snap.state.discovery, snap.today) : null
   return (
     <div className="panel flex min-h-[132px] flex-col justify-between rounded-2xl p-2">
       <Link
         href="/knowledge/discover"
         className="flex flex-1 flex-col justify-between gap-3 rounded-xl p-2 transition-colors hover:bg-surface-raised"
+        data-testid="overview-topic"
       >
         <Compass className="size-5 text-dim-learn" strokeWidth={1.75} aria-hidden />
-        <span className="line-clamp-2 text-sm font-semibold">{FEATURED_TOPIC.title}</span>
+        <span className="line-clamp-2 text-sm font-semibold">{!snap ? "Descubrir" : (topic?.title ?? "Has visto todos los temas")}</span>
       </Link>
       <Link
         href={current ? itemHref(current.id) : LIBRARY_HREF}

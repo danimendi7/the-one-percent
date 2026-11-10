@@ -1,3 +1,4 @@
+import { addOwnTopic, applyFeedback, removeOwnTopic } from "@/features/discover/domain/ops"
 import { addCard, recordAnswer, removeCard, setSuspended } from "@/features/recall/domain/ops"
 import { fromWireSchedule } from "./recall-wire"
 import type { LocalDate } from "@/features/habits/domain/dates"
@@ -176,6 +177,13 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return { ...state, recall: setSuspended(state.recall, op.card_id, op.suspended_on) }
     case "recall.delete":
       return { ...state, recall: removeCard(state.recall, op.card_id) }
+    // ── Daily Discovery (D4) ──
+    case "discovery.topic.create":
+      return { ...state, discovery: addOwnTopic(state.discovery, { id: op.topic.id, title: op.topic.title, category: op.topic.category, body: op.topic.body, sourceTitle: op.topic.source_title, sourceUrl: op.topic.source_url, at: op.at }) }
+    case "discovery.topic.delete":
+      return { ...state, discovery: removeOwnTopic(state.discovery, op.topic_id) }
+    case "discovery.feedback.set":
+      return { ...state, discovery: applyFeedback(state.discovery, op.topic_key, op.fields, op.local_date, op.at) }
     default:
       // An operation this version does not know (written by a newer one): no optimistic effect, still sent.
       return state

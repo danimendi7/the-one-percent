@@ -5,6 +5,7 @@
  * data. Used when there is no account (explore mode) or Supabase is not
  * configured. Never synced, never imported automatically into an account.
  */
+import { addOwnTopic, applyFeedback, emptyDiscovery, removeOwnTopic, validateOwnTopic } from "@/features/discover/domain/ops"
 import { addCard, answerOutcome, emptyRecall, recordAnswer, removeCard, setSuspended, validateCardText } from "@/features/recall/domain/ops"
 import { useSyncExternalStore } from "react"
 import { clearDemoLibrary, createDemoLibrary } from "@/features/library/store/demo-library"
@@ -66,7 +67,7 @@ export function readDemoState(): HabitsState | null {
     if (!raw) return null
     const parsed = habitsStateSchema.safeParse(JSON.parse(raw))
     if (!parsed.success) return null
-    const data = { ...parsed.data, recall: parsed.data.recall ?? emptyRecall() } as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews"> &
+    const data = { ...parsed.data, recall: parsed.data.recall ?? emptyRecall(), discovery: parsed.data.discovery ?? emptyDiscovery() } as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews"> &
       Partial<Pick<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews">>
     // Before M3.4 there were no reviews.
     const reviews = data.reviews ?? {}
@@ -341,6 +342,22 @@ export const demoBackend: Backend = {
     },
     resolveReviewText: () => false,
     reviewSyncState: () => "local",
+    addDiscoveryTopic(input) {
+      const v = validateOwnTopic(input)
+      if (!v.ok) return v
+      const s = getSnapshot()
+      const id = uuidv4()
+      commit({ ...s.state, discovery: addOwnTopic(s.state.discovery, { id, title: v.title, category: v.category, body: v.body, sourceTitle: v.sourceTitle, sourceUrl: v.sourceUrl, at: new Date().toISOString() }) })
+      return { ok: true, id }
+    },
+    removeDiscoveryTopic(id) {
+      const s = getSnapshot()
+      commit({ ...s.state, discovery: removeOwnTopic(s.state.discovery, id) })
+    },
+    setTopicFeedback(topicKey, fields) {
+      const s = getSnapshot()
+      commit({ ...s.state, discovery: applyFeedback(s.state.discovery, topicKey, fields, s.today, new Date().toISOString()) })
+    },
     addRecallCard(input) {
       const text = validateCardText(input.question, input.answer)
       if (!text.ok) return text

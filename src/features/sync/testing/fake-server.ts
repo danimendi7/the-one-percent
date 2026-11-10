@@ -21,7 +21,8 @@ import { cleanNote, normalizeConfig, validateConfig, validValue } from "@/featur
 import { addDays } from "@/features/habits/domain/dates"
 import { CHECKIN_FIELDS, DEFAULT_CHECKIN_CONFIG, type CheckinConfig } from "@/features/mind/domain/types"
 import { toCheckin, WIRE_FIELD } from "../domain/checkin-wire"
-import type { WireCheckin, WireRecallAttempt, WireRecallCard, WireReview } from "../domain/types"
+import type { WireCheckin, WireDiscoveryTopic, WireRecallAttempt, WireRecallCard, WireReview, WireTopicFeedback } from "../domain/types"
+import { toOwnTopic, toTopicFeedback } from "../domain/discovery-wire"
 import { validateCardText } from "@/features/recall/domain/ops"
 import { toRecallAttempt, toRecallCard } from "../domain/recall-wire"
 import { toReview } from "../domain/review-wire"
@@ -61,6 +62,10 @@ export class FakeServer {
   recallSupported = true
   private recallCards = new Map<string, Row<WireRecallCard>>()
   private recallAttemptRows = new Map<string, Row<WireRecallAttempt>>()
+  /** false: behave like a server without the Daily Discovery migration (D4). */
+  discoverySupported = true
+  private discoveryTopics = new Map<string, Row<WireDiscoveryTopic>>()
+  private feedbackRows = new Map<string, Row<WireTopicFeedback> & { stamps: Record<string, number> }>()
   /** Latest change of any data a snapshot is computed from (private.review_data_cursor). */
   private dataSeq = 0
   /** Count of times each op_id was actually applied (never > 1). */
@@ -155,6 +160,10 @@ export class FakeServer {
       focusSessions: [...this.sessions.values()].filter((r) => !r.data.deleted).map((r) => r.data.session),
       checkins: Object.fromEntries([...this.checkins].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toCheckin({ ...r.data, server_seq: r.seq })])),
       checkinConfig: normalizeConfig(this.checkinConfig ?? DEFAULT_CHECKIN_CONFIG),
+      discovery: {
+        topics: Object.fromEntries([...this.discoveryTopics].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toOwnTopic({ ...r.data, server_seq: r.seq })])),
+        feedback: Object.fromEntries([...this.feedbackRows].map(([k, r]) => [k, toTopicFeedback({ ...r.data, server_seq: r.seq })])),
+      },
       recall: {
         cards: Object.fromEntries([...this.recallCards].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toRecallCard({ ...r.data, server_seq: r.seq })])),
         attempts: Object.fromEntries([...this.recallAttemptRows].map(([k, r]) => [k, toRecallAttempt({ ...r.data, server_seq: r.seq })])),
@@ -331,6 +340,10 @@ export class FakeServer {
         if (!this.reviewsSupported) return reject("unknown_op_type")
         if (op.kind === "day" && !this.dailyReviewsSupported) return reject("invalid_period")
         return this.applyReview(op)
+      case "discovery.topic.create":
+      case "discovery.topic.delete":
+      case "discovery.feedback.set":
+        return this.discoverySupported ? this.applyDiscovery(op) : reject("unknown_op_type")
       case "recall.create":
       case "recall.answer":
       case "recall.suspend":
@@ -429,6 +442,43 @@ export class FakeServer {
       row
     )
     return done("applied")
+  }
+
+  /** Mirrors private.discovery_op (supabase/migrations/*_discovery.sql). */
+  private applyDiscovery(op: Extract<Op, { type: "discovery.topic.create" | "discovery.topic.delete" | "discovery.feedback.set" }>): OpResult {
+    const done = (status: OpResult["status"], code?: string): OpResult => ({ op_id: op.op_id, status, ...(code ? { code } : {}) })
+    if (op.type === "discovery.topic.create") {
+      if (this.discoveryTopics.has(op.topic.id)) return done("applied")
+      this.discoveryTopics.set(op.topic.id, { seq: this.nextReview(), data: { ...op.topic, created_at: op.at, deleted: false, server_seq: 0 } })
+      return done("applied")
+    }
+    if (op.type === "discovery.topic.delete") {
+      const row = this.discoveryTopics.get(op.topic_id)
+      if (row && !row.data.deleted) this.discoveryTopics.set(op.topic_id, { seq: this.nextReview(), data: { ...row.data, title: "", body: "", source_title: null, source_url: null, deleted: true } })
+      return done("applied")
+    }
+    const at = Date.parse(op.at)
+    const row = this.feedbackRows.get(op.topic_key)
+    const next: WireTopicFeedback = row ? { ...row.data } : { topic_key: op.topic_key, rating: null, saved: false, dismissed: null, decided_on: op.local_date, updated_at: op.at, server_seq: 0 }
+    const stamps = { ...(row?.stamps ?? {}) }
+    let changed = !row
+    for (const [k, v] of Object.entries(op.fields) as [keyof typeof op.fields, never][]) {
+      if ((stamps[k] ?? -Infinity) > at) continue
+      next[k] = v
+      stamps[k] = at
+      changed = true
+    }
+    if (changed) this.feedbackRows.set(op.topic_key, { seq: this.nextReview(), stamps, data: { ...next, decided_on: op.local_date, updated_at: op.at } })
+    return done("applied")
+  }
+
+  /** Server-side view of the discovery tables (tests). */
+  discoveryTopic(id: string): WireDiscoveryTopic | null {
+    return this.discoveryTopics.get(id)?.data ?? null
+  }
+
+  topicFeedback(key: string): WireTopicFeedback | null {
+    return this.feedbackRows.get(key)?.data ?? null
   }
 
   /** Mirrors private.recall_op (supabase/migrations/*_recall.sql). */
@@ -659,6 +709,14 @@ export class FakeServer {
             reviews: pick(this.reviews)
               .filter((r) => r.data.kind !== "day" && (!full || !r.data.deleted))
               .map((r) => ({ ...r.data, server_seq: r.seq })),
+          }
+        : {}),
+      ...(this.discoverySupported
+        ? {
+            discovery_topics: pick(this.discoveryTopics)
+              .filter((r) => !full || !r.data.deleted)
+              .map((r) => ({ ...r.data, server_seq: r.seq })),
+            topic_feedback: pick(this.feedbackRows).map((r) => ({ ...r.data, server_seq: r.seq })),
           }
         : {}),
       ...(this.recallSupported

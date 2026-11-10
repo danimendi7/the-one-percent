@@ -232,6 +232,7 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
       checkinConfig: DEFAULT_CHECKIN_CONFIG,
       reviews: {},
       recall: createDemoRecall(today),
+      discovery: { topics: {}, feedback: {} },
     },
     today
     ),

@@ -1,3 +1,4 @@
+import { toOwnTopic, toTopicFeedback } from "./discovery-wire"
 import { toRecallAttempt, toRecallCard } from "./recall-wire"
 import type { LocalDate, Weekday } from "@/features/habits/domain/dates"
 import { entryKey, type Habit, type HabitEntry, type HabitsState, type ScheduleRule } from "@/features/habits/domain/types"
@@ -20,7 +21,7 @@ const DEFAULT_DIMENSIONS: HabitsState["dimensions"] = [
 
 export function emptyCache(today: LocalDate, timezone = "Europe/Madrid"): ServerCache {
   return {
-    state: { version: 1, timezone, dimensions: DEFAULT_DIMENSIONS, habits: [], entries: {}, restDays: [], seededOn: today, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {}, recall: { cards: {}, attempts: {} } },
+    state: { version: 1, timezone, dimensions: DEFAULT_DIMENSIONS, habits: [], entries: {}, restDays: [], seededOn: today, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {}, recall: { cards: {}, attempts: {} }, discovery: { topics: {}, feedback: {} } },
     habitVersion: {},
     rowSeq: {},
     cursor: 0,
@@ -100,6 +101,8 @@ const seqKey = {
   checkin: (date: string, phase: string) => `c:${date}:${phase}`,
   review: (kind: string, start: string) => `v:${kind}:${start}`,
   recallCard: (id: string) => `k:${id}`,
+  discoveryTopic: (id: string) => `dt:${id}`,
+  topicFeedback: (key: string) => `tf:${key}`,
 }
 
 /**
@@ -121,6 +124,8 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
   const reviews = { ...base.state.reviews }
   const recallCards = { ...base.state.recall.cards }
   const recallAttempts = { ...base.state.recall.attempts }
+  const discoveryTopics = { ...base.state.discovery.topics }
+  const topicFeedback = { ...base.state.discovery.feedback }
 
   const newer = (key: string, seq: number) => !(key in rowSeq) || seq > rowSeq[key]
 
@@ -199,6 +204,20 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
   // Attempts never change, so their id is enough to apply each one once.
   for (const w of p.recall_attempts ?? []) recallAttempts[w.id] = toRecallAttempt(w)
 
+  for (const w of p.discovery_topics ?? []) {
+    const k = seqKey.discoveryTopic(w.id)
+    if (!newer(k, w.server_seq)) continue
+    rowSeq[k] = w.server_seq
+    if (w.deleted) delete discoveryTopics[w.id]
+    else discoveryTopics[w.id] = toOwnTopic(w)
+  }
+  for (const w of p.topic_feedback ?? []) {
+    const k = seqKey.topicFeedback(w.topic_key)
+    if (!newer(k, w.server_seq)) continue
+    rowSeq[k] = w.server_seq
+    topicFeedback[w.topic_key] = toTopicFeedback(w)
+  }
+
   return {
     state: {
       ...base.state,
@@ -217,11 +236,12 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
       checkinConfig: p.profile?.checkin_fields ? normalizeConfig(p.profile.checkin_fields) : base.state.checkinConfig,
       reviews,
       recall: { cards: recallCards, attempts: recallAttempts },
+      discovery: { topics: discoveryTopics, feedback: topicFeedback },
     },
     habitVersion,
     rowSeq,
     cursor: Math.max(p.full ? 0 : cache.cursor, p.cursor),
     serverToday: p.server_today,
-    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined, reviews: p.reviews !== undefined, dailyReviews: p.daily_reviews !== undefined, recall: p.recall_cards !== undefined, library: p.library !== undefined },
+    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined, reviews: p.reviews !== undefined, dailyReviews: p.daily_reviews !== undefined, recall: p.recall_cards !== undefined, discovery: p.topic_feedback !== undefined, library: p.library !== undefined },
   }
 }
