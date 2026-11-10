@@ -3,7 +3,7 @@
 Procedimiento para que Dani decida cuándo pasar `skynet/integracion` a `main` y a producción. Skynet no publica: todo lo de este documento lo hace Dani, o Skynet con su autorización expresa para ese paso.
 
 Estado comprobado el 2026-11-10:
-- `skynet/integracion` va 27 commits por delante de `main` y `main` no tiene nada que ella no tenga, así que la fusión no tiene conflictos.
+- `skynet/integracion` va por delante de `main` y `main` no tiene nada que ella no tenga, así que la fusión no tiene conflictos. Compruébalo antes con `git fetch && git rev-list --left-right --count origin/main...origin/skynet/integracion`: el primer número debe ser 0.
 - **Producción:** `https://the-one-percent-kappa.vercel.app`. La despliega Vercel al hacer push a `main` (`vercel.json`: las ramas `ci/**` no despliegan).
 - **Base de datos:** el proyecto Supabase `the-one-percent` (`supabase/cloud-project.json`) es a la vez staging y producción, por decisión de Dani del 2026-11-09. Las 11 migraciones nuevas de esta versión (de `20261109090000_goal_review` a `20261110120000_push_subscriptions`) **ya están aplicadas** en esa base. Todas son aditivas y compatibles con el código de `main`, que funciona sobre ellas desde que se aplicaron (9 y 10 de noviembre).
 - **CI:** `.github/workflows/ci.yml` valida, pero no migra ni despliega, y no lee ningún secreto. En este repositorio no hay ninguna migración automática a producción: las migraciones de la nube se aplican a mano (abajo).
