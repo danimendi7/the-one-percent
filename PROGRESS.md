@@ -37,8 +37,8 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | D6 | Conexión de repasos con Cerebro y Analytics | Unitarias; E2E | Sí | high | D3, B5 | hecha | #17 |
 | E1 | Motor de insights por reglas con periodo, variables, n y limitaciones | Unitarias; ninguno con muestra insuficiente | Sí | high | B1, C4 | hecha | #18 |
 | E2 | Pantalla Inteligencia real, etiquetada como reglas | E2E; sin etiquetas demo | Sí | high | E1 | hecha | #18 |
-| E3 | Experimentos de mejora medibles | Unitarias; E2E | Sí | high | E2 | PR lista para fusionar | #19 |
-| E4 | Adaptador de proveedor IA apagado por defecto | Unitaria: sin proveedor no hay llamadas | Sí | medium | E1 | pendiente | — |
+| E3 | Experimentos de mejora medibles | Unitarias; E2E | Sí | high | E2 | hecha | #19 |
+| E4 | Adaptador de proveedor IA apagado por defecto | Unitaria: sin proveedor no hay llamadas | Sí | medium | E1 | PR lista para fusionar | #20 |
 | E5 | Motivation Engine: reglas y evaluador puro (silencio, tope, reevaluación) | Unitarias: nada para hábito hecho o en descanso | Sí | xhigh | A1 | pendiente | — |
 | E6 | Ajustes reales de notificaciones (migración aditiva) | Integración; E2E; sin etiqueta demo | Sí | high | E5 | pendiente | — |
 | E7 | Bandeja dentro de la app | E2E; respeta tope y silencio | Sí | high | E6 | pendiente | — |
