@@ -142,6 +142,9 @@ export async function sendTest(): Promise<TestResult> {
     const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: { code?: string } } | null
     if (res.ok && body?.ok) return "accepted"
     const code = body?.error?.code
+    // The push service no longer knows this address and the server already forgot it: drop it here
+    // too, so «Activar» asks the browser for a new one instead of registering the dead one again.
+    if (code === "gone") await sub.unsubscribe().catch(() => false)
     return code === "gone" || code === "not_registered" || code === "not_configured" || code === "rate_limited" ? code : "failed"
   } catch {
     return "failed"
