@@ -6,7 +6,7 @@
  * engine + Supabase). The backend is chosen by <DataSourceProvider>.
  */
 import { useSyncExternalStore } from "react"
-import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions, RecallActions, ReviewActions } from "./types"
+import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions, RecallActions, ReviewActions, DiscoveryActions } from "./types"
 import type { ReviewKind } from "@/features/reviews/domain/types"
 
 export type { HabitsSnapshot, DataSource, SyncInfo } from "./types"
@@ -67,6 +67,11 @@ export function reviewsEnabled(kind?: ReviewKind): boolean {
   return snap?.reviews !== false && (kind !== "day" || snap?.dailyReviews !== false)
 }
 
+/** False only for an account whose server lacks the Daily Discovery migration: it waits on the device. */
+export function discoveryEnabled(): boolean {
+  return backend?.getSnapshot()?.discovery !== false
+}
+
 /** False only for an account whose server lacks the Active Recall migration: cards then wait on the device. */
 export function recallEnabled(): boolean {
   return backend?.getSnapshot()?.recall !== false
@@ -87,7 +92,10 @@ function active(): HabitActions {
   return backend.actions
 }
 
-export const habitActions: HabitActions & GoalActions & FocusActions & MindActions & ReviewActions & RecallActions = {
+export const habitActions: HabitActions & GoalActions & FocusActions & MindActions & ReviewActions & RecallActions & DiscoveryActions = {
+  addDiscoveryTopic: (...a) => need(active().addDiscoveryTopic)(...a),
+  removeDiscoveryTopic: (...a) => need(active().removeDiscoveryTopic)(...a),
+  setTopicFeedback: (...a) => need(active().setTopicFeedback)(...a),
   addRecallCard: (...a) => need(active().addRecallCard)(...a),
   answerRecallCard: (...a) => need(active().answerRecallCard)(...a),
   suspendRecallCard: (...a) => need(active().suspendRecallCard)(...a),

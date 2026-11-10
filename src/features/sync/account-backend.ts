@@ -1,5 +1,6 @@
 "use client"
 
+import { validateOwnTopic } from "@/features/discover/domain/ops"
 import { answerOutcome, validateCardText } from "@/features/recall/domain/ops"
 import { recallAnswerOp, recallCreateOp } from "./domain/recall-wire"
 import { fetchHabitHistory } from "./habit-history"
@@ -78,6 +79,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         reviews: e.reviews,
         dailyReviews: e.dailyReviews,
         recall: e.recall,
+        discovery: e.discovery,
       }
     }
     return snapshot
@@ -151,6 +153,8 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       .on("postgres_changes", { event: "*", schema: "public", table: "daily_checkins", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "recall_cards", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "discovery_topics", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "topic_feedback", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "library_items", filter: `user_id=eq.${user.id}` }, onLibraryChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "knowledge_notes", filter: `user_id=eq.${user.id}` }, onLibraryChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "podcast_shows", filter: `user_id=eq.${user.id}` }, onLibraryChange)
@@ -257,6 +261,19 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         submit({ type: "habit.restore", op_id: uuidv4(), habit_id: id })
       },
       loadHabitHistory: (id) => fetchHabitHistory(sb, id),
+      addDiscoveryTopic(input) {
+        const v = validateOwnTopic(input)
+        if (!v.ok) return v
+        const id = uuidv4()
+        submit({ type: "discovery.topic.create", op_id: uuidv4(), topic: { id, title: v.title, category: v.category, body: v.body, source_title: v.sourceTitle, source_url: v.sourceUrl }, at: engine.clientTime() })
+        return { ok: true, id }
+      },
+      removeDiscoveryTopic(id) {
+        submit({ type: "discovery.topic.delete", op_id: uuidv4(), topic_id: id })
+      },
+      setTopicFeedback(topicKey, fields) {
+        submit({ type: "discovery.feedback.set", op_id: uuidv4(), topic_key: topicKey, fields, local_date: view().today, at: engine.clientTime() })
+      },
       addRecallCard(input) {
         const text = validateCardText(input.question, input.answer)
         if (!text.ok) return text

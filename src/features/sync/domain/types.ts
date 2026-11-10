@@ -1,3 +1,4 @@
+import type { Dismissal, FeedbackFields } from "@/features/discover/domain/types"
 import type { CardState, Grade } from "@/features/recall/domain/schedule"
 import type { LocalDate } from "@/features/habits/domain/dates"
 import type { DimensionId, HabitsState, HabitType, ScheduleRule, TargetDirection } from "@/features/habits/domain/types"
@@ -184,6 +185,10 @@ export type Op =
     }
   | { type: "recall.suspend"; op_id: string; card_id: string; suspended_on: LocalDate | null }
   | { type: "recall.delete"; op_id: string; card_id: string }
+  // ── Daily Discovery (D4) ──
+  | { type: "discovery.topic.create"; op_id: string; topic: { id: string; title: string; category: string; body: string; source_title: string | null; source_url: string | null }; at: string }
+  | { type: "discovery.topic.delete"; op_id: string; topic_id: string }
+  | { type: "discovery.feedback.set"; op_id: string; topic_key: string; fields: FeedbackFields; local_date: LocalDate; at: string }
   // ── Library (M4b wire, M4c client): field names are column names (library-wire.ts) ──
   | LibraryOp
 
@@ -426,6 +431,28 @@ export interface WireRestDay {
   server_seq: number
 }
 
+export interface WireDiscoveryTopic {
+  id: string
+  title: string
+  category: string
+  body: string
+  source_title: string | null
+  source_url: string | null
+  created_at: string
+  deleted: boolean
+  server_seq: number
+}
+
+export interface WireTopicFeedback {
+  topic_key: string
+  rating: number | null
+  saved: boolean
+  dismissed: Dismissal | null
+  decided_on: LocalDate
+  updated_at: string
+  server_seq: number
+}
+
 export interface WireRecallSchedule {
   state: CardState
   reps: number
@@ -488,6 +515,9 @@ export interface PullPayload {
   /** Active Recall (D2). A full pull brings only the last 90 days of attempts. */
   recall_cards?: WireRecallCard[]
   recall_attempts?: WireRecallAttempt[]
+  /** Daily Discovery (D4). */
+  discovery_topics?: WireDiscoveryTopic[]
+  topic_feedback?: WireTopicFeedback[]
   /** M4b. The library travels through pull_library; this only says the server stores it and its newest change. */
   library?: { head: number }
   cursor: number
@@ -501,7 +531,7 @@ export interface ServerCache {
   cursor: number
   serverToday: LocalDate
   /** Server capabilities seen in the last pull (a deploy may precede its migration). */
-  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; dailyReviews?: boolean; recall?: boolean; library?: boolean }
+  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; dailyReviews?: boolean; recall?: boolean; discovery?: boolean; library?: boolean }
 }
 
 export type SyncStatus = "synced" | "syncing" | "pending" | "offline" | "error"

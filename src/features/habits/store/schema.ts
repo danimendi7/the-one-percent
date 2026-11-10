@@ -162,4 +162,6 @@ export const habitsStateSchema = z.object({
   reviews: z.record(z.string(), review).optional().catch(undefined),
   // Absent in demo data saved before D3.
   recall: z.object({ cards: z.record(z.string(), z.any()), attempts: z.record(z.string(), z.any()) }).optional().catch(undefined),
+  // Absent in demo data saved before D4.
+  discovery: z.object({ topics: z.record(z.string(), z.any()), feedback: z.record(z.string(), z.any()) }).optional().catch(undefined),
 })

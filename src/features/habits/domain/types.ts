@@ -1,3 +1,4 @@
+import type { DiscoveryState } from "@/features/discover/domain/types"
 import type { RecallState } from "@/features/recall/domain/types"
 import type { LocalDate, Weekday } from "./dates"
 import type { Goal, MeasurementMap } from "@/features/goals/domain/types"
@@ -87,6 +88,8 @@ export interface HabitsState {
   reviews: ReviewMap
   /** Active Recall (D2): cards and the history of their answers. */
   recall: RecallState
+  /** Daily Discovery (D4): topics written by the user and what they thought of each topic. */
+  discovery: DiscoveryState
 }
 
 export function entryKey(habitId: string, date: LocalDate): string {

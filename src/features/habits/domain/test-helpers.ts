@@ -48,5 +48,6 @@ export function makeState(habits: Habit[], map: EntryMap = {}, rest: LocalDate[]
     checkinConfig: DEFAULT_CHECKIN_CONFIG,
     reviews: {},
     recall: { cards: {}, attempts: {} },
+    discovery: { topics: {}, feedback: {} },
   }
 }
