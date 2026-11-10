@@ -45,3 +45,11 @@ Orden de la especificación: 1) identidad y dimensiones; 2) hábitos, horarios y
 | `private.allowed_emails` | No figura en la spec: implementa «sin registro público». |
 
 Fuera de M2 (fases siguientes): objetivos, enfoque y check-ins (M3), libros y conocimiento (M4), notificaciones (M5) y revisiones persistidas (M6).
+
+## Notificaciones push (E8)
+
+| Tabla | Notas respecto a la especificación |
+| --- | --- |
+| `push_subscriptions` | Una fila por endpoint (dispositivo). Sin `device_label`/`browser` separados: un `label` como «iPhone · Safari». Sin columnas `*_ciphertext`: ninguna API la lee (RLS sin políticas ni permisos) y solo la tocan cuatro funciones SECURITY DEFINER que nunca devuelven el endpoint ni las claves. Sin `revoked_at`: dar de baja borra la fila. Guarda `vapid_key` para detectar un cambio de clave del servidor. Tope de 20 por cuenta. Decisiones en `DECISIONS.md` (2026-11-10). |
+
+`notification_preferences` no existe como tabla: los ajustes viven en `profiles.settings_json.motivation` (E6). El registro de entregas del envío programado llegará con E9.

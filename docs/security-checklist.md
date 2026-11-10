@@ -47,5 +47,14 @@ Estado al cierre de la Fase A de M2.5 (solo local). ✅ hecho · ⏳ fase indica
 - ✅ Los textos de un contenido rechazado por duplicado se conservan al reabrir hasta que se decide: casos M y N de `library-sync.int.test.ts`.
 - ⚠️ **Limitación aceptada** (`m4g-plan` §22.2-B): un vínculo de Cerebro creado sin conexión sobre un contenido que el servidor rechaza se avisa una vez y no se conserva al reabrir; hay que volver a conectarlo a mano. No deja vínculos huérfanos ni afecta a los textos. Los mismos casos M y N lo comprueban.
 
+## Notificaciones push (E8, 2026-11-10)
+- ✅ Ninguna API lee ni escribe `push_subscriptions`: RLS sin políticas y sin permisos para `anon` y `authenticated`. Solo cuatro funciones SECURITY DEFINER, que comprueban `auth.uid()`, actúan sobre las filas propias y nunca devuelven el endpoint ni las claves: `push.int.test.ts`.
+- ✅ Una dirección de otra cuenta nunca se reasigna (`taken`), y otra cuenta no puede quitarla ni olvidarla: `push.int.test.ts`.
+- ✅ Solo se aceptan endpoints https de FCM, Mozilla, Apple y WNS, en la base y en `/api/push/test` (sin SSRF): `push.test.ts`, `server.test.ts`.
+- ✅ `/api/push/test` exige mismo origen y JSON, sesión verificada con `getUser()`, como mucho 5 pruebas por minuto, y envía solo a un dispositivo registrado del que llama. Respuestas `private, no-store`; no registra nada: `server.test.ts`.
+- ✅ La clave privada VAPID solo se lee en el servidor; la pública va en el build. Sin las tres variables la ruta responde 503 y no envía nada.
+- ✅ La notificación no lleva datos personales, y el service worker solo abre rutas de la propia app: `sw.test.ts`.
+- ✅ El permiso del navegador solo se pide al pulsar «Activar»; al cerrar sesión, el dispositivo se da de baja: `push-account.spec.ts`.
+
 ## Dependencias
-- ✅ `npm audit`: 0 vulnerabilidades.
+- ⚠️ `npm audit` (2026-11-10): 12 avisos (2 bajos, 10 moderados), todos en herramientas de desarrollo: la CLI de `shadcn` (`deepmerge`, `minimatch` vía `ts-morph`) y `typescript-eslint`. Ninguno llega al código que se ejecuta en el navegador o el servidor; `web-push` no añade ninguno. La corrección automática exige versiones incompatibles; se revisa en F2.

@@ -3,6 +3,13 @@ import { defineConfig } from "@playwright/test"
 export const PORT = 3100
 const baseURL = `http://localhost:${PORT}`
 
+/**
+ * E8 · The build under test has push configured, so the subscription flow can be tested. Only the
+ * public key: its private key was discarded when it was generated, so nothing can ever be sent with
+ * it, and the server has no private key, so «Enviar prueba» answers that sending is not configured.
+ */
+export const E2E_VAPID_PUBLIC_KEY = "BNKXOBbMRvebkozkWtIIzL-d1Ia949c24t5VUZliPGEUiCnczkJT-yTousqZ7zucLAfhJwhK0TUqgwnvCL1WuF4"
+
 export default defineConfig({
   testDir: "./e2e",
   // Deployment smoke tests have their own config (playwright.smoke.config.ts).
@@ -50,5 +57,6 @@ export default defineConfig({
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
+    env: { NEXT_PUBLIC_VAPID_PUBLIC_KEY: E2E_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY: "", VAPID_SUBJECT: "" },
   },
 })

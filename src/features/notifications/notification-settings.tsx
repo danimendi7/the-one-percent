@@ -1,8 +1,7 @@
 "use client"
 
-import { useId, useSyncExternalStore } from "react"
-import { BellOff, BellRing, Info } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useId } from "react"
+import { Info } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
@@ -15,6 +14,7 @@ import { WEEKDAY_LONG, WEEKDAY_SHORT, type Weekday } from "@/features/habits/dom
 import { habitActions, useHabits, type HabitsSnapshot } from "@/features/habits/store/habit-store"
 import { RULE_LABEL, RULE_ORDER, type MotivationSettings, type Tone } from "./domain/motivation"
 import { normalizeMotivation, sampleNudge } from "./domain/settings"
+import { PushSection } from "./push/push-section"
 
 const TONES: Record<Tone, { name: string; desc: string }> = {
   calm: { name: "Calma", desc: "Recordatorios suaves, sin presión." },
@@ -22,14 +22,6 @@ const TONES: Record<Tone, { name: string; desc: string }> = {
   hardcore: { name: "Hardcore", desc: "Exigente y sin rodeos. Opcional." },
 }
 const WEEKDAYS: Weekday[] = [1, 2, 3, 4, 5, 6, 7]
-
-function usePermission(): NotificationPermission | "unsupported" | null {
-  return useSyncExternalStore(
-    () => () => {},
-    () => ("Notification" in window ? Notification.permission : "unsupported"),
-    () => null
-  )
-}
 
 export function NotificationSettings() {
   const snap = useHabits()
@@ -48,7 +40,6 @@ export function NotificationSettings() {
 function Settings({ snap }: { snap: HabitsSnapshot }) {
   const ids = { quietStart: useId(), quietEnd: useId(), cap: useId(), gap: useId() }
   const s = snap.state.motivation
-  const permission = usePermission()
   const save = (patch: Partial<MotivationSettings>) => habitActions.setMotivationSettings(normalizeMotivation({ ...s, ...patch }))
   const sample = sampleNudge(s)
   const off = !s.enabled
@@ -64,37 +55,7 @@ function Settings({ snap }: { snap: HabitsSnapshot }) {
           <Switch id="motivation-enabled" checked={s.enabled} onCheckedChange={(v) => save({ enabled: v })} data-testid="motivation-enabled" />
         </section>
 
-        <section className="panel rounded-2xl p-5" aria-labelledby="perm-title">
-          <div className="flex items-start gap-4">
-            <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-raised">
-              {permission === "granted" ? <BellRing className="size-5 text-signal" aria-hidden /> : <BellOff className="size-5 text-text-secondary" aria-hidden />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 id="perm-title" className="font-semibold">
-                Notificaciones push en este dispositivo
-              </h2>
-              <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-                Estado del navegador:{" "}
-                <strong className="font-medium text-foreground">
-                  {permission === null
-                    ? "comprobando…"
-                    : permission === "unsupported"
-                      ? "no compatible"
-                      : permission === "granted"
-                        ? "permitidas"
-                        : permission === "denied"
-                          ? "bloqueadas en el navegador"
-                          : "sin decidir"}
-                </strong>
-                . El permiso solo se pedirá cuando pulses activar; en iPhone requiere instalar la app en la pantalla de inicio.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button disabled>Activar notificaciones</Button>
-              </div>
-              <p className="mt-2 text-xs text-text-tertiary">La suscripción push de cada dispositivo todavía no está disponible.</p>
-            </div>
-          </div>
-        </section>
+        <PushSection demo={snap.source === "demo"} />
 
         <section aria-labelledby="tone-title" className={cn(off && "opacity-60")}>
           <h2 id="tone-title" className="mb-3 text-base font-semibold">
