@@ -49,5 +49,6 @@ export function makeState(habits: Habit[], map: EntryMap = {}, rest: LocalDate[]
     reviews: {},
     recall: { cards: {}, attempts: {} },
     discovery: { topics: {}, feedback: {} },
+    experiments: {},
   }
 }

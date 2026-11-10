@@ -213,13 +213,17 @@ test.describe("life review (demo)", () => {
     await expect(page.getByTestId("review-row")).toHaveCount(1)
   })
 
-  test("a11y: home, editor, closed review, close dialog and decision log", async ({ page }, info) => {
-    for (const route of ["/reviews", "/reviews?tipo=diaria", DAY, WEEK, "/reviews/week/2026-10-05", "/reviews/month/2026-09-01", "/reviews/decisions"]) {
+  // One test per page: seven full axe scans in one test came too close to its 30 s budget (run 42740714349).
+  for (const route of ["/reviews", "/reviews?tipo=diaria", DAY, WEEK, "/reviews/week/2026-10-05", "/reviews/month/2026-09-01", "/reviews/decisions"]) {
+    test(`a11y: ${route}`, async ({ page }) => {
       await page.goto(route)
       await expect(page.locator("h1").first()).toBeVisible()
       await page.waitForLoadState("networkidle")
       expect(await blocking(page), route).toEqual([])
-    }
+    })
+  }
+
+  test("a11y: the close dialog", async ({ page }, info) => {
     await page.goto(WEEK)
     const mobile = isMobile(info.project.name)
     await goToStep(page, mobile, /Cerrar/)

@@ -1,3 +1,5 @@
+import { addExperiment, closeExperiment, removeExperiment } from "@/features/intelligence/domain/experiments"
+import { toExperiment } from "./experiment-wire"
 import { addOwnTopic, applyFeedback, removeOwnTopic } from "@/features/discover/domain/ops"
 import { addCard, recordAnswer, removeCard, setSuspended } from "@/features/recall/domain/ops"
 import { fromWireSchedule } from "./recall-wire"
@@ -184,6 +186,15 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return { ...state, discovery: removeOwnTopic(state.discovery, op.topic_id) }
     case "discovery.feedback.set":
       return { ...state, discovery: applyFeedback(state.discovery, op.topic_key, op.fields, op.local_date, op.at) }
+    // ── Experiments (E3) ──
+    case "experiment.create": {
+      const w = toExperiment({ ...op.experiment, status: "active", ended_on: null, note: null, created_at: op.at, deleted: false, server_seq: 0 })
+      return { ...state, experiments: addExperiment(state.experiments, { id: w.id, title: w.title, metric: w.metric, startOn: w.startOn, days: w.days, at: op.at }) }
+    }
+    case "experiment.close":
+      return { ...state, experiments: closeExperiment(state.experiments, op.experiment_id, { status: op.status, endedOn: op.ended_on, note: op.note }) }
+    case "experiment.delete":
+      return { ...state, experiments: removeExperiment(state.experiments, op.experiment_id) }
     default:
       // An operation this version does not know (written by a newer one): no optimistic effect, still sent.
       return state

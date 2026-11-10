@@ -5,6 +5,7 @@
  * data. Used when there is no account (explore mode) or Supabase is not
  * configured. Never synced, never imported automatically into an account.
  */
+import { addExperiment, closeExperiment, MAX_ACTIVE, removeExperiment, validateExperiment } from "@/features/intelligence/domain/experiments"
 import { addOwnTopic, applyFeedback, emptyDiscovery, removeOwnTopic, validateOwnTopic } from "@/features/discover/domain/ops"
 import { addCard, answerOutcome, emptyRecall, recordAnswer, removeCard, setSuspended, validateCardText } from "@/features/recall/domain/ops"
 import { useSyncExternalStore } from "react"
@@ -67,7 +68,7 @@ export function readDemoState(): HabitsState | null {
     if (!raw) return null
     const parsed = habitsStateSchema.safeParse(JSON.parse(raw))
     if (!parsed.success) return null
-    const data = { ...parsed.data, recall: parsed.data.recall ?? emptyRecall(), discovery: parsed.data.discovery ?? emptyDiscovery() } as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews"> &
+    const data = { ...parsed.data, recall: parsed.data.recall ?? emptyRecall(), discovery: parsed.data.discovery ?? emptyDiscovery(), experiments: parsed.data.experiments ?? {} } as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews"> &
       Partial<Pick<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews">>
     // Before M3.4 there were no reviews.
     const reviews = data.reviews ?? {}
@@ -342,6 +343,23 @@ export const demoBackend: Backend = {
     },
     resolveReviewText: () => false,
     reviewSyncState: () => "local",
+    startExperiment(input) {
+      const v = validateExperiment(input)
+      if (!v.ok) return v
+      const s = getSnapshot()
+      if (Object.values(s.state.experiments).filter((e) => e.status === "active").length >= MAX_ACTIVE) return { ok: false, field: "active", reason: "too_many" }
+      const id = uuidv4()
+      commit({ ...s.state, experiments: addExperiment(s.state.experiments, { id, title: v.title, metric: input.metric, startOn: s.today, days: input.days, at: new Date().toISOString() }) })
+      return { ok: true, id }
+    },
+    closeExperiment(id, status, note) {
+      const s = getSnapshot()
+      commit({ ...s.state, experiments: closeExperiment(s.state.experiments, id, { status, endedOn: s.today, note }) })
+    },
+    deleteExperiment(id) {
+      const s = getSnapshot()
+      commit({ ...s.state, experiments: removeExperiment(s.state.experiments, id) })
+    },
     addDiscoveryTopic(input) {
       const v = validateOwnTopic(input)
       if (!v.ok) return v

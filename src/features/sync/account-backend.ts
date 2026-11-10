@@ -1,5 +1,7 @@
 "use client"
 
+import { MAX_ACTIVE, validateExperiment } from "@/features/intelligence/domain/experiments"
+import { metricToWire } from "./domain/experiment-wire"
 import { validateOwnTopic } from "@/features/discover/domain/ops"
 import { answerOutcome, validateCardText } from "@/features/recall/domain/ops"
 import { recallAnswerOp, recallCreateOp } from "./domain/recall-wire"
@@ -80,6 +82,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         dailyReviews: e.dailyReviews,
         recall: e.recall,
         discovery: e.discovery,
+        experiments: e.experiments,
       }
     }
     return snapshot
@@ -155,6 +158,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       .on("postgres_changes", { event: "*", schema: "public", table: "recall_cards", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "discovery_topics", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "topic_feedback", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "experiments", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "library_items", filter: `user_id=eq.${user.id}` }, onLibraryChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "knowledge_notes", filter: `user_id=eq.${user.id}` }, onLibraryChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "podcast_shows", filter: `user_id=eq.${user.id}` }, onLibraryChange)
@@ -261,6 +265,21 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         submit({ type: "habit.restore", op_id: uuidv4(), habit_id: id })
       },
       loadHabitHistory: (id) => fetchHabitHistory(sb, id),
+      startExperiment(input) {
+        const v = validateExperiment(input)
+        if (!v.ok) return v
+        const { state, today } = view()
+        if (Object.values(state.experiments).filter((e) => e.status === "active").length >= MAX_ACTIVE) return { ok: false, field: "active", reason: "too_many" }
+        const id = uuidv4()
+        submit({ type: "experiment.create", op_id: uuidv4(), experiment: { id, title: v.title, ...metricToWire(input.metric), start_on: today, days: input.days }, at: engine.clientTime() })
+        return { ok: true, id }
+      },
+      closeExperiment(id, status, note) {
+        submit({ type: "experiment.close", op_id: uuidv4(), experiment_id: id, status, ended_on: view().today, note: note?.trim() || null })
+      },
+      deleteExperiment(id) {
+        submit({ type: "experiment.delete", op_id: uuidv4(), experiment_id: id })
+      },
       addDiscoveryTopic(input) {
         const v = validateOwnTopic(input)
         if (!v.ok) return v
