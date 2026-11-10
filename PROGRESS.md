@@ -49,7 +49,7 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | F3 | Simulacro de respaldo y restauración | `restore:drill` correcto, con resultado documentado | Sí | high | F1 | bloqueada | — |
 | F4 | Guía de uso y validación móvil | `docs/guia-uso.md`; capturas móvil y escritorio | Sí | medium | F2 | hecha | #27 |
 | F5 | `docs/publicacion.md`: publicar, revertir, separar la base | Procedimiento completo revisado contra el repo | Sí | medium | F2 | hecha | #28 |
-| F6 | Documentación final y versión candidata (DONE.md) | Criterios §12 de la orden con evidencia | Sí | high | F1, F2, F4, F5, F7 (F3 bloqueada) | PR lista para fusionar | #29 |
+| F6 | Documentación final y versión candidata (DONE.md) | Criterios §12 de la orden con evidencia | Sí | high | F1, F2, F4, F5, F7 (F3 bloqueada) | hecha | #29 |
 | F7 | Exportación CSV de los registros (PRD §7: «Export JSON and CSV») | Unitarias del CSV (escapes, zona, columnas); E2E: la descarga contiene los registros | Sí | medium | — | hecha | #28 |
 
 Estados: pendiente · en curso · hecha · bloqueada · PR lista para fusionar
