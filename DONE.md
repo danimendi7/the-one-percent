@@ -4,7 +4,7 @@ Respuesta a la orden del 2026-11-09 (Misión Maestra). Modo protegido: nada se h
 
 | | |
 | --- | --- |
-| Versión candidata | `skynet/integracion`, con esta PR fusionada encima de `faee9b2` |
+| Versión candidata | `skynet/integracion` en `31d282c` (PR #29); la #30 solo marca F6 como hecha |
 | Preview de la candidata | `https://the-one-percent-git-skynet-integracion-danimendiar-3744.vercel.app`, tras el SSO de Vercel |
 | Producción, sin cambios | `https://the-one-percent-kappa.vercel.app` (sigue en `main`) |
 | Estado de cada tarea | [`PROGRESS.md`](PROGRESS.md) · por funcionalidad: [`docs/matriz-funcional.md`](docs/matriz-funcional.md) |
@@ -51,7 +51,7 @@ Cómo se usa: [`docs/guia-uso.md`](docs/guia-uso.md), con capturas de móvil y e
 
 ## Órdenes atendidas
 
-- **2026-11-09 · Misión Maestra:** [hecha]. 43 tareas en las fases A–F, 28 PR fusionadas (#1–#28) y esta, la #29. Quedan los pendientes autorizables de abajo.
+- **2026-11-09 · Misión Maestra:** [hecha]. 43 tareas en las fases A–F, 29 PR fusionadas (#1–#29), más la #30 de cierre del registro. Quedan los pendientes autorizables de abajo.
 
 ## Bloqueado o pendiente de tu autorización
 
