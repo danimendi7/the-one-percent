@@ -1,6 +1,6 @@
-import type { Page } from "@playwright/test"
 import { expect, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
+import { storedOpTypes } from "./support/offline"
 
 /**
  * Runs in the page: opening the device copy (the «the-one-percent» database) answers `ms` later, as
@@ -28,24 +28,6 @@ function delayDeviceCopy(ms: number) {
  * still sent (exactly once) and the local copy is still saved.
  * PERMANENT regression gate (D39): runs in CI on every push; never delete, skip or weaken it.
  */
-/** Ops in the queue of the device copy (IndexedDB), as stored right now. */
-const storedQueueLength = (page: Page) =>
-  page.evaluate(
-    () =>
-      new Promise<number>((resolve, reject) => {
-        const open = indexedDB.open("the-one-percent")
-        open.onerror = () => reject(open.error)
-        open.onsuccess = () => {
-          const store = open.result.transaction("sync", "readonly").objectStore("sync")
-          const all = store.getAll()
-          all.onsuccess = () => {
-            open.result.close()
-            resolve((all.result as { queue?: unknown[] }[]).reduce((n, v) => n + (v?.queue?.length ?? 0), 0))
-          }
-        }
-      })
-  )
-
 test.describe("account · a failing screen keeps syncing", () => {
   test.use({ mode: "account" })
   let account: Account
@@ -68,7 +50,7 @@ test.describe("account · a failing screen keeps syncing", () => {
     await expect.poll(() => countRows("select count(*)::int n from public.habits where user_id = $1 and title = 'Respirar'", [account.id]), { timeout: 15_000 }).toBe(1)
     await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ })).toBeVisible({ timeout: 15_000 })
     // …and the device copy no longer holds it: only an acknowledged op leaves the stored queue.
-    await expect.poll(() => storedQueueLength(page), { timeout: 15_000 }).toBe(0)
+    await expect.poll(() => storedOpTypes(page), { timeout: 15_000 }).toEqual([])
 
     await context.setOffline(true)
     await page.getByRole("region", { name: "Hoy" }).getByRole("button", { name: /^Respirar, / }).click()

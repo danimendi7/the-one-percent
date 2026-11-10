@@ -1,6 +1,7 @@
 import { errors, type Browser, type BrowserContext, type Page, type TestInfo } from "@playwright/test"
 import { expect, isMobile, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
+import { storedOpTypes } from "./support/offline"
 import { db } from "../tests/integration/setup"
 
 /**
@@ -99,6 +100,8 @@ test.describe("life review · account mode", () => {
     await expect(page.getByTestId("review-save")).toContainText("se enviará al recuperar la conexión")
     await expect(page.getByTestId("review-save")).not.toContainText("Sincronizado")
     expect(await row()).toBeNull()
+    // Closed once the write is on the device, as a person closing the app seconds later (PR #27).
+    await expect.poll(() => storedOpTypes(page), { timeout: 15_000 }).toContain("review.save")
     await page.close()
     await context.setOffline(false)
 
