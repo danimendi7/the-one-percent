@@ -30,6 +30,7 @@
     "bench:knowledge": "node scripts/bench-knowledge.mjs",
     "test:browser": "playwright test --config playwright.browser.config.ts",
     "bench:search": "node scripts/bench-search.mjs",
+    "measure:views": "node scripts/measure-views.mjs",
     "explore:metadata": "vitest run --config vitest.explore.config.mts --silent=false"
   },
   "dependencies": {

@@ -61,44 +61,53 @@ export function OverviewView() {
               <div className="panel rounded-2xl p-4 sm:p-5">
                 {model ? <TodayHeader model={model} /> : <div className="h-[88px] animate-pulse rounded-xl bg-surface-raised/50" />}
               </div>
-              <div className="mt-4">
-                {model ? <TodayChecklist model={model} /> : <div className="panel h-80 animate-pulse rounded-2xl" />}
-              </div>
+              {/* No placeholder for the list: one below the header moved down when the header grew. */}
+              {model && (
+                <div className="mt-4">
+                  <TodayChecklist model={model} />
+                </div>
+              )}
             </>
           )}
         </section>
 
-        {/* Side column */}
-        <div className="grid min-w-0 grid-cols-1 content-start gap-4 lg:col-span-5 xl:col-span-4">
-          <Shortcuts />
-          <CheckinCard />
-          <ReviewCard />
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-1 xl:grid-cols-2">
-            <FocusCta />
-            <LearnCta />
-          </div>
-        </div>
+        {/* Everything else waits for the data: painted below today's placeholders, it jumped down
+            when they grew (CLS 0,64 on a phone, F2). Today's placeholders keep the place meanwhile. */}
+        {model && (
+          <>
+            {/* Side column */}
+            <div className="grid min-w-0 grid-cols-1 content-start gap-4 lg:col-span-5 xl:col-span-4">
+              <Shortcuts />
+              <CheckinCard />
+              <ReviewCard />
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-1 xl:grid-cols-2">
+                <FocusCta />
+                <LearnCta />
+              </div>
+            </div>
 
-        {/* Dimensions */}
-        <section aria-labelledby="dims-title" className="lg:col-span-7 xl:col-span-8">
-          <h2 id="dims-title" className="mb-3 text-base font-semibold">
-            Dimensiones · 30 días
-          </h2>
-          {model ? <Dimensions model={model} /> : <div className="panel h-48 animate-pulse rounded-2xl" />}
-        </section>
+            {/* Dimensions */}
+            <section aria-labelledby="dims-title" className="lg:col-span-7 xl:col-span-8">
+              <h2 id="dims-title" className="mb-3 text-base font-semibold">
+                Dimensiones · 30 días
+              </h2>
+              <Dimensions model={model} />
+            </section>
 
-        {/* Goals */}
-        <section aria-labelledby="goals-title" className="lg:col-span-5 xl:col-span-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 id="goals-title" className="text-base font-semibold">
-              Objetivos activos
-            </h2>
-            <Link href="/goals" className="-mr-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-text-secondary hover:text-foreground">
-              Ver todos
-            </Link>
-          </div>
-          <ActiveGoals />
-        </section>
+            {/* Goals */}
+            <section aria-labelledby="goals-title" className="lg:col-span-5 xl:col-span-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 id="goals-title" className="text-base font-semibold">
+                  Objetivos activos
+                </h2>
+                <Link href="/goals" className="-mr-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-text-secondary hover:text-foreground">
+                  Ver todos
+                </Link>
+              </div>
+              <ActiveGoals />
+            </section>
+          </>
+        )}
       </div>
     </>
   )

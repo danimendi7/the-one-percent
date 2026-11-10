@@ -1287,8 +1287,13 @@ export class SyncEngine {
     }
   }
 
+  /**
+   * Today in the profile's zone. Once the server's time is known, by the device clock corrected
+   * with it: a phone a few hours off would otherwise show and write the day before or after near
+   * midnight (seen in PR #15; F2). Until the first answer, by the device clock alone.
+   */
   private localToday(timezone: string): LocalDate {
-    return localDateInZone(new Date(this.now()), timezone)
+    return localDateInZone(new Date(this.now() + (this.lastSampleAt === 0 ? 0 : this.clockOffset)), timezone)
   }
 
   private invalidate() {

@@ -372,7 +372,7 @@ export function NoteCard({
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => setEditing(true)} className="block w-full text-left text-[0.9375rem] leading-relaxed whitespace-pre-wrap">
+        <button type="button" onClick={() => setEditing(true)} className="block min-h-11 w-full text-left text-[0.9375rem] leading-relaxed whitespace-pre-wrap">
           <span className="sr-only">Editar nota: </span>
           {terms?.length ? <Marked text={note.body} terms={terms} /> : note.body}
         </button>
@@ -403,7 +403,7 @@ export function NoteCard({
       )}
       <footer className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
         {origin && (
-          <Link href={itemHref(origin.id)} className="inline-flex min-h-11 md:min-h-10 min-w-0 items-center truncate text-xs text-text-secondary underline-offset-2 hover:text-foreground hover:underline">
+          <Link href={itemHref(origin.id)} className="inline-flex min-h-11 md:min-h-10 min-w-11 items-center truncate text-xs text-text-secondary underline-offset-2 hover:text-foreground hover:underline">
             {origin.title}
           </Link>
         )}

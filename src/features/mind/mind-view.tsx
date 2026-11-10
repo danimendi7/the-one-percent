@@ -200,7 +200,8 @@ function WeekStrip({ m, onOpen }: { m: MindModel; onOpen: (t: CheckinTarget) => 
       <h2 id="mind-week-title" className="mb-3 text-base font-semibold">
         Últimos 7 días
       </h2>
-      <ol className="grid grid-cols-7 gap-1">
+      {/* -mx-3 and a 2 px gap: at 375 px each day gets 44 px to tap instead of 40. */}
+      <ol className="-mx-3 grid grid-cols-7 gap-0.5 sm:mx-0 sm:gap-1">
         {days.map((d) => {
           const am = checkinFor(m.state, d, "am")
           const pm = checkinFor(m.state, d, "pm")

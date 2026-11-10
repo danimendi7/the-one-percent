@@ -351,7 +351,7 @@ function PanelHeader({
         type="button"
         onClick={onToggle}
         aria-pressed={showTable}
-        className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs text-text-secondary hover:bg-surface-raised hover:text-foreground"
+        className="flex h-11 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs text-text-secondary hover:bg-surface-raised hover:text-foreground md:h-9"
       >
         {showTable ? <LineIcon className="size-3.5" aria-hidden /> : <Table2 className="size-3.5" aria-hidden />}
         {showTable ? "Gráfico" : "Tabla"}
