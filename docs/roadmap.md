@@ -21,5 +21,5 @@ El orden de la orden (A–F) se mantiene sin cambios. El roadmap original de sie
 
 ## Fuera del alcance de esta versión candidata (pendiente autorizable)
 - IA generativa con proveedor.
-- Envío programado de push si exige un servicio de pago.
+- Envío programado de push (E9): claves VAPID en Vercel, un planificador de pocos minutos (de pago en Vercel) y una clave de servicio en el servidor. La suscripción por dispositivo y la prueba (E8) ya están hechas.
 - Publicación en `main` y producción: decisión de Dani (`docs/publicacion.md`, tarea F5).

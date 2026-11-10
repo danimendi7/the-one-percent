@@ -41,8 +41,9 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | E4 | Adaptador de proveedor IA apagado por defecto | Unitaria: sin proveedor no hay llamadas | Sí | medium | E1 | hecha | #20 |
 | E5 | Motivation Engine: reglas y evaluador puro (silencio, tope, reevaluación) | Unitarias: nada para hábito hecho o en descanso | Sí | xhigh | A1 | hecha | #21 |
 | E6 | Ajustes reales de notificaciones (migración aditiva) | Integración; E2E; sin etiqueta demo | Sí | high | E5 | hecha | #22 |
-| E7 | Bandeja dentro de la app | E2E; respeta tope y silencio | Sí | high | E6 | PR lista para fusionar | #23 |
-| E8 | Push: suscripción por dispositivo y permiso tras acción clara | Test de navegador; alta y baja independientes por dispositivo | Sí | xhigh | E7 | pendiente | — |
+| E7 | Bandeja dentro de la app | E2E; respeta tope y silencio | Sí | high | E6 | hecha | #23 |
+| E8 | Push: suscripción por dispositivo y permiso tras acción clara | Test de navegador; alta y baja independientes por dispositivo | Sí | xhigh | E7 | PR lista para fusionar | #24 |
+| E9 | Envío programado de push en servidor (reglas del Motivation Engine reevaluadas al enviar, registro de entregas sin duplicados) | Integración: un hábito hecho no recibe aviso; un reintento no duplica | Sí | xhigh | E8 | bloqueada | — |
 | F1 | Integración final del Command Center y sus estados | E2E de los cuatro estados del Plan §5.1 | Sí | high | B–E | pendiente | — |
 | F2 | Accesibilidad y rendimiento de vistas clave | `a11y.spec.ts` ampliado; mediciones documentadas | Sí | high | F1 | pendiente | — |
 | F3 | Simulacro de respaldo y restauración | `restore:drill` correcto, con resultado documentado | Sí | high | F1 | pendiente | — |
@@ -54,7 +55,7 @@ Estados: pendiente · en curso · hecha · bloqueada · PR lista para fusionar
 
 ## Bloqueos
 
-_Ninguno por ahora._
+- **E9 · Envío programado de push (pendiente autorizable).** Necesita tres cosas que Skynet no puede hacer sin permiso: (1) claves VAPID en las variables de Vercel (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`), que son configuración en la nube; (2) un planificador que despierte al servidor cada pocos minutos: el Cron de Vercel en el plan Hobby solo se ejecuta una vez al día y solo en producción, el de cada pocos minutos es de pago (Pro), y `pg_cron` en Supabase correría sobre la misma base que usa la app desplegada; (3) una clave de servicio de Supabase en el servidor para leer los datos de cada persona al evaluar, que hoy la app no usa en ningún sitio. Con E8 ya se puede activar el push por dispositivo y enviar la notificación de prueba en cuanto existan las claves; los avisos siguen llegando a la bandeja. Diseño previsto en `DECISIONS.md` (2026-11-10).
 
 **Limitación conocida:** la prueba de humo contra un preview da 10 de 22. Las 12 restantes pasan todos sus pasos y fallan solo en la aserción final de la consola, porque la CSP de la app bloquea la barra de comentarios que Vercel inyecta en los previews (`vercel.live/_next-live/feedback/feedback.js`). En la CI, sobre el build local, pasan las 22. Medido en las PR #3, #4 y #5.
 

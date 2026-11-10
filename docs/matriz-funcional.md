@@ -50,9 +50,10 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | AI Intelligence | Insights basados en reglas | IV | `features/intelligence` (6 reglas con mínimos), `/intelligence`, `intelligence.spec.ts`, experimentos (`experiments.ts`, `20261110100000_experiments.sql`), CI | — | — |
 | AI Intelligence | Arquitectura de proveedor opcional | IV | `domain/ai-provider.ts` (sin proveedor no hay cliente ni llamadas; solo agregados), estado en `/intelligence`, CI | — | — |
 | AI Intelligence | IA generativa | ND | — | Pendiente autorizable: requiere proveedor | — |
-| Motivation Engine | Perfiles, reglas, horas de silencio, tope diario | IV | `notifications/domain/motivation.ts` y `settings.ts`, ajustes en el perfil (`20261110110000_motivation_settings.sql`), `motivation.int.test.ts`, `notifications.spec.ts`, CI | Bandeja (E7) y push (E8) | Alta |
-| Notificaciones | Bandeja dentro de la app | IV | `notifications/inbox`, campana en las cabeceras, `inbox.spec.ts`, CI. Registro por dispositivo | Registro compartido con el push (E8) | Media |
-| Notificaciones | Push | ND | Sin `pushManager` en `src` | E8; el envío programado puede requerir autorización | Media |
+| Motivation Engine | Perfiles, reglas, horas de silencio, tope diario | IV | `notifications/domain/motivation.ts` y `settings.ts`, ajustes en el perfil (`20261110110000_motivation_settings.sql`), `motivation.int.test.ts`, `notifications.spec.ts`, bandeja (E7), CI | Evaluación programada en servidor (E9, pendiente autorizable) | Alta |
+| Notificaciones | Bandeja dentro de la app | IV | `notifications/inbox`, campana en las cabeceras, `inbox.spec.ts`, CI. Registro por dispositivo | Registro compartido con el envío programado (E9) | Media |
+| Notificaciones | Push: suscripción por dispositivo y notificación de prueba | SP | `notifications/push`, `20261110120000_push_subscriptions.sql`, `/api/push/test`, `sw.js` (push y clic), `push.int.test.ts`, `push-account.spec.ts` con un `PushManager` sustituto | Prueba en dispositivos reales cuando haya claves VAPID en Vercel (Dani) | Media |
+| Notificaciones | Push: envío programado de los avisos | ND | — | E9, pendiente autorizable: claves VAPID, planificador y clave de servicio | Media |
 | Transversal | PWA y arranque sin red | SP | `manifest.ts`, `public/sw.js`, `upgrade.spec.ts`, CI; iPhone sin probar | Prueba real con `docs/guia-dispositivo.md` (Dani) | Media |
 | Transversal | Autenticación, lista de acceso y RLS | IV | `account.spec.ts`, `metadata-auth.int.test.ts`, M2.5 | Repaso final (A7) | Alta |
 | Transversal | Respaldo y restauración | SP | `backup*.mjs`, `restore-drill.mjs`, `backup-strategy.md`; simulacro sin repetir | Simulacro (F3) | Media |

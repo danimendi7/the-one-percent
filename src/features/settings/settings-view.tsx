@@ -28,6 +28,8 @@ import { useHabitsModel } from "@/features/habits/components/use-habits-model"
 import { useHabits } from "@/features/habits/store/habit-store"
 import { clearAssistantDrafts, draftStorage } from "@/features/library/metadata/assistant-draft"
 import { DEMO_COOKIE, isSupabaseConfigured } from "@/lib/supabase/env"
+import { getSupabaseBrowser } from "@/lib/supabase/browser"
+import { forgetThisDevice } from "@/features/notifications/push/push-client"
 import { DemoImportSheet, downloadJson } from "./demo-import-sheet"
 import { isLibraryText } from "@/features/sync/domain/library-sync"
 
@@ -179,6 +181,8 @@ function SignOutDialog({
   async function confirm() {
     setBusy(true)
     if (wipe) await habitActions.clearLocalCopy?.()
+    // This browser stops receiving this account's push notifications (E8).
+    await forgetThisDevice(getSupabaseBrowser())
     signOut()
   }
 

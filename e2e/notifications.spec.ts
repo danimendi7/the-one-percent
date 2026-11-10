@@ -22,6 +22,14 @@ test.describe("notification settings (demo)", () => {
     expect(consoleErrors).toEqual([])
   })
 
+  test("push: the demo registers no device and says the reminders go to the inbox", async ({ page }) => {
+    await page.goto("/settings/notifications")
+    const note = page.getByTestId("push-section").getByTestId("push-unavailable")
+    await expect(note).toHaveAttribute("data-reason", "demo")
+    await expect(note).toContainText("bandeja")
+    await expect(page.getByTestId("push-section").getByRole("button")).toHaveCount(0)
+  })
+
   test("strong language only exists with Hardcore", async ({ page }) => {
     await page.goto("/settings/notifications")
     await expect(page.getByRole("switch", { name: /Lenguaje fuerte/ })).toBeDisabled()
