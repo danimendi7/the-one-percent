@@ -36,3 +36,26 @@ export async function setConnection(page: Page, online: boolean) {
   await page.evaluate(([key, off]) => (off ? localStorage.setItem(key, "1") : localStorage.removeItem(key)), [OFFLINE_KEY, !online] as const)
   await page.context().setOffline(!online)
 }
+
+/**
+ * Types of the ops in the queue of the device copy (IndexedDB), as stored right now: what survives
+ * if the app is closed this instant. The screen shows a write before it is stored (optimistic UI);
+ * a test that closes the app must wait for this, as a person closing it seconds later would.
+ */
+export function storedOpTypes(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () =>
+      new Promise<string[]>((resolve, reject) => {
+        const open = indexedDB.open("the-one-percent")
+        open.onerror = () => reject(open.error)
+        open.onsuccess = () => {
+          const all = open.result.transaction("sync", "readonly").objectStore("sync").getAll()
+          all.onsuccess = () => {
+            open.result.close()
+            resolve((all.result as { queue?: { op: { type: string } }[] }[]).flatMap((v) => (v?.queue ?? []).map((q) => q.op.type)))
+          }
+        }
+      })
+  )
+}
+

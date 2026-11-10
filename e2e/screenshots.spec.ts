@@ -1,7 +1,7 @@
 import { expect, FIXED_NOW, test } from "./fixtures"
 
 /** Visual record for milestone reviews. Run with: npm run screenshots */
-const ROUTES = ["/", "/habits", "/analytics", "/focus", "/mind", "/knowledge/library", "/knowledge/discover", "/knowledge/brain", "/goals", "/settings/notifications"]
+const ROUTES = ["/", "/habits", "/analytics", "/focus", "/mind", "/knowledge/library", "/knowledge/discover", "/knowledge/brain", "/goals", "/settings/notifications", "/reviews", "/intelligence", "/knowledge/brain/repaso", "/settings", "/more"]
 
 test.describe("@screens", () => {
   for (const route of ROUTES) {
@@ -13,6 +13,16 @@ test.describe("@screens", () => {
       await page.screenshot({ path: `docs/screenshots/${info.project.name}-${name}.png`, fullPage: info.project.name === "desktop" })
     })
   }
+
+  // F4: the inbox open over the Resumen (E7).
+  test("capture inbox", async ({ page }, info) => {
+    await page.goto("/")
+    await expect(page.getByTestId("overview-day")).toBeVisible()
+    await page.getByTestId("inbox-button").locator("visible=true").click()
+    await expect(page.getByRole("dialog")).toBeVisible()
+    await page.waitForTimeout(400) // sheet animation
+    await page.screenshot({ path: `docs/screenshots/${info.project.name}-inbox.png` })
+  })
 
   test("capture analytics drilldown", async ({ page }, info) => {
     await page.goto("/analytics")

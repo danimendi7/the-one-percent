@@ -1,5 +1,6 @@
 import { expect, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
+import { storedOpTypes } from "./support/offline"
 
 /**
  * Runs in the page: opening the device copy (the «the-one-percent» database) answers `ms` later, as
@@ -44,7 +45,12 @@ test.describe("account · a failing screen keeps syncing", () => {
     await page.getByRole("button", { name: /^(Nuevo|Crear) hábito$/ }).first().click()
     await page.getByRole("dialog").getByLabel("Nombre").fill("Respirar")
     await page.getByRole("dialog").getByRole("button", { name: "Crear hábito" }).click()
+    // The server has the habit first: until the create is sent, «Sincronizado» may still be the
+    // status from before it, and going offline then kept it queued next to the tap (PR #27).
+    await expect.poll(() => countRows("select count(*)::int n from public.habits where user_id = $1 and title = 'Respirar'", [account.id]), { timeout: 15_000 }).toBe(1)
     await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ })).toBeVisible({ timeout: 15_000 })
+    // …and the device copy no longer holds it: only an acknowledged op leaves the stored queue.
+    await expect.poll(() => storedOpTypes(page), { timeout: 15_000 }).toEqual([])
 
     await context.setOffline(true)
     await page.getByRole("region", { name: "Hoy" }).getByRole("button", { name: /^Respirar, / }).click()
