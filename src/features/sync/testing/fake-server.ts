@@ -4,6 +4,7 @@
  * version conflicts, tombstones, change cursor). Used by engine tests;
  * parity with the real SQL is covered by the integration suite.
  */
+import { normalizeMotivation } from "@/features/notifications/domain/settings"
 import { isEligibleDay } from "@/features/habits/domain/schedule"
 import { entryKey, type HabitsState } from "@/features/habits/domain/types"
 import type { LocalDate } from "@/features/habits/domain/dates"
@@ -67,6 +68,9 @@ export class FakeServer {
   discoverySupported = true
   /** false: behave like a server without the experiments migration (E3). */
   experimentsSupported = true
+  /** false: behave like a server without the notification settings migration (E6). */
+  motivationSupported = true
+  private motivationSettings: unknown = null
   private experimentRows = new Map<string, Row<WireExperiment>>()
   private discoveryTopics = new Map<string, Row<WireDiscoveryTopic>>()
   private feedbackRows = new Map<string, Row<WireTopicFeedback> & { stamps: Record<string, number> }>()
@@ -164,6 +168,7 @@ export class FakeServer {
       focusSessions: [...this.sessions.values()].filter((r) => !r.data.deleted).map((r) => r.data.session),
       checkins: Object.fromEntries([...this.checkins].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toCheckin({ ...r.data, server_seq: r.seq })])),
       checkinConfig: normalizeConfig(this.checkinConfig ?? DEFAULT_CHECKIN_CONFIG),
+      motivation: normalizeMotivation(this.motivationSettings),
       experiments: Object.fromEntries([...this.experimentRows].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toExperiment({ ...r.data, server_seq: r.seq })])),
       discovery: {
         topics: Object.fromEntries([...this.discoveryTopics].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toOwnTopic({ ...r.data, server_seq: r.seq })])),
@@ -345,6 +350,11 @@ export class FakeServer {
         if (!this.reviewsSupported) return reject("unknown_op_type")
         if (op.kind === "day" && !this.dailyReviewsSupported) return reject("invalid_period")
         return this.applyReview(op)
+      case "profile.motivation":
+        if (!this.motivationSupported) return reject("unknown_op_type")
+        this.motivationSettings = op.settings
+        this.nextReview()
+        return { op_id: op.op_id, status: "applied" }
       case "experiment.create":
       case "experiment.close":
       case "experiment.delete":
@@ -470,6 +480,10 @@ export class FakeServer {
     if (row.data.status !== "active") return done("superseded", "already_closed")
     write({ ...row.data, status: op.status, ended_on: op.ended_on, note: op.note?.trim() || null })
     return done("applied")
+  }
+
+  motivation(): unknown {
+    return this.motivationSettings
   }
 
   experiment(id: string): WireExperiment | null {
@@ -688,7 +702,7 @@ export class FakeServer {
       server_today: this.today,
       server_time: new Date(this.serverNow()).toISOString(),
       full,
-      profile: { timezone: this.timezone, locale: "es-ES", server_seq: 0, ...(this.checkinsSupported ? { checkin_fields: this.checkinConfig } : {}) },
+      profile: { timezone: this.timezone, locale: "es-ES", server_seq: 0, ...(this.motivationSupported ? { motivation: this.motivationSettings } : {}), ...(this.checkinsSupported ? { checkin_fields: this.checkinConfig } : {}) },
       ...(this.checkinsSupported
         ? {
             daily_checkins: pick(this.checkins)

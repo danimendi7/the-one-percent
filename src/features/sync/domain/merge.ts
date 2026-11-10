@@ -1,3 +1,5 @@
+import { DEFAULT_SETTINGS } from "@/features/notifications/domain/motivation"
+import { normalizeMotivation } from "@/features/notifications/domain/settings"
 import { toExperiment } from "./experiment-wire"
 import { toOwnTopic, toTopicFeedback } from "./discovery-wire"
 import { toRecallAttempt, toRecallCard } from "./recall-wire"
@@ -22,7 +24,7 @@ const DEFAULT_DIMENSIONS: HabitsState["dimensions"] = [
 
 export function emptyCache(today: LocalDate, timezone = "Europe/Madrid"): ServerCache {
   return {
-    state: { version: 1, timezone, dimensions: DEFAULT_DIMENSIONS, habits: [], entries: {}, restDays: [], seededOn: today, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {}, recall: { cards: {}, attempts: {} }, discovery: { topics: {}, feedback: {} }, experiments: {} },
+    state: { version: 1, timezone, dimensions: DEFAULT_DIMENSIONS, habits: [], entries: {}, restDays: [], seededOn: today, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {}, recall: { cards: {}, attempts: {} }, discovery: { topics: {}, feedback: {} }, experiments: {}, motivation: DEFAULT_SETTINGS },
     habitVersion: {},
     rowSeq: {},
     cursor: 0,
@@ -248,11 +250,12 @@ export function mergePull(cache: ServerCache, p: PullPayload): ServerCache {
       recall: { cards: recallCards, attempts: recallAttempts },
       discovery: { topics: discoveryTopics, feedback: topicFeedback },
       experiments,
+      motivation: p.profile?.motivation ? normalizeMotivation(p.profile.motivation) : base.state.motivation,
     },
     habitVersion,
     rowSeq,
     cursor: Math.max(p.full ? 0 : cache.cursor, p.cursor),
     serverToday: p.server_today,
-    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined, reviews: p.reviews !== undefined, dailyReviews: p.daily_reviews !== undefined, recall: p.recall_cards !== undefined, discovery: p.topic_feedback !== undefined, experiments: p.experiments !== undefined, library: p.library !== undefined },
+    features: { goals: p.goals !== undefined, focus: p.focus_sessions !== undefined, checkins: p.daily_checkins !== undefined, reviews: p.reviews !== undefined, dailyReviews: p.daily_reviews !== undefined, recall: p.recall_cards !== undefined, discovery: p.topic_feedback !== undefined, experiments: p.experiments !== undefined, motivation: p.profile !== undefined && p.profile !== null && "motivation" in p.profile, library: p.library !== undefined },
   }
 }

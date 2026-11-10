@@ -4,6 +4,8 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-10 | Los ajustes de notificaciones van en `profiles.settings_json.motivation`, como estado completo, junto a los del check-in y sin pisarlos | Tabla `notification_settings` | Es un único estado por persona; reutiliza la fila, la RLS y la sincronización del perfil. La escritura del check-in ya actualiza solo su clave |
+| 2026-11-10 | La app normaliza los ajustes campo a campo al leerlos, y el servidor exige el objeto completo y válido | Validar solo en el servidor | El dueño puede escribir su perfil directamente y otra versión puede traer campos distintos: un campo malo no debe borrar el resto de lo elegido |
 | 2026-11-10 | El Motivation Engine es una función pura de los datos, la hora local y los ajustes, y se vuelve a evaluar al enviar | Reglas en el servidor con su propio estado | El PRD pide reevaluar al enviar; con una sola función, el simulador, la bandeja y el push dirán lo mismo. El envío programado en servidor será E8 |
 | 2026-11-10 | «Hábito programado» y «críticos por la tarde» son avisos diarios con los pendientes (13:00 y 19:00), no uno por hábito | Un aviso por hábito a su hora | Los hábitos no tienen hora ni marca de críticos en el modelo. Inventarlas añadiría campos sin requisito claro, y un aviso por hábito multiplica el ruido que el Plan quiere evitar |
 | 2026-11-10 | El tope diario se reparte por prioridad: pendientes de la tarde, del mediodía, matinal, revisión, repaso, foco y día completo | Orden de llegada | Si solo cabe uno, mejor el que aún puede cambiar el día que una felicitación |

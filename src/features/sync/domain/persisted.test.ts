@@ -1,3 +1,4 @@
+import { DEFAULT_SETTINGS } from "@/features/notifications/domain/motivation"
 import { describe, expect, it } from "vitest"
 import { memoryStorage, SyncEngine, type PersistedSync } from "../engine"
 import { FakeServer, fakeTransport } from "../testing/fake-server"
@@ -56,7 +57,7 @@ describe("upgradePersisted (copies saved by older versions)", () => {
       ...m30Copy(),
       cache: {
         ...m30Copy().cache,
-        state: { ...m30Copy().cache.state, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {}, recall: { cards: {}, attempts: {} }, discovery: { topics: {}, feedback: {} }, experiments: {} },
+        state: { ...m30Copy().cache.state, goals: [], measurements: {}, focusSessions: [], checkins: {}, checkinConfig: DEFAULT_CHECKIN_CONFIG, reviews: {}, recall: { cards: {}, attempts: {} }, discovery: { topics: {}, feedback: {} }, experiments: {}, motivation: DEFAULT_SETTINGS },
         features: { goals: true, focus: true, checkins: true, reviews: true },
       },
       pendingNotes: [],

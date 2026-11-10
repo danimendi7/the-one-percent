@@ -50,7 +50,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | AI Intelligence | Insights basados en reglas | IV | `features/intelligence` (6 reglas con mínimos), `/intelligence`, `intelligence.spec.ts`, experimentos (`experiments.ts`, `20261110100000_experiments.sql`), CI | — | — |
 | AI Intelligence | Arquitectura de proveedor opcional | IV | `domain/ai-provider.ts` (sin proveedor no hay cliente ni llamadas; solo agregados), estado en `/intelligence`, CI | — | — |
 | AI Intelligence | IA generativa | ND | — | Pendiente autorizable: requiere proveedor | — |
-| Motivation Engine | Perfiles, reglas, horas de silencio, tope diario | ND | Ajustes demo que no guardan | E5, E6 | Alta |
+| Motivation Engine | Perfiles, reglas, horas de silencio, tope diario | IV | `notifications/domain/motivation.ts` y `settings.ts`, ajustes en el perfil (`20261110110000_motivation_settings.sql`), `motivation.int.test.ts`, `notifications.spec.ts`, CI | Bandeja (E7) y push (E8) | Alta |
 | Notificaciones | Bandeja dentro de la app | ND | Sin código | E7 | Alta |
 | Notificaciones | Push | ND | Sin `pushManager` en `src` | E8; el envío programado puede requerir autorización | Media |
 | Transversal | PWA y arranque sin red | SP | `manifest.ts`, `public/sw.js`, `upgrade.spec.ts`, CI; iPhone sin probar | Prueba real con `docs/guia-dispositivo.md` (Dani) | Media |

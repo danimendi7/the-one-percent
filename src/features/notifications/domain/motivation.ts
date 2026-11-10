@@ -108,7 +108,7 @@ function pendingToday(state: HabitsState, today: LocalDate): { pending: string[]
 
 const HABIT_RULES: RuleId[] = ["morning", "due", "late", "allDone"]
 
-function copy(rule: RuleId, s: MotivationSettings, n: number, names: string): { title: string; body: string } {
+export function nudgeCopy(rule: RuleId, s: MotivationSettings, n: number, names: string): { title: string; body: string } {
   const h = `${n} ${plural(n, "hábito", "hábitos")}`
   const strong = s.tone === "hardcore" && s.profanity
   switch (rule) {
@@ -145,7 +145,7 @@ function candidates(input: EvalInput, skipped: Evaluation["skipped"]): Nudge[] {
   const { pending, total } = pendingToday(state, today)
   const names = pending.map((id) => state.habits.find((h) => h.id === id)?.name ?? "").filter(Boolean).slice(0, 3).join(", ") + (pending.length > 3 ? "…" : "")
   const from = (rule: Exclude<RuleId, "allDone">) => minutes >= toMinutes(s.times[rule])
-  const add = (rule: RuleId, key: string, n: number, extra: Partial<Nudge> = {}) => out.push({ key, rule, ...copy(rule, s, n, names), ...extra })
+  const add = (rule: RuleId, key: string, n: number, extra: Partial<Nudge> = {}) => out.push({ key, rule, ...nudgeCopy(rule, s, n, names), ...extra })
   const skip = (rule: RuleId, reason: string) => skipped.push({ rule, reason })
 
   for (const rule of RULE_ORDER) {

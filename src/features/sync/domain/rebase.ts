@@ -1,3 +1,4 @@
+import { normalizeMotivation } from "@/features/notifications/domain/settings"
 import { addExperiment, closeExperiment, removeExperiment } from "@/features/intelligence/domain/experiments"
 import { toExperiment } from "./experiment-wire"
 import { addOwnTopic, applyFeedback, removeOwnTopic } from "@/features/discover/domain/ops"
@@ -160,6 +161,8 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return setCheckin(state, { date: op.local_date, phase: op.phase, values: wireToValues(op.fields), at: op.at, today }).state
     case "profile.checkin_fields":
       return setCheckinConfig(state, { am: op.am, pm: op.pm }).state
+    case "profile.motivation":
+      return { ...state, motivation: normalizeMotivation(op.settings) }
     // ── Life Review (M3.4): a closed review refuses edits here exactly as on the server ──
     case "review.save":
       return { ...state, reviews: applySave(state.reviews, op.kind, op.period_start, op.fields, new Date(0).toISOString()) }
@@ -243,6 +246,8 @@ export function enqueue(queue: readonly QueuedOp[], op: Op, now: number, inFligh
     if (op.type === "entry.set" && q.op.type === "entry.set")
       return q.op.habit_id === op.habit_id && q.op.local_date === op.local_date
     if (op.type === "rest_day.set" && q.op.type === "rest_day.set") return q.op.local_date === op.local_date
+    // One desired state of the notification settings: only the latest unsent one travels.
+    if (op.type === "profile.motivation" && q.op.type === "profile.motivation") return true
     if (op.type === "goal.measure" && q.op.type === "goal.measure")
       return q.op.goal_id === op.goal_id && q.op.observed_on === op.observed_on
     if (op.type === "goal.checkpoint.set" && q.op.type === "goal.checkpoint.set")

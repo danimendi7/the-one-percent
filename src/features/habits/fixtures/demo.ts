@@ -2,6 +2,7 @@
  * DEMO fixtures. Deterministic, fictional history generated relative to the
  * first day the prototype is opened. Clearly labelled as demo in the UI.
  */
+import { DEFAULT_SETTINGS } from "@/features/notifications/domain/motivation"
 import { addDays, eachDay, isoWeekday, startOfWeek, type LocalDate } from "../domain/dates"
 import { isEligibleDay } from "../domain/schedule"
 import { createDemoGoals } from "@/features/goals/fixtures"
@@ -234,6 +235,7 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
       recall: createDemoRecall(today),
       discovery: { topics: {}, feedback: {} },
       experiments: {},
+      motivation: DEFAULT_SETTINGS,
     },
     today
     ),
