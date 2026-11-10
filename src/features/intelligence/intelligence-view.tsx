@@ -9,10 +9,10 @@ import { cn } from "@/lib/utils"
 import { formatDate } from "@/features/habits/domain/dates"
 import { useHabits } from "@/features/habits/store/habit-store"
 import { INSIGHT_RULES, insights, type Insight } from "./domain/insights"
+import type { AiStatus } from "./domain/ai-provider"
 import { ExperimentsSection } from "./components/experiments-section"
 
 const PRINCIPLES = [
-  { icon: Lock, title: "IA generativa apagada", body: "Todo lo de esta página sale de reglas fijas. Un proveedor de IA queda pendiente de autorización: la app funciona completa sin él." },
   { icon: KeyRound, title: "Claves solo en el servidor", body: "Si algún día se activa, nunca en el navegador, con cuotas, caché y límites de coste." },
   { icon: ShieldCheck, title: "Fuentes antes que afirmaciones", body: "Lo no verificado se etiqueta como tal. Sin estudios ni enlaces inventados." },
   { icon: Cpu, title: "Tus datos privados no salen", body: "Check-ins, reflexiones y notas no se envían a ningún modelo." },
@@ -22,7 +22,7 @@ const TONE: Record<Insight["tone"], string> = { positive: "border-l-signal", neg
 const span = (from: string, to: string) => `${formatDate(from, { day: "numeric", month: "short" })} – ${formatDate(to, { day: "numeric", month: "short" })}`
 
 /** `/intelligence`: what your records show, by fixed rules, each finding with where it comes from. */
-export function IntelligenceView() {
+export function IntelligenceView({ ai }: { ai: AiStatus }) {
   const snap = useHabits()
   const list = useMemo(() => (snap ? insights(snap.state, snap.today) : []), [snap])
   return (
@@ -82,6 +82,15 @@ export function IntelligenceView() {
         </ul>
       </details>
       <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        <li className="panel rounded-2xl p-5" data-testid="ai-status">
+          <Lock className="size-5 text-signal" strokeWidth={1.75} aria-hidden />
+          <h2 className="mt-4 font-semibold">{ai.enabled ? "IA generativa disponible" : "IA generativa apagada"}</h2>
+          <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+            {ai.enabled
+              ? `Proveedor «${ai.provider}», con un tope de ${ai.monthlyTokenBudget.toLocaleString("es-ES")} tokens al mes. Lo de arriba sigue saliendo de reglas.`
+              : "No hay proveedor configurado: todo lo de esta página sale de reglas fijas. Activarlo es una decisión pendiente, porque tendría coste."}
+          </p>
+        </li>
         {PRINCIPLES.map(({ icon: Icon, title, body }) => (
           <li key={title} className="panel rounded-2xl p-5">
             <Icon className="size-5 text-signal" strokeWidth={1.75} aria-hidden />

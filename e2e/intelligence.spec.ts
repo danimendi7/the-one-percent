@@ -11,6 +11,7 @@ test.describe("intelligence by rules (demo)", () => {
     await expect(first).toContainText(/n = \d+/)
     await expect(first.getByRole("list", { name: "Limitaciones" })).toContainText("no indica la causa")
     await expect(page.getByText(/Llega en la fase M6/)).toHaveCount(0)
+    await expect(page.getByTestId("ai-status")).toContainText("No hay proveedor configurado")
     await page.getByTestId("insight-rules").locator("summary").click()
     await expect(page.getByTestId("insight-rules")).toContainText("al menos 14 días con ambos datos")
     expect(consoleErrors).toEqual([])

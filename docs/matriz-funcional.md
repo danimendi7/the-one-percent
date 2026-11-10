@@ -48,7 +48,7 @@ Estado medido el 2026-11-09 sobre `0530bdd`, ya integrado en `skynet/integracion
 | Life Review | Semanal y mensual, decisiones, cierre | IV | `features/reviews`, `reviews*.int.test.ts`, E2E, CI | Corrección del e2e flaky (A2) | Alta |
 | Life Review | Revisión diaria | IV | `kind = 'day'` en `features/reviews`, `20261109130000_daily_reviews.sql`, `reviews.int.test.ts`, `reviews*.spec.ts`, CI | — | — |
 | AI Intelligence | Insights basados en reglas | IV | `features/intelligence` (6 reglas con mínimos), `/intelligence`, `intelligence.spec.ts`, experimentos (`experiments.ts`, `20261110100000_experiments.sql`), CI | — | — |
-| AI Intelligence | Arquitectura de proveedor opcional | ND | Solo variables en `.env.example` | E4 | Media |
+| AI Intelligence | Arquitectura de proveedor opcional | IV | `domain/ai-provider.ts` (sin proveedor no hay cliente ni llamadas; solo agregados), estado en `/intelligence`, CI | — | — |
 | AI Intelligence | IA generativa | ND | — | Pendiente autorizable: requiere proveedor | — |
 | Motivation Engine | Perfiles, reglas, horas de silencio, tope diario | ND | Ajustes demo que no guardan | E5, E6 | Alta |
 | Notificaciones | Bandeja dentro de la app | ND | Sin código | E7 | Alta |

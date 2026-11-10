@@ -4,6 +4,8 @@ Registro de lo que Claude decidió por su cuenta. Una entrada por decisión, la 
 
 | Fecha | Decisión | Alternativa descartada | Motivo |
 | --- | --- | --- | --- |
+| 2026-11-10 | El adaptador de IA no incluye ningún proveedor: sin uno soportado, clave y presupuesto mensual no existe cliente | Implementar Gemini u otro con su API | Todos son de pago por uso, y la orden lo prohíbe sin autorización. La interfaz, el tope de tokens y el contexto agregado quedan listos para añadirlo |
+| 2026-11-10 | Lo único que podría enviarse a un modelo son los resultados de las reglas (título, frase, n, periodo, variables) | Enviar registros o check-ins | El PRD prohíbe mandar diario o check-ins por defecto; un test comprueba que una reflexión privada nunca llega al contexto |
 | 2026-11-10 | La prueba de accesibilidad de Revisiones pasa a una prueba por página, y la corrección va en la PR #19 | Subir su tiempo límite | Siete análisis de axe en una sola prueba rozaban los 30 s desde que C5 añadió dos páginas, y en una máquina lenta los superó. Separadas, cada una mide lo mismo con margen |
 | 2026-11-10 | Un experimento es un cambio con sus palabras, una medida que ya se registra (hábito, check-in o minutos de foco) y 7, 14, 21 o 28 días; se compara con los mismos días justo antes | Pedir medidas nuevas o un grupo de control | Mide con lo que la persona ya apunta y no añade trabajo. Con una sola persona no hay control posible: por eso dice que no demuestra la causa |
 | 2026-11-10 | Hasta 3 experimentos a la vez, empiezan hoy y el primer cierre es el que queda | Fechas libres o reabrir | Empezar en el pasado permitiría ajustar el resultado a posteriori; un cierre es el registro de lo que pasó |
