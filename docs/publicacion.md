@@ -64,7 +64,7 @@ Desde que staging y producción comparten base, toda migración es aditiva y com
 Recomendado antes de usar la app a diario: hoy los previews, las pruebas de Skynet y producción escriben en la misma base.
 
 1. **Proyecto nuevo** en Supabase, en tu organización personal y en la región UE (la misma que el actual), con la contraseña de la base en tu gestor. No reutilices ningún proyecto de Neumáticos Uría. Plan gratuito: no hace falta nada de pago.
-2. **Extensiones:** no hay que activar nada a mano. Las migraciones activan `pg_cron` y `pg_net` (push programado, sección 5); Vault viene activada en todo proyecto nuevo.
+2. **Extensiones:** no hay que activar nada a mano: las migraciones activan las que necesitan (por ejemplo `pg_cron` y `pg_net` para el push programado, cuando E9 esté fusionada), y Vault viene activada en todo proyecto nuevo.
 3. **Esquema completo y verificación de RLS** con `npm run db:fresh` (`scripts/db-fresh.mjs`), desde la carpeta del proyecto. Copia la cadena de conexión en Supabase › *Connect* › *Session pooler* (con la contraseña del paso 1) y ponla solo en esa terminal:
    ```bash
    export FRESH_DB_URL='postgresql://postgres.<ref>:<contraseña>@aws-0-<región>.pooler.supabase.com:5432/postgres'
@@ -75,8 +75,8 @@ Recomendado antes de usar la app a diario: hoy los previews, las pruebas de Skyn
    En PowerShell: `$env:FRESH_DB_URL = '…'` y al terminar `Remove-Item Env:FRESH_DB_URL`.
    - El script se niega a instalar en una base que ya tenga tablas o historial de migraciones: no puede pisar staging ni una base en uso.
    - La auditoría falla si una tabla de `public` no tiene RLS, si una política no es solo para usuarios con sesión o no depende de `auth.uid()`, si hay una vista que se salte RLS, si falta una migración en el historial o si una persona de prueba puede ver el hábito de otra. Las personas y el hábito de prueba viven en una transacción que se deshace: no queda nada escrito.
-   - Resultado esperado: «✔ Todas las tablas tienen RLS…» con las 23 migraciones en el historial. `npm run db:fresh -- --verify` repite solo la auditoría cuando quieras.
-   - Probado así: la CI aplica en cada PR todas las migraciones a una base vacía y la audita igual (`tests/integration/db-fresh.int.test.ts`); contra staging, la auditoría y el ensayo en seco salen correctos y la instalación se niega porque no está vacía.
+   - Resultado esperado: «✔ Todas las tablas tienen RLS…» y todas las migraciones de `supabase/migrations` en el historial (22 a 2026-11-11, antes de E9). `npm run db:fresh -- --verify` repite solo la auditoría cuando quieras.
+   - Probado así: la CI aplica en cada PR todas las migraciones a una base vacía y la audita igual (`tests/integration/db-fresh.int.test.ts`); contra staging (2026-11-11), `--verify` sale correcto (25 tablas, 66 políticas, 22 de 22 migraciones) sin dejar ninguna fila, y tanto el ensayo en seco como `--apply` se niegan porque la base no está vacía.
    - Después, apunta `supabase/cloud-project.json` al proyecto nuevo (`ref`, `organizationId`, `region`): `npm run cloud` se niega a actuar sobre otro, y es lo que usarás para las migraciones siguientes.
 4. **Acceso** (`supabase/README.md`, pasos 4 y 5):
    - Allowlist: `insert into private.allowed_emails (email, note) values ('tu@correo', 'owner');`
