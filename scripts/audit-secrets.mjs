@@ -10,8 +10,11 @@
  *   npm run audit:secrets -- --dir <carpeta>   → archivos sueltos (artefactos y registros de la CI)
  *   npm run audit:secrets -- --env <archivo>   → otro archivo de variables (se puede repetir)
  *
- * Sale con 1 si encuentra un valor secreto, 2 si no hay nada que buscar o falla una lectura.
+ * Sale con 1 si encuentra un valor secreto y con 2 si no hay nada que buscar, falta un --env, un
+ * archivo es demasiado grande o falla git o unzip: nunca da por limpio lo que no pudo leer.
  * Los valores públicos por diseño (NEXT_PUBLIC_*, VAPID_SUBJECT…) se listan como información.
+ * Límites: en --dir no entra en .git, node_modules ni .next, ni sigue enlaces simbólicos (los
+ * cuenta y los dice), y un zip dentro de otro zip no se abre: desempaquétalo antes.
  */
 import { spawn, spawnSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
@@ -34,6 +37,11 @@ function parseArgs(argv) {
     i++
   }
   if (opts.repos.length === 0 && opts.dirs.length === 0) opts.repos.push(resolve("."))
+  const missing = opts.envs.filter((f) => !existsSync(f))
+  if (missing.length) {
+    console.error(`No existe: ${missing.join(", ")}`)
+    process.exit(2)
+  }
   if (opts.envs.length === 0) {
     opts.envs = readdirSync(".")
       .filter((f) => f.startsWith(".env") && f !== ".env.example" && statSync(f).isFile())
@@ -54,6 +62,7 @@ function scanRepo(repo, list) {
     let stderr = ""
     git.stdout.on("data", feed)
     git.stderr.on("data", (d) => (stderr += d))
+    git.on("error", fail)
     git.on("close", (code) => (code === 0 ? done({ hits, objects }) : fail(new Error(`git cat-file en ${repo}: ${stderr.trim()}`))))
   })
 }
@@ -63,6 +72,7 @@ function whereInRepo(repo, { oid, type }) {
   if (type === "commit") return [`commit ${oid.slice(0, 7)} (mensaje o cabecera del commit)`]
   if (type !== "blob") return [`${type} ${oid.slice(0, 7)}`]
   const out = spawnSync("git", ["-C", repo, "log", "--all", "--format=@%h %ad", "--date=short", "--name-only", `--find-object=${oid}`], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
+  if (out.error || out.status !== 0) throw new Error(`git log en ${repo} no pudo situar el objeto ${oid.slice(0, 7)}`)
   const places = []
   let commit = null
   for (const line of out.stdout.split("\n")) {
@@ -72,30 +82,34 @@ function whereInRepo(repo, { oid, type }) {
   return places.length ? places : [`blob ${oid.slice(0, 7)} sin rama que lo alcance (objeto suelto, solo en este clon)`]
 }
 
-function* walk(dir) {
+function* walk(dir, skipped) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP_DIRS.has(entry.name)) continue
     const path = join(dir, entry.name)
-    if (entry.isDirectory()) yield* walk(path)
+    if (entry.isDirectory() && SKIP_DIRS.has(entry.name)) skipped.push(`${path}/`)
+    else if (entry.isDirectory()) yield* walk(path, skipped)
     else if (entry.isFile()) yield path
+    else skipped.push(path) // symbolic links, sockets…
   }
 }
 
 function scanDir(dir, list) {
   const hits = []
+  const skipped = []
   let files = 0
-  for (const path of walk(dir)) {
-    if (statSync(path).size > MAX_FILE) continue
-    files++
+  for (const path of walk(dir, skipped)) {
     const where = relative(dir, path)
+    if (statSync(path).size > MAX_FILE) throw new Error(`${where} pasa de ${MAX_FILE / 1024 / 1024} MB y no se ha revisado`)
+    files++
     for (const n of findIn(readFileSync(path), list)) hits.push({ where, needle: n })
-    if (path.endsWith(".zip")) {
-      // Traces and reports are zips: their entries are searched once uncompressed.
-      const unzip = spawnSync("unzip", ["-p", path], { maxBuffer: MAX_FILE })
-      if (unzip.stdout) for (const n of findIn(unzip.stdout, list)) hits.push({ where: `${where} (dentro del zip)`, needle: n })
+    if (/\.zip$/i.test(path)) {
+      // Traces and reports are zips: their entries are searched once uncompressed. unzip exits with 1
+      // on warnings only (e.g. an empty zip); anything else, or output over the limit, is an error.
+      const unzip = spawnSync("unzip", ["-p", path], { maxBuffer: 4 * MAX_FILE })
+      if (unzip.error || unzip.signal || unzip.status > 1) throw new Error(`unzip no pudo abrir ${where}${unzip.error ? ` (${unzip.error.code})` : ""}`)
+      for (const n of findIn(unzip.stdout, list)) hits.push({ where: `${where} (dentro del zip)`, needle: n })
     }
   }
-  return { hits, files }
+  return { hits, files, skipped }
 }
 
 function report(title, hits, describe) {
@@ -123,7 +137,9 @@ async function main() {
   console.log(`Archivos de variables: ${opts.envs.map((f) => relative(".", f) || f).join(", ") || "ninguno"}`)
   console.log(`Secretos buscados (${secrets.length}): ${secrets.join(", ") || "ninguno"}`)
   console.log(`Públicos, solo informativos (${publics.length}): ${publics.join(", ") || "ninguno"}`)
-  const skipped = [...new Set(entries.filter((e) => classify(e.name, e.value) === "skip").map((e) => e.name))]
+  // Names never searched: every value they have, in every file, is empty or too short.
+  const searched = new Set(entries.filter((e) => classify(e.name, e.value) !== "skip").map((e) => e.name))
+  const skipped = [...new Set(entries.map((e) => e.name))].filter((name) => !searched.has(name))
   console.log(`Vacíos o demasiado cortos, no buscados (${skipped.length}): ${skipped.join(", ") || "ninguno"}`)
   if (secrets.length === 0) {
     console.error("No hay ningún valor secreto que buscar: ¿faltan los .env*.local?")
@@ -137,7 +153,8 @@ async function main() {
   }
   for (const dir of opts.dirs) {
     console.log(`\nCarpeta ${dir}`)
-    const { hits, files } = scanDir(dir, list)
+    const { hits, files, skipped } = scanDir(dir, list)
+    if (skipped.length) console.log(`  omitidos (${skipped.length}): ${skipped.slice(0, 5).map((p) => relative(dir, p)).join(", ")}${skipped.length > 5 ? "…" : ""}`)
     found += report(`${files} archivos revisados`, hits, (h) => [h.where])
   }
   console.log(found === 0 ? "\nResultado: ningún valor secreto encontrado." : `\nResultado: ${found} apariciones de valores secretos.`)

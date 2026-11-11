@@ -14,43 +14,60 @@ export const MIN_LENGTH = 8
 const PUBLIC_NAMES = new Set(["VAPID_SUBJECT", "AI_PROVIDER", "AI_MONTHLY_TOKEN_BUDGET"])
 
 /**
- * KEY=value lines (optionally `export`, quoted or with a trailing comment) of a .env file.
+ * KEY=value entries of a .env file, read as dotenv does: optional `export`, quoted values (a double-
+ * quoted one may span several lines and expands \n), and a trailing comment after an unquoted value
+ * or after the closing quote. A quote that never closes is kept as part of a one-line value.
  * @param {string} text
  * @returns {EnvEntry[]}
  */
 export function parseEnv(text) {
   const entries = []
-  for (const line of text.split(/\r?\n/)) {
-    const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line)
+  const lines = text.split(/\r?\n/)
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(lines[i])
     if (!m) continue
-    const quoted = /^(["'])(.*)\1$/.exec(m[2])
-    entries.push({ name: m[1], value: quoted ? quoted[2] : m[2].replace(/\s+#.*$/, "") })
+    const rest = m[2]
+    const quote = rest[0]
+    if (quote === '"' || quote === "'" || quote === "`") {
+      let body = rest.slice(1)
+      let last = i
+      while (body.indexOf(quote) === -1 && last + 1 < lines.length) body += `\n${lines[++last]}`
+      const end = body.indexOf(quote)
+      if (end !== -1) {
+        i = last
+        const value = body.slice(0, end)
+        entries.push({ name: m[1], value: quote === '"' ? value.replace(/\\n/g, "\n") : value })
+        continue
+      }
+    }
+    entries.push({ name: m[1], value: rest.replace(/\s+#.*$/, "").trim() })
   }
   return entries
 }
 
 /**
- * "secret", "public" or "skip" (empty, too short, a number or a boolean).
+ * "secret", "public" or "skip" (empty, too short or a boolean; a number only under a public name).
  * @param {string} name
  * @param {string} value
  * @returns {"secret" | "public" | "skip"}
  */
 export function classify(name, value) {
-  if (value.length < MIN_LENGTH || /^\d+$/.test(value) || /^(true|false)$/i.test(value)) return "skip"
-  if (name.startsWith("NEXT_PUBLIC_") || PUBLIC_NAMES.has(name)) return "public"
+  if (value.length < MIN_LENGTH || /^(true|false)$/i.test(value)) return "skip"
+  if (name.startsWith("NEXT_PUBLIC_") || PUBLIC_NAMES.has(name)) return /^\d+$/.test(value) ? "skip" : "public"
   return "secret"
 }
 
 /**
- * What to look for: the value itself and, for a URL with credentials (postgresql://user:pass@host),
- * also its password, decoded and as written, so a password copied on its own is found too.
+ * What to look for: the value itself; for a URL with credentials (postgresql://user:pass@host), also
+ * its password, decoded and as written; and for a multi-line value (a PEM key), each line on its own
+ * and the value with escaped newlines, as JSON or a one-line .env would store it.
  * @param {string} name
  * @param {string} value
  * @returns {Array<{ label: string, text: string, bytes: Buffer }>}
  */
 export function needles(name, value) {
   const list = [{ label: name, text: value }]
-  const m = /^[a-z][a-z0-9+.-]*:\/\/[^:/@\s]+:([^@\s]+)@/i.exec(value)
+  const m = /^[a-z][a-z0-9+.-]*:\/\/[^:/@\s]*:([^\s/]+)@[^@/\s?#]+/i.exec(value)
   if (m) {
     const raw = m[1]
     let decoded = raw
@@ -59,11 +76,19 @@ export function needles(name, value) {
     } catch {
       // A malformed escape: the raw form is still searched.
     }
-    for (const text of new Set([raw, decoded])) {
+    for (const text of [raw, decoded]) {
       if (text.length >= MIN_LENGTH) list.push({ label: `${name} (contraseña)`, text })
     }
   }
-  return list.map((n) => ({ ...n, bytes: Buffer.from(n.text, "utf8") }))
+  if (value.includes("\n")) {
+    list.push({ label: `${name} (con \\n)`, text: value.replace(/\n/g, "\\n") })
+    for (const line of value.split("\n")) {
+      // PEM armour lines (-----BEGIN …-----) are the same in every key.
+      if (line.trim().length >= MIN_LENGTH && !line.startsWith("-----")) list.push({ label: `${name} (línea)`, text: line.trim() })
+    }
+  }
+  const seen = new Set()
+  return list.filter((n) => !seen.has(n.text) && seen.add(n.text)).map((n) => ({ ...n, bytes: Buffer.from(n.text, "utf8") }))
 }
 
 /**

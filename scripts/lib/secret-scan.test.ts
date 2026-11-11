@@ -26,6 +26,30 @@ describe("parseEnv", () => {
   })
 })
 
+describe("parseEnv, values that dotenv also accepts", () => {
+  it("keeps a quoted value with a trailing comment without its quotes", () => {
+    expect(parseEnv('KEY="abcdefgh12345" # prod\nOTHER=\'x y\'   # note')).toEqual([
+      { name: "KEY", value: "abcdefgh12345" },
+      { name: "OTHER", value: "x y" },
+    ])
+  })
+
+  it("reads a double-quoted value spread over several lines", () => {
+    const text = 'PRIVATE_KEY="-----BEGIN KEY-----\nline-one\n-----END KEY-----"\nNEXT=after-value'
+    expect(parseEnv(text)).toEqual([
+      { name: "PRIVATE_KEY", value: "-----BEGIN KEY-----\nline-one\n-----END KEY-----" },
+      { name: "NEXT", value: "after-value" },
+    ])
+  })
+
+  it("expands \\n inside double quotes, like dotenv, but not inside single quotes", () => {
+    expect(parseEnv('A="one\\ntwo-three"\nB=\'one\\ntwo-three\'')).toEqual([
+      { name: "A", value: "one\ntwo-three" },
+      { name: "B", value: "one\\ntwo-three" },
+    ])
+  })
+})
+
 describe("classify", () => {
   it("skips empty, short, numeric and boolean values", () => {
     expect(classify("AI_API_KEY", "")).toBe("skip")
@@ -42,6 +66,11 @@ describe("classify", () => {
   it("treats every other name as secret, also unknown ones", () => {
     expect(classify("STAGING_DB_URL", "postgresql://u:p@h/db")).toBe("secret")
     expect(classify("SOMETHING_NEW", "unexpected-value")).toBe("secret")
+  })
+
+  it("searches a long number under a secret name (a PIN or numeric token)", () => {
+    expect(classify("BACKUP_PIN", "12345678")).toBe("secret")
+    expect(classify("AI_MONTHLY_TOKEN_BUDGET", "12345678")).toBe("skip")
   })
 })
 
@@ -61,6 +90,17 @@ describe("needles", () => {
 
   it("keeps a malformed escape in its raw form", () => {
     expect(needles("DB", "postgres://u:bad%zz-password@h/db").map((n) => n.text)).toContain("bad%zz-password")
+  })
+
+  it("finds the password of a URL without user, or with an @ inside the password", () => {
+    expect(needles("R", "redis://:Sup3rSecretPw@host:6379").map((n) => n.text)).toContain("Sup3rSecretPw")
+    expect(needles("D", "postgres://user:p@ss-w0rd-long@host/db").map((n) => n.text)).toContain("p@ss-w0rd-long")
+  })
+
+  it("also looks for each line of a multi-line value on its own", () => {
+    const texts = needles("PRIVATE_KEY", "-----BEGIN KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END KEY-----").map((n) => n.text)
+    expect(texts).toContain("MIIEvQIBADANBgkqhkiG9w0BAQEFAASC")
+    expect(texts).not.toContain("-----END KEY-----")
   })
 
   it("adds nothing for a value that is not a URL", () => {
