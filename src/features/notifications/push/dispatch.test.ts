@@ -141,10 +141,11 @@ describe("dispatch route", () => {
     expect((await route({ db: () => null })(post(`Bearer ${SECRET}`))).status).toBe(503)
   })
 
-  it("compares the secret in constant time and refuses other schemes", () => {
+  it("accepts only the exact secret as a Bearer token", () => {
     expect(authorized(`Bearer ${SECRET}`, SECRET)).toBe(true)
     expect(authorized(SECRET, SECRET)).toBe(false)
     expect(authorized(null, SECRET)).toBe(false)
     expect(authorized(`Bearer ${SECRET}x`, SECRET)).toBe(false)
+    expect(authorized(`Bearer ${"x".repeat(SECRET.length)}`, SECRET)).toBe(false) // same length, other value
   })
 })

@@ -25,6 +25,16 @@ const ALWAYS_LATE: MotivationSettings = {
   times: { ...DEFAULT_SETTINGS.times, late: "00:00" },
 }
 
+/**
+ * Quiet hours from an hour ago to an hour from now (Madrid, the test users' zone), so the run is
+ * always inside them. A fixed 00:00–23:59 left 23:59 outside and failed one minute a day.
+ */
+function quietAroundNow(): Pick<MotivationSettings, "quietStart" | "quietEnd"> {
+  const hhmm = (ms: number) => new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(ms)
+  const now = Date.now()
+  return { quietStart: hhmm(now - 3_600_000), quietEnd: hhmm(now + 3_600_000) }
+}
+
 let pending: TestUser
 let done: TestUser
 let quiet: TestUser
@@ -80,7 +90,7 @@ beforeAll(async () => {
   quiet = await createTestUser("dq")
   await prepare(pending, "pending", ALWAYS_LATE, false)
   await prepare(done, "done", ALWAYS_LATE, true)
-  await prepare(quiet, "quiet", { ...ALWAYS_LATE, quietStart: "00:00", quietEnd: "23:59" }, false)
+  await prepare(quiet, "quiet", { ...ALWAYS_LATE, ...quietAroundNow() }, false)
 })
 afterAll(async () => {
   for (const u of [pending, done, quiet]) await deleteTestUser(u)

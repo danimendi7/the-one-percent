@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { adminClient, createTestUser, db, deleteTestUser, type TestUser } from "./setup"
+import { adminClient, anonClient, createTestUser, db, deleteTestUser, opId, type TestUser } from "./setup"
 
 /**
  * E9a · Planner of the scheduled push (Orden 2 §2), against real PostgreSQL with pg_cron, pg_net
@@ -87,6 +88,23 @@ describe("push planner", () => {
     expect(await tickWith("http://example.invalid/api/push/dispatch", "s".repeat(40))).toBeNull()
     expect(await tickWith("https://example.invalid/api/push/dispatch", "short")).toBeNull()
   })
+
+  it("ignores the whitespace a copy and paste leaves around the values", async () => {
+    const out = await db(async (c) => {
+      await c.query("begin")
+      try {
+        await c.query("select vault.create_secret($1, 'push_dispatch_url')", [" https://example.invalid/api/push/dispatch\n"])
+        await c.query("select vault.create_secret($1, 'push_dispatch_secret')", [`${"s".repeat(40)}\r\n`])
+        await c.query("select vault.create_secret($1, 'push_dispatch_bypass')", ["bypass-value\n"])
+        const tick = await c.query("select private.push_dispatch_tick() id")
+        return (await c.query("select url, headers from net.http_request_queue where id = $1", [tick.rows[0].id])).rows[0]
+      } finally {
+        await c.query("rollback")
+      }
+    })
+    expect(out.url).toBe("https://example.invalid/api/push/dispatch")
+    expect(out.headers).toMatchObject({ Authorization: `Bearer ${"s".repeat(40)}`, "x-vercel-protection-bypass": "bypass-value" })
+  })
 })
 
 describe("push deliveries", () => {
@@ -100,9 +118,40 @@ describe("push deliveries", () => {
   })
 
   it("reads a person's data as their own app does, without leaving the claims behind", async () => {
-    const { data, error } = await adminClient().rpc("push_dispatch_state", { p_user: a.id })
-    expect(error).toBeNull()
-    expect(data).toMatchObject({ full: true, profile: { timezone: "Europe/Madrid" }, habits: [] })
+    // B has a habit and A has none: each one gets only their own data.
+    const habit = randomUUID()
+    const created = await b.client.rpc("apply_ops", {
+      p_device_id: "it-schedule",
+      p_ops: [
+        {
+          type: "habit.create",
+          op_id: opId("hc"),
+          habit: { id: habit, title: "Hábito de B", icon: "check", dimension: "body", habit_type: "binary", unit: null, target_value: null, target_direction: null, start_date: "2026-01-01" },
+          versions: [{ valid_from: "2026-01-01", rule: { kind: "daily" } }],
+        },
+      ],
+    })
+    expect(created.error).toBeNull()
+    const forA = await adminClient().rpc("push_dispatch_state", { p_user: a.id })
+    expect(forA.error).toBeNull()
+    expect(forA.data).toMatchObject({ full: true, profile: { timezone: "Europe/Madrid" }, habits: [] })
+    const forB = await adminClient().rpc("push_dispatch_state", { p_user: b.id })
+    expect(forB.error).toBeNull()
+    expect((forB.data as { habits: { id: string }[] }).habits.map((h) => h.id)).toEqual([habit])
+
+    // Within one transaction, the caller's own claims are back once the function returns.
+    const claims = JSON.stringify({ role: "service_role" })
+    const after = await db(async (c) => {
+      await c.query("begin")
+      try {
+        await c.query("select set_config('request.jwt.claims', $1, true)", [claims])
+        await c.query("select public.push_dispatch_state($1)", [b.id])
+        return (await c.query("select current_setting('request.jwt.claims', true) as v")).rows[0].v
+      } finally {
+        await c.query("rollback")
+      }
+    })
+    expect(after).toBe(claims)
   })
 
   it("a reminder is reserved once: a retry, the cap and the minimum gap are refused", async () => {
@@ -127,14 +176,26 @@ describe("push deliveries", () => {
   it("nobody else can read deliveries or call the dispatch functions", async () => {
     const read = await a.client.from("push_deliveries").select("*")
     expect(read.error?.code).toBe("42501")
-    for (const [fn, args] of [
+    expect((await anonClient().from("push_deliveries").select("*")).error).not.toBeNull()
+    const calls = [
       ["push_dispatch_users", {}],
       ["push_dispatch_state", { p_user: a.id }],
       ["push_delivery_reserve", { p_user: a.id, p_key: "x:1", p_rule: "late", p_local_date: "2026-11-11", p_minutes: 1, p_cap: 4, p_gap: 0 }],
+      ["push_delivery_finish", { p_id: a.id, p_status: "sent", p_ok: 1, p_failed: 0, p_gone: 0 }],
       ["push_subscription_drop", { p_id: a.id }],
-    ] as const) {
+    ] as const
+    for (const [fn, args] of calls) {
       const { error } = await a.client.rpc(fn, args)
       expect(error?.code, fn).toBe("42501")
+      expect((await anonClient().rpc(fn, args)).error, `anon ${fn}`).not.toBeNull()
     }
+    // The tick lives in `private`, outside the API; it must not be callable by either role anyway.
+    const tick = await db((c) =>
+      c.query("select r as role, has_function_privilege(r, 'private.push_dispatch_tick()', 'execute') as ok from unnest(array['anon', 'authenticated']) r order by r")
+    )
+    expect(tick.rows).toEqual([
+      { role: "anon", ok: false },
+      { role: "authenticated", ok: false },
+    ])
   })
 })

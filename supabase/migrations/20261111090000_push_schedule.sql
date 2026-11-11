@@ -171,7 +171,8 @@ grant execute on function public.push_delivery_finish(uuid, text, integer, integ
 grant execute on function public.push_subscription_drop(uuid) to service_role;
 
 -- The planner's tick: one POST to the dispatch route, if Vault holds its URL (https) and secret
--- (32+ characters). `push_dispatch_bypass`, optional, is Vercel's protection bypass for a preview.
+-- (32+ characters, surrounding whitespace ignored). `push_dispatch_bypass`, optional, is Vercel's
+-- protection bypass for a preview.
 -- Returns the pg_net request id, or null when not configured.
 create or replace function private.push_dispatch_tick()
 returns bigint
@@ -188,6 +189,11 @@ begin
   select s.decrypted_secret into v_url from vault.decrypted_secrets s where s.name = 'push_dispatch_url';
   select s.decrypted_secret into v_secret from vault.decrypted_secrets s where s.name = 'push_dispatch_secret';
   select s.decrypted_secret into v_bypass from vault.decrypted_secrets s where s.name = 'push_dispatch_bypass';
+  -- A pasted value often carries a trailing newline: without trimming, the route (which trims its
+  -- own copy) would answer 401 on every tick and nobody would notice.
+  v_url := btrim(v_url, E' \t\r\n');
+  v_secret := btrim(v_secret, E' \t\r\n');
+  v_bypass := btrim(v_bypass, E' \t\r\n');
   if v_url is null or v_url !~ '^https://[A-Za-z0-9.-]+(:[0-9]+)?/\S*$' or v_secret is null or char_length(v_secret) < 32 then
     return null;
   end if;
