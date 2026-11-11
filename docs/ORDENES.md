@@ -118,9 +118,9 @@ Planificada el 2026-11-11 en `PROGRESS.md`: G1 (§1), E9a–E9c (§2), G2 (§3) 
 > 
 > Sigue sin coste: ninguna API ni servicio de pago.
 
-## 2026-11-11 11:21 [planificada]
+## 2026-11-11 11:21 [hecha]
 
-Planificada el 2026-11-11 en `PROGRESS.md`: S1 (§1), S2 (§2 y §3) y S3 (§4 y §5). La Orden 2 queda en pausa con su PR #35 abierta.
+Atendida el 2026-11-11: **APTO PARA PÚBLICO**, sin secretos que rotar (PR #37, `docs/reports/auditoria-secretos.md`). Tareas S1–S3 en `PROGRESS.md`; el siguiente paso para Dani, en `DONE.md`. La Orden 2 sigue en pausa con su PR #35 abierta hasta que el repo sea público.
 
 > ORDEN 3: AUDITORÍA DE SECRETOS ANTES DE HACER PÚBLICO EL REPO
 > 
