@@ -1,6 +1,7 @@
 /**
- * Public Supabase configuration. Only the URL and the publishable (anon) key are
- * ever used by the app; both are safe to expose. No server secret is needed.
+ * Public Supabase configuration. The app only uses the URL and the publishable (anon) key; both
+ * are safe to expose. The one exception is the scheduled push route (E9), which reads the secret
+ * key on the server (src/app/api/push/dispatch/route.ts).
  * When unset, the app runs in local demo mode only (as in M1).
  */
 export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""

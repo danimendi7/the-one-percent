@@ -59,7 +59,7 @@ Servicios desactivados por innecesarios en M2: Storage, Edge Functions y Analyti
    - Email Templates → Magic Link: copia el contenido de `supabase/templates/magic-link.html` (enlace con `token_hash` + código).
    - Providers → Email: mantener activado, «Confirm email» activado. Sin otros proveedores.
    - SMTP: configura un proveedor propio antes de producción (el SMTP por defecto de Supabase tiene límites bajos).
-6. **Variables** en `.env.local` (y más adelante en el hosting): `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` del proyecto cloud. La clave secreta / service role **no** la usa la app.
+6. **Variables** en `.env.local` (y más adelante en el hosting): `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` del proyecto cloud. La clave secreta / service role **no** la usa la app; solo la ruta del push programado (`SUPABASE_SECRET_KEY`, en el servidor, ver `docs/publicacion.md`).
 7. **Verificación** antes de usarlo a diario:
    - `npm run test:integration` está pensado para el stack local y se niega a ejecutarse contra un host remoto. Las pruebas de RLS contra cloud se harán con un proyecto de staging separado (M6).
    - Comprueba en Dashboard → Advisors (Security y Performance) que no hay avisos.
