@@ -117,3 +117,22 @@ Planificada el 2026-11-11 en `PROGRESS.md`: G1 (§1), E9a–E9c (§2), G2 (§3) 
 > 4. Actualiza DONE.md, PROGRESS.md y la matriz con el resultado, CI completa en verde en cada PR.
 > 
 > Sigue sin coste: ninguna API ni servicio de pago.
+
+## 2026-11-11 11:21 [planificada]
+
+Planificada el 2026-11-11 en `PROGRESS.md`: S1 (§1), S2 (§2 y §3) y S3 (§4 y §5). La Orden 2 queda en pausa con su PR #35 abierta.
+
+> ORDEN 3: AUDITORÍA DE SECRETOS ANTES DE HACER PÚBLICO EL REPO
+> 
+> Contexto: la CI no arranca porque se han agotado los minutos de GitHub Actions del repo privado. Dani va a hacer público danimendi7/the-one-percent para tener Actions gratis. Esta orden va ANTES que la Orden 2, que queda en pausa hasta que el repo sea público (no reintentes su CI hasta entonces).
+> 
+> 1. Revisa TODO el historial de git (todas las ramas locales y remotas, incluidas respaldo/* y los commits de los worktrees copiados) en busca de secretos: usa gitleaks (npx o binario sin coste) y además busca a mano .env*, claves de Supabase (service_role, contraseñas de base de datos, URLs postgresql:// con contraseña), tokens de GitHub o Vercel, claves VAPID privadas, BACKUP_PASSPHRASE, emails o datos personales reales en fixtures, capturas o informes.
+>    La clave anon/publishable de Supabase y la URL pública del proyecto no son secretos; anótalas pero no las cuentes como fallo.
+> 2. Revisa .github/workflows: que ningún workflow use pull_request_target ni exponga secretos a PRs de forks, y que los informes subidos como artefactos no contengan secretos.
+> 3. Revisa que .gitignore cubre .env*, las claves VAPID locales y las copias de seguridad.
+> 4. Escribe el resultado en docs/reports/auditoria-secretos.md con un veredicto claro:
+>    - "APTO PARA PÚBLICO" si no hay nada, o
+>    - "NO APTO" con la lista exacta de cada hallazgo (commit, archivo, tipo) y qué secreto hay que rotar en qué servicio. NO reescribas el historial ni hagas force-push: eso lo decide Dani.
+> 5. Pon el veredicto también arriba del todo en PROGRESS.md y termina la vuelta escribiendo DONE.md solo con ese veredicto y el siguiente paso para Dani.
+> 
+> No necesitas la CI para esta orden. Sin coste: nada de pago.
