@@ -12,6 +12,7 @@
  * - Versioned by the build (`/sw.js?v=<build>`). All cached HTML belongs to ONE version, the newest
  *   seen: an older app is never started over data that a newer one may have upgraded.
  * - Deletes only its own caches (names starting with `top-shell-`).
+ * - Shows push notifications and opens the app when one is tapped (E8, at the end of this file).
  */
 
 const VERSION = new URL(self.location.href).searchParams.get("v") || "0"
@@ -36,6 +37,7 @@ const SHELL = [
   "/knowledge/library/item",
   "/knowledge/library/show",
   "/knowledge/brain",
+  "/knowledge/brain/repaso",
   "/knowledge/discover",
   "/more",
   "/settings",
@@ -160,4 +162,49 @@ self.addEventListener("fetch", (event) => {
       })()
     )
   }
+})
+
+/*
+ * Push (E8). Shows what the server sends and nothing else: the text arrives in the message and is
+ * cut to a sane length. A notification only ever opens a path of this app (never another origin).
+ * The server sends no personal data, so what shows on a lock screen is safe.
+ */
+const NOTIFY_ICON = "/icons/icon-192.png"
+
+/** A path of this app (`/x`, not `//host` or `https://...`), or the home page. */
+const appPath = (v) => (typeof v === "string" && v.startsWith("/") && !v.startsWith("//") && !v.startsWith("/\\") ? v : "/")
+
+self.addEventListener("push", (event) => {
+  let data = {}
+  try {
+    data = (event.data && event.data.json()) || {}
+  } catch {
+    data = {}
+  }
+  const title = typeof data.title === "string" && data.title.trim() ? data.title.slice(0, 100) : "THE ONE PERCENT"
+  const options = {
+    body: typeof data.body === "string" ? data.body.slice(0, 300) : "",
+    icon: NOTIFY_ICON,
+    badge: NOTIFY_ICON,
+    data: { url: appPath(data.url) },
+  }
+  if (typeof data.tag === "string" && data.tag) options.tag = data.tag.slice(0, 64)
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close()
+  const target = new URL(appPath(event.notification.data && event.notification.data.url), self.location.origin)
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
+      const open = windows.find((c) => new URL(c.url).origin === self.location.origin)
+      if (open) {
+        await open.focus()
+        if (new URL(open.url).pathname !== target.pathname) await open.navigate(target.href).catch(() => {})
+        return
+      }
+      await self.clients.openWindow(target.href)
+    })()
+  )
 })

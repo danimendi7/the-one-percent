@@ -1,7 +1,7 @@
 import type { BrowserContext, Page } from "@playwright/test"
 import { expect, isMobile, test } from "./fixtures"
 import { adminClient, db } from "../tests/integration/setup"
-import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
+import { countRows, liveWellPastMidnight, newAccount, removeAccount, signIn, type Account } from "./support/account"
 
 test.use({ mode: "account" })
 
@@ -223,6 +223,31 @@ test.describe("account mode", () => {
     expect(ops).toBe(2)
   })
 
+  test("Orden 2 §1: on a slow device, closed the instant an offline mark is shown, the mark survives and syncs once", async ({ page, context }) => {
+    await signIn(page, account)
+    await createHabit(page, "Estirar", account.id)
+    await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ })).toBeVisible()
+
+    // A slow runner, slower still: the device copy (IndexedDB) lags well behind the screen.
+    const cdp = await context.newCDPSession(page)
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 })
+    await context.setOffline(true)
+    await todayButton(page, "Estirar").click()
+    await expect(todayButton(page, "Estirar")).toHaveAttribute("aria-pressed", "true")
+    // Swiped away the moment the mark is on screen: no wait for the device copy.
+    await page.close()
+    expect(await liveEntries(account.id)).toBe(0)
+
+    await context.setOffline(false)
+    const reopened = await context.newPage()
+    await reopened.goto("/habits")
+    await expect(todayButton(reopened, "Estirar")).toHaveAttribute("aria-pressed", "true")
+    await expect.poll(() => liveEntries(account.id), { timeout: 15_000 }).toBe(1)
+    await expect(reopened.getByRole("button", { name: /Estado de datos: Sincronizado/ })).toBeVisible({ timeout: 15_000 })
+    const ops = await countRows("select count(*)::int n from public.sync_operations where user_id = $1 and operation_type = 'entry.set'", [account.id])
+    expect(ops).toBe(1)
+  })
+
   test("a concurrent rename shows the conflict notice and «Aplicar el mío» re-applies it on both devices (C6 #7)", async ({ browser, page }, info) => {
     test.skip(isMobile(info.project.name), "covered once")
     test.slow()
@@ -261,6 +286,30 @@ test.describe("account mode", () => {
     await expect.poll(title, { timeout: 15_000 }).toBe(1)
     await expect(page.getByRole("button", { name: "Editar Leer en papel" }).first()).toBeVisible({ timeout: 15_000 })
     await other.close()
+  })
+
+  test("a habit shows its real changes: created and renamed, with the old and new name", async ({ page, consoleErrors }, info) => {
+    test.slow()
+    await signIn(page, account)
+    await createHabit(page, "Leer", account.id)
+    await page.goto("/habits")
+    if (isMobile(info.project.name)) await page.getByRole("radio", { name: "Semana" }).click()
+    await page.getByRole("button", { name: "Editar Leer" }).first().click()
+    const sheet = page.getByRole("dialog")
+    await sheet.getByLabel("Nombre").fill("Leer en papel")
+    await sheet.getByRole("button", { name: "Guardar cambios" }).click()
+    await expect(sheet).toBeHidden()
+    await expect.poll(() => countRows("select count(*)::int n from public.audit_logs where user_id = $1 and entity_type = 'habit' and action = 'update'", [account.id]), { timeout: 15_000 }).toBe(1)
+
+    await page.getByRole("button", { name: "Editar Leer en papel" }).first().click()
+    const history = page.getByRole("dialog").getByTestId("habit-history")
+    await history.locator("summary").click()
+    const items = history.getByTestId("habit-history-item")
+    await expect(items).toHaveCount(2)
+    await expect(items.first()).toContainText("Nombre: «Leer» → «Leer en papel»")
+    await expect(items.last()).toContainText("Creado")
+    await expect(items.last()).toContainText("«Leer»")
+    expect(consoleErrors).toEqual([])
   })
 
   test("demo data is never imported automatically; the selective import skips seeded records", async ({ page, context, baseURL }) => {
@@ -328,6 +377,7 @@ test.describe("account mode", () => {
   test("a device whose clock is hours behind still wins a sequential edit", async ({ browser, page }, info) => {
     test.skip(isMobile(info.project.name), "covered once")
     test.slow()
+    await liveWellPastMidnight(account)
     await signIn(page, account)
     await createHabit(page, "Estirar", account.id)
     await todayButton(page, "Estirar").click()

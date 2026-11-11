@@ -26,6 +26,7 @@ import type { DimensionId, Habit, HabitType, ScheduleRule, TargetDirection } fro
 import { focusEnabled, habitActions, useHabits } from "../store/habit-store"
 import { Switch } from "@/components/ui/switch"
 import { DIMENSION_COLOR, HABIT_ICONS } from "./habit-icon"
+import { HabitHistory } from "./habit-history"
 import { goalsForHabit } from "@/features/goals/domain/ops"
 
 const DIMENSIONS: { id: DimensionId; name: string }[] = [
@@ -372,6 +373,8 @@ function HabitForm({ habit, onDone }: { habit: Habit | null; onDone: () => void 
               : "Solo los días programados cuentan en el porcentaje."}
           </p>
         </fieldset>
+
+        {habit && <HabitHistory habitId={habit.id} />}
       </div>
 
       <SheetFooter className="pb-safe flex-row gap-2 border-t border-border px-5 py-4">
@@ -479,7 +482,7 @@ export function Segmented({
           disabled={disabled}
           onClick={() => onChange(o.value)}
           className={cn(
-            "h-10 truncate rounded-lg px-2 text-[0.8125rem] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+            "h-11 truncate rounded-lg px-2 md:h-10 text-[0.8125rem] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
             value === o.value ? "bg-surface-raised text-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]" : "text-text-secondary hover:text-foreground"
           )}
         >

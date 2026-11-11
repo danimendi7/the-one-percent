@@ -2,12 +2,14 @@
  * DEMO fixtures. Deterministic, fictional history generated relative to the
  * first day the prototype is opened. Clearly labelled as demo in the UI.
  */
+import { DEFAULT_SETTINGS } from "@/features/notifications/domain/motivation"
 import { addDays, eachDay, isoWeekday, startOfWeek, type LocalDate } from "../domain/dates"
 import { isEligibleDay } from "../domain/schedule"
 import { createDemoGoals } from "@/features/goals/fixtures"
 import { withDemoFocus } from "@/features/focus/fixtures"
 import { withDemoCheckins } from "@/features/mind/fixtures"
 import { withDemoReviews } from "@/features/reviews/fixtures"
+import { createDemoRecall } from "@/features/recall/fixtures"
 import { DEFAULT_CHECKIN_CONFIG } from "@/features/mind/domain/types"
 import {
   entryKey,
@@ -230,6 +232,10 @@ export function createDemoState(today: LocalDate, timezone = "Europe/Madrid"): H
       checkins: {},
       checkinConfig: DEFAULT_CHECKIN_CONFIG,
       reviews: {},
+      recall: createDemoRecall(today),
+      discovery: { topics: {}, feedback: {} },
+      experiments: {},
+      motivation: DEFAULT_SETTINGS,
     },
     today
     ),

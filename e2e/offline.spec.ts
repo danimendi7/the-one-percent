@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test"
 import { expect, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
+import { SHELL_PAGES } from "./support/shell"
 
 /**
  * M4f · the service worker (public/sw.js, P17 option A), turned on only here. A device that
@@ -10,7 +11,6 @@ import { countRows, newAccount, removeAccount, signIn, type Account } from "./su
  */
 test.use({ serviceWorkers: "allow" })
 
-const SHELL_PAGES = 19
 const offlineNoise = (e: string) => /ERR_INTERNET_DISCONNECTED|net::ERR_FAILED|Failed to fetch|NetworkError|ERR_NAME_NOT_RESOLVED/.test(e)
 
 /**
@@ -88,6 +88,18 @@ test.describe("service worker · demo", () => {
     await expect(page.getByRole("heading", { name: "Sin conexión" })).toHaveCount(0)
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
     expect(consoleErrors.filter((e) => !offlineNoise(e))).toEqual([])
+  })
+
+  test("the review opens with no connection on a prepared device, and answering works", async ({ page, context }) => {
+    await page.goto("/")
+    await prepared(page)
+    await context.setOffline(true)
+    await page.goto("/knowledge/brain/repaso")
+    await expect(page.getByRole("heading", { level: 1, name: "Repaso" })).toBeVisible()
+    await page.getByTestId("recall-reveal").click()
+    await page.getByTestId("recall-grade-good").click()
+    await expect(page.getByTestId("recall-count")).toContainText("2 tarjetas por repasar")
+    await context.setOffline(false)
   })
 
   test("links work offline even when Next could not prefetch them: the browser navigation falls back to the prepared shell", async ({ page, context, consoleErrors }) => {
@@ -192,6 +204,8 @@ test.describe("service worker · account", () => {
     await page.goto("/knowledge/library/books")
     await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ }).first()).toBeVisible({ timeout: 15_000 })
     await page.getByTestId("add-book").click()
+    // With an account «Añadir libro» opens the search assistant (M4g.3); these tests use manual entry.
+    await page.getByTestId("add-manual").click()
     await page.getByTestId("form-title").fill("Libro de arranque sin red")
     await page.getByTestId("form-save").click()
     await expect(page.getByTestId("item-save")).toHaveText("Sincronizado", { timeout: 15_000 })

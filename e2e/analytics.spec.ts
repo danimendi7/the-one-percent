@@ -2,6 +2,67 @@ import AxeBuilder from "@axe-core/playwright"
 import { expect, test } from "./fixtures"
 
 test.describe("analytics drilldown and filters (demo data, fixed clock)", () => {
+  test("«La próxima semana» gives a figure with its margin, or the reason there is none", async ({ page }) => {
+    await page.goto("/analytics")
+    const panel = page.getByRole("region", { name: "La próxima semana" })
+    await expect(panel.getByTestId("projection")).toHaveCount(2)
+    for (const item of await panel.getByTestId("projection").all()) await expect(item).toContainText(/(rondaría .+ \(entre .+ y .+\)|Hacen falta al menos 6 semanas)/)
+  })
+
+  test("«Aprendizaje» reads the Library and follows the period", async ({ page, consoleErrors }) => {
+    await page.goto("/analytics?periodo=365")
+    const panel = page.getByRole("region", { name: "Aprendizaje" })
+    await expect(panel).toContainText("En el último año")
+    const year = Number(await panel.getByTestId("learning-books").locator("dd").first().innerText())
+    expect(year).toBeGreaterThan(0)
+
+    await page.goto("/analytics?periodo=7")
+    await expect(panel).toContainText("En los últimos 7 días")
+    expect(Number(await panel.getByTestId("learning-books").locator("dd").first().innerText())).toBeLessThanOrEqual(year)
+    expect(consoleErrors).toEqual([])
+  })
+
+  test("«Comparativas» sets the last closed week and month against the one before", async ({ page, consoleErrors }) => {
+    await page.goto("/analytics")
+    const panel = page.getByRole("region", { name: "Comparativas" })
+    // The fixed clock is Wednesday 21 Oct 2026: the open week is left out.
+    await expect(panel.getByTestId("comparison-after")).toHaveText("12 oct – 18 oct")
+    await expect(panel.getByTestId("comparison-before")).toHaveText("5 oct – 11 oct")
+    await expect(panel.getByTestId("comparison-completion")).toContainText(/\d+%.*\d+%.*pts|—/)
+
+    await panel.getByRole("radio", { name: "Mes" }).click()
+    await expect(panel.getByTestId("comparison-after")).toHaveText("septiembre de 2026")
+    await expect(panel.getByTestId("comparison-before")).toHaveText("agosto de 2026")
+    expect(consoleErrors).toEqual([])
+  })
+
+  test("«Relaciones» names period, variables and sample size, and never speaks of causes", async ({ page, consoleErrors }) => {
+    await page.goto("/analytics?periodo=90")
+    const panel = page.getByRole("region", { name: "Relaciones" })
+    await expect(panel.getByText("Descriptivo, no causal")).toBeVisible()
+    const row = panel.getByTestId("relation-row").first()
+    await expect(row.getByRole("heading")).toHaveText(/ y /)
+    await expect(row).toContainText(/\d+ días con ambos datos/)
+    await expect(row).toContainText(/\d{1,2} \w+.*–/)
+
+    await panel.getByText(/^Ver (el otro cruce|los otros \d+ cruces)$/).click()
+    const text = (await panel.getByTestId("relation-row").allInnerTexts()).join(" ")
+    expect(text).not.toMatch(/\b(causa|causan|provocan|hace que|debido a|gracias a|porque)\b/i)
+    expect(consoleErrors).toEqual([])
+
+    const axe = await new AxeBuilder({ page }).include('[data-testid="relations"]').withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()
+    expect(axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([])
+  })
+
+  test("«Relaciones» gives no figure with a short period, and says why", async ({ page }) => {
+    await page.goto("/analytics?periodo=7")
+    const panel = page.getByRole("region", { name: "Relaciones" })
+    await expect(panel.getByTestId("relations-empty")).toContainText("al menos 14 días")
+    await panel.getByText(/^Ver los otros \d+ cruces$/).click()
+    await expect(panel.getByTestId("relation-row").first()).toContainText("Hacen falta al menos 14 días")
+    await expect(panel.getByText(/[+−]\d,\d\d/)).toHaveCount(0)
+  })
+
   test("filters live in the URL and survive a reload", async ({ page, consoleErrors }) => {
     await page.goto("/analytics")
     await page.getByRole("radio", { name: "90 días" }).click()

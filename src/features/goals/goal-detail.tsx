@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Archive, ArchiveRestore, Check, ChevronLeft, ChevronRight, CircleSlash, Flag, MoreHorizontal, Pencil, Plus, RotateCcw, Trophy } from "lucide-react"
+import { Archive, ArchiveRestore, Check, ChevronLeft, ChevronRight, CircleSlash, Eye, EyeOff, Flag, MoreHorizontal, Pencil, Plus, RotateCcw, Trophy } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -16,10 +16,13 @@ import { HabitIcon } from "@/features/habits/components/habit-icon"
 import { goalsEnabled, habitActions } from "@/features/habits/store/habit-store"
 import { GOAL_METRICS, GOAL_RULES } from "@/features/analytics/domain/catalog"
 import { DrillSheet, type DrillRequest } from "@/features/analytics/drill-sheet"
+import { goalStatusView } from "./domain/ops"
 import type { GoalEvaluation } from "./domain/progress"
 import { MAX_PRIMARY } from "./domain/types"
 import { GoalChart } from "./components/goal-chart"
 import { GoalFormSheet } from "./components/goal-form-sheet"
+import { GoalBooks } from "./components/goal-books"
+import { GoalLog } from "./components/goal-log"
 import {
   DataLevelNote,
   dueText,
@@ -75,6 +78,16 @@ function Detail({ gm, e }: { gm: GoalsModel; e: GoalEvaluation }) {
   const linkedHabits = e.effort?.perHabit.map((p) => p.habit) ?? []
   const openPrimary = gm.goals.filter((x) => x.priority === "primary" && x.state === "active" && !x.archivedOn).length
 
+  const inReview = goalStatusView(g) === "review"
+
+  const setReview = (review: boolean) => {
+    habitActions.setGoalReview(g.id, review)
+    toast(review ? "Objetivo en revisión" : "Objetivo fuera de revisión", {
+      description: review ? "Se sigue midiendo y sigue en el Resumen." : undefined,
+      action: { label: "Deshacer", onClick: () => habitActions.setGoalReview(g.id, !review) },
+    })
+  }
+
   const setState = (s: "active" | "achieved" | "abandoned") => {
     const prev = g.state
     habitActions.setGoalState(g.id, s)
@@ -98,6 +111,12 @@ function Detail({ gm, e }: { gm: GoalsModel; e: GoalEvaluation }) {
           <span>{g.priority === "primary" ? "Principal" : "Secundario"}</span>
           <span aria-hidden>·</span>
           <span>{dueText(g, today)}</span>
+          {inReview && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="text-text-secondary">En revisión</span>
+            </>
+          )}
         </div>
         <h1 className="text-[1.625rem] leading-tight font-semibold tracking-tight text-balance md:text-[2rem]">{g.title}</h1>
         {g.why && <p className="mt-2 max-w-[60ch] text-[0.9375rem] leading-relaxed text-text-secondary">{g.why}</p>}
@@ -165,6 +184,12 @@ function Detail({ gm, e }: { gm: GoalsModel; e: GoalEvaluation }) {
                   <DropdownMenuContent align="end">
                     {g.state === "active" ? (
                       <>
+                        {!g.archivedOn && (
+                          <DropdownMenuItem onSelect={() => setReview(!inReview)}>
+                            {inReview ? <EyeOff /> : <Eye />}
+                            {inReview ? "Quitar de revisión" : "Marcar en revisión"}
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onSelect={() => setState("achieved")}>
                           <Trophy />
                           Marcar como conseguido
@@ -239,6 +264,8 @@ function Detail({ gm, e }: { gm: GoalsModel; e: GoalEvaluation }) {
           {g.kind !== "habits" && <GoalChart e={e} onEdit={manual && editable ? (date) => setMeasure({ date }) : undefined} />}
 
           {g.checkpoints.length > 0 && <Milestones e={e} today={today} editable={editable} />}
+          <GoalLog goal={g} editable={editable} />
+          <GoalBooks goal={g} editable={editable} />
         </div>
 
         <div className="space-y-4 lg:col-span-5">

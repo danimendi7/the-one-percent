@@ -11,22 +11,22 @@ import { useMediaQuery } from "@/hooks/use-media-query"
 import { cn } from "@/lib/utils"
 import { localDateInZone } from "@/features/habits/domain/dates"
 import { isLateClose, parseRoute, periodLabel, type Period } from "../domain/periods"
-import { figuresFor, phaseOf, previousReviewOf, progressLabel, reviewOf, reviewSteps, STEP_LABEL, type StepId } from "../domain/overview"
+import { figuresFor, phaseOf, previousReviewOf, reviewOf, reviewProgress, reviewSteps, STEP_LABEL, type StepId } from "../domain/overview"
 import { compareSnapshot, buildReviewSnapshot, type ReviewSnapshot } from "../domain/snapshot"
 import { normalizeContent } from "../domain/content"
 import { contentKeys } from "../domain/content"
-import { DECISION_KIND_LABEL, EVALUATION_LABEL, LIMITS, QUESTION_KEYS, QUESTION_LABEL, type Review, type ReviewField, type ReviewKind } from "../domain/types"
+import { DECISION_KIND_LABEL, EVALUATION_LABEL, LIMITS, QUESTION_LABEL, type Review, type ReviewField, type ReviewKind } from "../domain/types"
 import { nextPeriod } from "../domain/periods"
-import { closeIntentOf, reviewNotices, saveLine, syncStateOf, useReviewsModel, waitingFields, type ReviewsModel } from "../use-reviews"
+import { closeIntentOf, reviewNotices, saveLine, savesKind, syncStateOf, useReviewsModel, waitingFields, type ReviewsModel } from "../use-reviews"
 import { ReviewFigures } from "./review-figures"
 import { DecisionsStep, EvaluationsStep, ReflectionStep, type SaveSection } from "./review-sections"
 import { ConflictPanel } from "./review-conflicts"
 import { CloseDialog, CloseIntentBanner, DeleteDialog } from "./review-close"
-import { KIND_LABEL, SaveIndicator, StatusBadge } from "./review-ui"
+import { KIND_LABEL, reviewsHomeHref, SaveIndicator, StatusBadge } from "./review-ui"
 
 export function ReviewEditorSkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Cargando la revisión">
+    <div className="space-y-4" role="status" aria-busy="true" aria-label="Cargando la revisión">
       <div className="h-24 animate-pulse rounded-2xl bg-surface/60 motion-reduce:animate-none" />
       <div className="panel h-96 animate-pulse rounded-2xl motion-reduce:animate-none" />
     </div>
@@ -49,7 +49,7 @@ function InvalidPeriod() {
       <EmptyState
         icon={CalendarX2}
         title="Esta revisión no existe"
-        description="La fecha no corresponde al inicio de una semana (lunes) o de un mes, o el periodo aún no ha terminado."
+        description="La fecha no es válida, no corresponde al inicio de una semana (lunes) o de un mes, o el periodo aún no ha llegado."
         action={
           <Button asChild>
             <Link href="/reviews">Volver a Revisiones</Link>
@@ -63,7 +63,7 @@ function InvalidPeriod() {
 function Header({ m, period, badge, children }: { m: ReviewsModel; period: Period; badge: React.ReactNode; children?: React.ReactNode }) {
   return (
     <header className="mb-5 md:mb-7">
-      <Link href={`/reviews${period.kind === "month" ? "?tipo=mensual" : ""}`} className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm text-text-secondary hover:text-foreground">
+      <Link href={reviewsHomeHref(period.kind)} className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm text-text-secondary hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden />
         Revisiones
       </Link>
@@ -100,7 +100,7 @@ function DraftEditor({ m, period, review }: { m: ReviewsModel; period: Period; r
   const desktop = useMediaQuery("(min-width: 1024px)")
   const { kind, from: start } = period
   const previous = previousReviewOf(m.state.reviews, period)
-  const steps = reviewSteps(previous)
+  const steps = reviewSteps(previous, kind)
   const notices = reviewNotices(m, kind, start)
   const waiting = waitingFields(notices)
   const intent = closeIntentOf(m, kind, start)
@@ -129,7 +129,8 @@ function DraftEditor({ m, period, review }: { m: ReviewsModel; period: Period; r
     [api, kind, start]
   )
 
-  const line = saveLine(m, syncStateOf(m, kind, start), typing.size > 0)
+  const line = saveLine(m, kind, syncStateOf(m, kind, start), typing.size > 0)
+  const saves = savesKind(m, kind)
   const offline = m.snap.sync?.status === "offline"
   const phase = closing ? "closing" : phaseOf(review)
   const nextLabel = KIND_LABEL[kind].next
@@ -169,7 +170,7 @@ function DraftEditor({ m, period, review }: { m: ReviewsModel; period: Period; r
       <div className="space-y-4">
         {intent && <CloseIntentBanner m={m} intent={intent} kind={kind} start={start} />}
         <ConflictPanel m={m} notices={notices} review={review} />
-        {!m.serverSaves && (
+        {!saves && (
           <p role="note" className="rounded-xl border border-dashed border-warning/40 px-4 py-3 text-sm text-text-secondary">
             Tu cuenta aún no guarda revisiones en la nube: lo que escribas queda en este dispositivo y se enviará cuando esté disponible. Mientras tanto no se puede cerrar.
           </p>
@@ -193,7 +194,7 @@ function DraftEditor({ m, period, review }: { m: ReviewsModel; period: Period; r
           </div>
         </div>
       ) : (
-        <Stepper period={period} steps={steps} figures={figuresView} sections={sections} closeAction={closeAction} nextLabel={nextLabel} progress={progressLabel(review, previous, QUESTION_KEYS[kind].length)} />
+        <Stepper period={period} steps={steps} figures={figuresView} sections={sections} closeAction={closeAction} nextLabel={nextLabel} progress={reviewProgress(kind, review, previous)} />
       )}
 
       <CloseDialog m={m} period={period} review={review} open={closeOpen} onOpenChange={setCloseOpen} conflicts={waiting.size} />
@@ -235,13 +236,13 @@ function CloseBlock({
 }) {
   return (
     <section className="panel rounded-2xl p-5" aria-label="Cerrar la revisión">
-      <p className="num text-sm text-text-secondary">{progressLabel(review, previous, QUESTION_KEYS[kind].length)}</p>
+      <p className="num text-sm text-text-secondary">{reviewProgress(kind, review, previous)}</p>
       <p className="mt-1.5 text-xs leading-relaxed text-text-tertiary">
         Nada es obligatorio. Al cerrar, las cifras se congelan y la revisión queda como documento de solo lectura.
         {m.source === "account" && " Solo se cierra con todo sincronizado: sin conexión, el cierre espera a que vuelva."}
       </p>
       {waiting > 0 && <p className="mt-2 text-xs text-warning">Decide antes los cambios pendientes (arriba).</p>}
-      <Button className="mt-4 w-full" size="lg" onClick={onClose} disabled={disabled || !m.serverSaves} data-testid="review-close">
+      <Button className="mt-4 w-full" size="lg" onClick={onClose} disabled={disabled || !savesKind(m, kind)} data-testid="review-close">
         <Lock aria-hidden />
         Cerrar revisión
       </Button>
@@ -420,7 +421,7 @@ function ClosedReview({ m, period, review }: { m: ReviewsModel; period: Period; 
               </ul>
             </WritingPanel>
           )}
-          <WritingPanel id="decisions" title={`Decisiones para ${KIND_LABEL[period.kind].next}`}>
+          {period.kind !== "day" && <WritingPanel id="decisions" title={`Decisiones para ${KIND_LABEL[period.kind].next}`}>
             {review.decisions.length === 0 ? (
               <p className="text-sm text-text-tertiary italic">Sin decisiones.</p>
             ) : (
@@ -450,7 +451,7 @@ function ClosedReview({ m, period, review }: { m: ReviewsModel; period: Period; 
                 })}
               </ul>
             )}
-          </WritingPanel>
+          </WritingPanel>}
           <Button variant="ghost" className="w-full text-text-tertiary" onClick={() => setDeleteOpen(true)}>
             <Trash2 aria-hidden />
             Borrar esta revisión

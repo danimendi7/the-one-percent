@@ -1,0 +1,42 @@
+{
+ "type": {
+  "key": "/type/work"
+ },
+ "title": "Outlive",
+ "authors": [
+  {
+   "type": {
+    "key": "/type/author_role"
+   },
+   "author": {
+    "key": "/authors/OL10491069A"
+   }
+  },
+  {
+   "type": {
+    "key": "/type/author_role"
+   },
+   "author": {
+    "key": "/authors/OL2660447A"
+   }
+  }
+ ],
+ "key": "/works/OL28148070W",
+ "covers": [
+  13191259
+ ],
+ "subjects": [
+  "nyt:combined-print-and-e-book-nonfiction=2023-04-16",
+  "New York Times bestseller"
+ ],
+ "latest_revision": 3,
+ "revision": 3,
+ "created": {
+  "type": "/type/datetime",
+  "value": "2022-06-19T20:25:45.342362"
+ },
+ "last_modified": {
+  "type": "/type/datetime",
+  "value": "2023-04-12T14:08:49.120648"
+ }
+}

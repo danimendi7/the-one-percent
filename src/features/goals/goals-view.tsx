@@ -2,15 +2,16 @@
 
 import { useState } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
-import { ChevronDown, Flag, Gauge, ListChecks, Plus, Target } from "lucide-react"
+import { Flag, Gauge, ListChecks, Plus, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SourceBadge } from "@/components/common/demo-note"
 import { EmptyState } from "@/components/common/empty-state"
 import { PageHeader } from "@/components/shell/page-header"
 import { Segmented } from "@/features/habits/components/habit-form-sheet"
 import { goalsEnabled } from "@/features/habits/store/habit-store"
+import { goalStatusView, type GoalStatusView } from "./domain/ops"
 import type { GoalEvaluation } from "./domain/progress"
-import { MAX_PRIMARY, type Goal, type Horizon } from "./domain/types"
+import { MAX_PRIMARY, type Horizon } from "./domain/types"
 import { GoalCard } from "./components/goal-card"
 import { GoalFormSheet } from "./components/goal-form-sheet"
 import { HORIZON_HINT, useGoalsModel } from "./components/goal-ui"
@@ -19,18 +20,37 @@ import { MeasureSheet } from "./components/measure-sheet"
 type HorizonFilter = Horizon | "all"
 const HORIZONS: HorizonFilter[] = ["all", "short", "medium", "long"]
 
-/** ?plazo= in the URL, like the Analytics filters: survives a reload and the back button. */
-function useHorizonFilter(): [HorizonFilter, (h: HorizonFilter) => void] {
+const STATUS_VIEWS: GoalStatusView[] = ["active", "review", "closed", "archived"]
+const STATUS_EMPTY: Record<GoalStatusView, string> = { active: "activos", review: "en revisión", closed: "cerrados", archived: "archivados" }
+const HORIZON_WORD: Record<Horizon, string> = { short: "corto", medium: "medio", long: "largo" }
+
+/** ?estado= and ?plazo= in the URL, like the Analytics filters: they survive a reload and the back button. */
+function useGoalFilters() {
   const params = useSearchParams()
   const pathname = usePathname()
-  const raw = params.get("plazo")
-  const value = (HORIZONS as string[]).includes(raw ?? "") ? (raw as HorizonFilter) : "all"
-  return [value, (h) => window.history.replaceState(null, "", h === "all" ? pathname : `${pathname}?plazo=${h}`)]
+  const rawHorizon = params.get("plazo")
+  const rawView = params.get("estado")
+  const horizon = (HORIZONS as string[]).includes(rawHorizon ?? "") ? (rawHorizon as HorizonFilter) : "all"
+  const view = (STATUS_VIEWS as string[]).includes(rawView ?? "") ? (rawView as GoalStatusView) : "active"
+  // From the address bar, not this render: two quick taps must build on each other.
+  const write = (key: "estado" | "plazo", value: string | null) => {
+    const query = new URLSearchParams(window.location.search)
+    if (value === null) query.delete(key)
+    else query.set(key, value)
+    const search = query.toString()
+    window.history.replaceState(null, "", search ? `${pathname}?${search}` : pathname)
+  }
+  return {
+    view,
+    horizon,
+    setView: (v: GoalStatusView) => write("estado", v === "active" ? null : v),
+    setHorizon: (h: HorizonFilter) => write("plazo", h === "all" ? null : h),
+  }
 }
 
 export function GoalsView() {
   const gm = useGoalsModel()
-  const [horizon, setHorizon] = useHorizonFilter()
+  const { view, horizon, setView, setHorizon } = useGoalFilters()
   const [formOpen, setFormOpen] = useState(false)
   const [measureId, setMeasureId] = useState<string | null>(null)
   const enabled = gm ? goalsEnabled() : false
@@ -64,7 +84,7 @@ export function GoalsView() {
       ) : gm.goals.length === 0 ? (
         <FirstGoal onCreate={() => setFormOpen(true)} />
       ) : (
-        <GoalList gm={gm} horizon={horizon} setHorizon={setHorizon} onMeasure={setMeasureId} />
+        <GoalList gm={gm} view={view} setView={setView} horizon={horizon} setHorizon={setHorizon} onMeasure={setMeasureId} />
       )}
 
       {gm && enabled && (
@@ -135,53 +155,71 @@ function byDue(a: GoalEvaluation, b: GoalEvaluation) {
 
 function GoalList({
   gm,
+  view,
+  setView,
   horizon,
   setHorizon,
   onMeasure,
 }: {
   gm: NonNullable<ReturnType<typeof useGoalsModel>>
+  view: GoalStatusView
+  setView: (v: GoalStatusView) => void
   horizon: HorizonFilter
   setHorizon: (h: HorizonFilter) => void
   onMeasure: (id: string) => void
 }) {
   const all = gm.goals.map((g) => gm.evals.get(g.id)!).filter(Boolean)
-  const open = (g: Goal) => g.state === "active" && !g.archivedOn
-  const inScope = all.filter((e) => open(e.goal) && (horizon === "all" || e.horizon === horizon)).sort(byDue)
+  const inScope = all.filter((e) => goalStatusView(e.goal) === view && (horizon === "all" || e.horizon === horizon)).sort(byDue)
+  const open = view === "active" || view === "review"
   const primary = inScope.filter((e) => e.goal.priority === "primary")
   const secondary = inScope.filter((e) => e.goal.priority === "secondary")
-  const closed = all.filter((e) => !open(e.goal)).sort(byDue)
-  const totalPrimary = all.filter((e) => open(e.goal) && e.goal.priority === "primary").length
+  const totalPrimary = all.filter((e) => e.goal.state === "active" && !e.goal.archivedOn && e.goal.priority === "primary").length
   const today = gm.model.today
 
   return (
     <div className="space-y-7">
-      <Segmented
-        label="Plazo"
-        value={horizon}
-        onChange={(v) => setHorizon(v as HorizonFilter)}
-        options={[
-          { value: "all", label: "Todos" },
-          { value: "short", label: "Corto" },
-          { value: "medium", label: "Medio" },
-          { value: "long", label: "Largo" },
-        ]}
-        className="w-full sm:w-96"
-      />
+      <div className="space-y-2">
+        <Segmented
+          label="Estado"
+          value={view}
+          onChange={(v) => setView(v as GoalStatusView)}
+          options={[
+            { value: "active", label: "Activos" },
+            { value: "review", label: "Revisión" },
+            { value: "closed", label: "Cerrados" },
+            { value: "archived", label: "Archivo" },
+          ]}
+          className="w-full sm:w-[28rem]"
+        />
+        <Segmented
+          label="Plazo"
+          value={horizon}
+          onChange={(v) => setHorizon(v as HorizonFilter)}
+          options={[
+            { value: "all", label: "Todos" },
+            { value: "short", label: "Corto" },
+            { value: "medium", label: "Medio" },
+            { value: "long", label: "Largo" },
+          ]}
+          className="w-full sm:w-[28rem]"
+        />
+      </div>
 
       {inScope.length === 0 && (
         <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-text-secondary">
-          No hay objetivos activos a {horizon === "short" ? "corto" : horizon === "medium" ? "medio" : "largo"} plazo ({horizon !== "all" && HORIZON_HINT[horizon]}).
+          No hay objetivos {STATUS_EMPTY[view]}
+          {horizon !== "all" && ` a ${HORIZON_WORD[horizon]} plazo (${HORIZON_HINT[horizon]})`}.
         </p>
       )}
 
-      {primary.length > 0 && (
+      {open && primary.length > 0 && (
         <Section title="Principales" hint={totalPrimary > MAX_PRIMARY ? `Tienes ${totalPrimary}: el Resumen muestra los ${MAX_PRIMARY} más próximos.` : "Los que ves en el Resumen."}>
           {primary.map((e) => (
             <GoalCard key={e.goal.id} e={e} today={today} onMeasure={onMeasure} />
           ))}
         </Section>
       )}
-      {secondary.length > 0 && (
+      {open && secondary.length > 0 && (
         <Section title="Secundarios" hint="Siguen midiéndose, sin ocupar el Resumen.">
           {secondary.map((e) => (
             <GoalCard key={e.goal.id} e={e} today={today} onMeasure={onMeasure} />
@@ -189,18 +227,12 @@ function GoalList({
         </Section>
       )}
 
-      {closed.length > 0 && (
-        <details className="group panel rounded-2xl">
-          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between rounded-2xl px-4 text-sm font-medium sm:px-5 [&::-webkit-details-marker]:hidden">
-            Cerrados y archivados ({closed.length})
-            <ChevronDown className="size-4 text-text-tertiary transition-transform group-open:rotate-180" aria-hidden />
-          </summary>
-          <div className="grid grid-cols-1 gap-3 border-t border-border p-3 md:grid-cols-2 xl:grid-cols-3">
-            {closed.map((e) => (
-              <GoalCard key={e.goal.id} e={e} today={today} compact />
-            ))}
-          </div>
-        </details>
+      {!open && inScope.length > 0 && (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {inScope.map((e) => (
+            <GoalCard key={e.goal.id} e={e} today={today} compact />
+          ))}
+        </div>
       )}
     </div>
   )

@@ -52,6 +52,7 @@ export function SessionList({
                     <span className="flex shrink-0 flex-col items-end gap-1">
                       <span className="num text-sm font-semibold">{min} min</span>
                       <RatingStars value={s.rating} />
+                      {(s.interruptions ?? null) !== null && <span className="text-xs text-text-tertiary">{s.interruptions === 1 ? "1 interrupción" : `${s.interruptions} interrupciones`}</span>}
                     </span>
                     {onOpen && (
                       <>

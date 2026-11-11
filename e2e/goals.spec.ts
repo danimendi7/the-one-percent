@@ -23,6 +23,105 @@ test.describe("goals (demo data, fixed clock)", () => {
     expect(consoleErrors).toEqual([])
   })
 
+  test("status filters: every goal stays reachable, in the URL, without clipped labels", async ({ page, consoleErrors }) => {
+    await page.goto("/goals/demo-goal-10k")
+    await page.getByRole("button", { name: "Más acciones" }).click()
+    await page.getByRole("menuitem", { name: "Marcar en revisión" }).click()
+    await expect(page.locator("header").getByText("En revisión", { exact: true })).toBeVisible()
+    await page.getByRole("link", { name: "Objetivos", exact: true }).first().click()
+
+    await expect(page.getByRole("region", { name: "Principales" }).getByRole("article")).toHaveCount(2)
+    await page.getByRole("radio", { name: "Revisión" }).click()
+    await expect(page).toHaveURL(/\/goals\?estado=review$/)
+    const card = page.getByRole("article", { name: /Correr 10 km/ })
+    await expect(card.getByText("En revisión", { exact: true })).toBeVisible()
+    await expect(page.getByRole("article")).toHaveCount(1)
+
+    await page.getByRole("radio", { name: "Largo" }).click()
+    await expect(page).toHaveURL(/\/goals\?estado=review&plazo=long$/)
+    await expect(page.getByText(/No hay objetivos en revisión a largo plazo/)).toBeVisible()
+    await page.getByRole("radio", { name: "Todos" }).click()
+
+    await card.getByRole("link", { name: /Correr 10 km/ }).click()
+    await page.getByRole("button", { name: "Más acciones" }).click()
+    await page.getByRole("menuitem", { name: "Archivar" }).click()
+    await page.getByRole("link", { name: "Objetivos", exact: true }).first().click()
+    await page.getByRole("radio", { name: "Archivo" }).click()
+    await expect(page).toHaveURL(/\/goals\?estado=archived$/)
+    await expect(page.getByRole("article", { name: /Correr 10 km/ })).toBeVisible()
+    await page.getByRole("radio", { name: "Revisión" }).click()
+    await expect(page.getByText("No hay objetivos en revisión.")).toBeVisible()
+
+    await page.getByRole("radio", { name: "Cerrados" }).click()
+    await expect(page.getByText("No hay objetivos cerrados.")).toBeVisible()
+    await page.reload()
+    await expect(page.getByRole("radio", { name: "Cerrados" })).toHaveAttribute("aria-checked", "true")
+
+    const clipped = await page.getByRole("radio").evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth).map((e) => e.textContent))
+    expect(clipped).toEqual([])
+    expect(serious(await new AxeBuilder({ page }).withTags(WCAG).analyze())).toEqual([])
+    expect(consoleErrors).toEqual([])
+  })
+
+  test("obstacles and adjustments: added, listed newest first, deleted only after confirming", async ({ page, consoleErrors }, info) => {
+    await page.goto("/goals/demo-goal-10k")
+    const log = page.getByRole("region", { name: "Obstáculos y ajustes" })
+    await expect(log.getByText("Sin anotaciones todavía.")).toBeVisible()
+    await expect(log.getByRole("button", { name: "Añadir" })).toBeDisabled()
+
+    await log.getByLabel("Anotación", { exact: true }).fill("Viaje de trabajo esta semana")
+    await log.getByRole("button", { name: "Añadir" }).click()
+    await expect(log.getByLabel("Anotación", { exact: true })).toHaveValue("")
+    await log.getByRole("radio", { name: "Ajuste" }).click()
+    await log.getByLabel("Anotación", { exact: true }).fill("Entreno al mediodía")
+    await log.getByRole("button", { name: "Añadir" }).click()
+
+    const rows = log.getByRole("list", { name: "Anotaciones" }).getByRole("listitem")
+    await expect(rows).toHaveCount(2)
+    await expect(rows.first()).toContainText("Ajuste")
+    await expect(rows.first()).toContainText("Entreno al mediodía")
+    await expect(rows.last()).toContainText("Obstáculo")
+
+    const remove = log.getByRole("button", { name: "Borrar anotación: Entreno al mediodía" })
+    if (isMobile(info.project.name)) expect((await remove.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    await remove.click()
+    await log.getByRole("button", { name: "Cancelar" }).click()
+    await expect(rows).toHaveCount(2)
+    await remove.click()
+    await log.getByRole("button", { name: "Borrar", exact: true }).click()
+    await expect(rows).toHaveCount(1)
+    await expect(log.getByText("Entreno al mediodía")).toHaveCount(0)
+
+    expect(serious(await new AxeBuilder({ page }).withTags(WCAG).analyze())).toEqual([])
+    expect(consoleErrors).toEqual([])
+  })
+
+  test("books: linked from the Library with their progress, and unlinked without touching the book", async ({ page, consoleErrors }) => {
+    await page.goto("/goals/demo-goal-10k")
+    const books = page.getByRole("region", { name: "Libros vinculados" })
+    await expect(books.getByText("Sin libros vinculados.")).toBeVisible()
+
+    await books.getByRole("combobox", { name: "Vincular un libro" }).click()
+    await page.getByRole("option", { name: "Outlive" }).click()
+    await books.getByRole("combobox", { name: "Vincular un libro" }).click()
+    await page.getByRole("option", { name: "Hábitos atómicos" }).click()
+
+    const rows = books.getByRole("list", { name: "Libros del objetivo" }).getByRole("listitem")
+    await expect(rows).toHaveCount(2)
+    await expect(books.getByText("1 de 2 terminados")).toBeVisible()
+    await expect(rows.filter({ hasText: "Outlive" })).toContainText("43%")
+    await expect(rows.filter({ hasText: "Hábitos atómicos" })).toContainText("100%")
+
+    await books.getByRole("button", { name: "Desvincular Hábitos atómicos" }).click()
+    await expect(rows).toHaveCount(1)
+    await expect(books.getByText("0 de 1 terminados")).toBeVisible()
+    expect(serious(await new AxeBuilder({ page }).withTags(WCAG).analyze())).toEqual([])
+
+    await rows.getByRole("link", { name: /Outlive/ }).click()
+    await expect(page).toHaveURL(/id=demo-book-outlive$/)
+    expect(consoleErrors).toEqual([])
+  })
+
   test("the three data states are explicit: enough history, few points, none (N/D, never 0 %)", async ({ page }) => {
     await page.goto("/goals/demo-goal-10k")
     await expect(page.getByText(/A este ritmo llegarías a la meta/)).toBeVisible()

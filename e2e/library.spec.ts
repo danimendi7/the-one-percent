@@ -120,6 +120,77 @@ test.describe("library (demo)", () => {
     expect(consoleErrors).toEqual([])
   })
 
+  test("a device that refuses a deletion says so and stays on the page; nothing was deleted when the app reopens (M4g.5)", async ({ page }) => {
+    await page.goto(OUTLIVE)
+    await expect(page.getByRole("heading", { level: 1, name: "Outlive" })).toBeVisible()
+    await page.evaluate(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException("full", "QuotaExceededError")
+      }
+    })
+
+    await page.getByTestId("delete").click()
+    await page.getByTestId("delete-confirm").click()
+    await expect(page.getByTestId("form-error")).toBeVisible()
+    await expect(page).toHaveURL(/\/knowledge\/library\/item\?id=demo-book-outlive$/)
+    await expect(page.getByRole("button", { name: "Deshacer" })).toHaveCount(0)
+
+    await page.reload()
+    await expect(page.getByRole("heading", { level: 1, name: "Outlive" })).toBeVisible()
+    await expect(page.getByTestId("note")).toHaveCount(3)
+  })
+
+  for (const path of ["/dev/podcasts", "/dev/knowledge"])
+    test(`${path} does not exist in a production build (M4g.5)`, async ({ page }) => {
+      const res = await page.goto(path)
+      expect(res?.status()).toBe(404)
+    })
+
+  test("leaving after a refused deletion leaves a notice that stays until it is really saved (M4g.5)", async ({ page }) => {
+    await page.goto(OUTLIVE)
+    await expect(page.getByRole("heading", { level: 1, name: "Outlive" })).toBeVisible()
+    await page.evaluate(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException("full", "QuotaExceededError")
+      }
+    })
+    await page.getByTestId("delete").click()
+    await page.getByTestId("delete-confirm").click()
+    await expect(page.getByTestId("form-error")).toBeVisible()
+
+    await page.getByRole("navigation", { name: "Navegación principal" }).getByRole("link").first().click()
+    await expect(page).not.toHaveURL(/\/knowledge\/library\/item/)
+    const notice = page.getByText(/Un cambio no se ha podido guardar en este dispositivo/)
+    await expect(notice).toBeVisible()
+    await expect(page.getByRole("button", { name: "Reintentar" })).toBeVisible()
+  })
+
+  test("after a refused deletion «Reintentar» stores it, leaves the page, and the book stays gone (M4g.5)", async ({ page }) => {
+    await page.goto(OUTLIVE)
+    await expect(page.getByRole("heading", { level: 1, name: "Outlive" })).toBeVisible()
+    await page.evaluate(() => {
+      const w = window as unknown as { realSetItem: typeof Storage.prototype.setItem }
+      w.realSetItem = Storage.prototype.setItem
+      Storage.prototype.setItem = () => {
+        throw new DOMException("full", "QuotaExceededError")
+      }
+    })
+    await page.getByTestId("delete").click()
+    await page.getByTestId("delete-confirm").click()
+    await expect(page.getByTestId("form-error")).toBeVisible()
+
+    await page.evaluate(() => {
+      Storage.prototype.setItem = (window as unknown as { realSetItem: typeof Storage.prototype.setItem }).realSetItem
+    })
+    await page.getByTestId("removal-retry").click()
+    await expect(page).toHaveURL(/\/knowledge\/library\/books$/)
+    await expect(page.getByTestId("item-tile").filter({ hasText: "Outlive" })).toHaveCount(0)
+
+    await page.reload()
+    await expect(page.getByTestId("item-tile").first()).toBeVisible()
+    await expect(page.getByTestId("item-tile").filter({ hasText: "Outlive" })).toHaveCount(0)
+  })
+
   test("podcasts: a new show with an episode, and an episode without a show", async ({ page, consoleErrors }) => {
     await page.goto("/knowledge/library/podcasts")
     await expect(page.getByRole("heading", { level: 1, name: "Podcasts" })).toBeVisible()

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { DIMENSION_COLOR } from "@/features/habits/components/habit-icon"
 import type { LocalDate } from "@/features/habits/domain/dates"
 import type { GoalEvaluation } from "../domain/progress"
+import { goalStatusView } from "../domain/ops"
 import { DataLevelNote, dueText, EffortBar, HORIZON_LABEL, OutcomeBar, outcomeLine, Sparkline, StatusChip } from "./goal-ui"
 
 /**
@@ -42,6 +43,7 @@ export function GoalCard({
           {HORIZON_LABEL[e.horizon]} · {dueText(g, today)}
         </span>
         <span className="ml-auto flex items-center gap-1.5">
+          {goalStatusView(g) === "review" && <span className="rounded-full border border-border px-2 py-0.5 whitespace-nowrap text-text-secondary">En revisión</span>}
           <StatusChip evaluation={e} />
         </span>
       </div>

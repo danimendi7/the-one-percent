@@ -46,6 +46,17 @@ export async function newAccount(label: string): Promise<Account> {
   return { id: data.user.id, email }
 }
 
+/**
+ * For a test whose moments lie hours before now but must count as today (a session begun 50 min ago,
+ * a device 3 h behind): just after midnight in Madrid they are yesterday, and a session belongs to
+ * the day it started. Between 00:00 and 04:00 such an account lives in a zone where it is still evening.
+ * Call it before signing in. The rest of the day it changes nothing.
+ */
+export async function liveWellPastMidnight(a: Account): Promise<void> {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", hour: "2-digit", hourCycle: "h23" }).format(new Date()))
+  if (hour < 4) await db((c) => c.query("update public.profiles set timezone = 'America/New_York' where id = $1", [a.id]))
+}
+
 export async function removeAccount(a: Account | undefined): Promise<void> {
   // newAccount did not finish (its hook timed out or failed): say where, and remove its allowlist
   // row. `a` is then unset or still the previous test's account, already removed.

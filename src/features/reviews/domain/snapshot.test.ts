@@ -323,3 +323,56 @@ describe("timezone and size", () => {
     expect(addDays(snap.period.to, 1)).toBe("2026-11-01")
   })
 })
+
+describe("a daily review (C5) counts the day itself", () => {
+  const day = (date: string, today = "2026-10-26", state = fixture()) => buildReviewSnapshot({ state, kind: "day", periodStart: date, today, computedAt: AT })
+
+  it("counts fixed-schedule habits only: a weekly target is judged per week, never per day", () => {
+    const s = day("2026-10-20") // Tuesday: h1 done; h2 (3×/week) was also done, but it has no daily verdict
+    expect(s.habits.current).toMatchObject({ fulfilled: 1, applicable: 1, inProgress: 0, exempt: 0, rate: 1 })
+    expect(s.habits.rows.map((r) => r.id)).toEqual(["h1"])
+    expect(s.habits.byDimension.map((d) => d.id)).toEqual(["body"])
+  })
+
+  it("a day without the habit done counts as missed once it is over", () => {
+    expect(day("2026-10-23").habits.current).toMatchObject({ fulfilled: 0, missed: 1, applicable: 1, rate: 0 })
+  })
+
+  it("a planned rest day is exempt, never missed", () => {
+    expect(day("2026-10-21").habits.current).toMatchObject({ fulfilled: 0, missed: 0, exempt: 1, applicable: 0, rate: null })
+  })
+
+  it("while the day is open, what is left stays pending and in the denominator", () => {
+    expect(day("2026-10-23", "2026-10-23").habits.current).toMatchObject({ fulfilled: 0, missed: 0, pending: 1, applicable: 1, rate: 0 })
+  })
+
+  it("compares with the day before and covers exactly one day", () => {
+    const s = day("2026-10-20")
+    expect(s).toMatchObject({ kind: "day", period: { from: "2026-10-20", to: "2026-10-20" }, previous: { from: "2026-10-19", to: "2026-10-19" }, asOf: "2026-10-20" })
+    expect(s.habits.previous).toMatchObject({ fulfilled: 1, applicable: 1 })
+    expect(s.mind.coverage.total).toBe(1)
+    expect(s.weekly).toBeUndefined()
+  })
+
+  it("does not carry goals: a daily review is about the day's habits", () => {
+    expect(day("2026-10-20").goals).toEqual([])
+  })
+
+  it("closing a past day later gives the same figures", () => {
+    expect(sameFigures(day("2026-10-20", "2026-10-21"), day("2026-10-20", "2026-11-30"))).toBe(true)
+  })
+
+  it("a future day is not available", () => {
+    expect(() => day("2026-10-27")).toThrow(SnapshotError)
+  })
+
+  it("keeps the frozen shape the server checks", () => {
+    const s = day("2026-10-20")
+    expect(s.v).toBe(1)
+    expect(s.metricsVersion).toBe(METRICS_VERSION)
+    expect(typeof s.habits).toBe("object")
+    expect(Array.isArray(s.goals)).toBe(true)
+    expect(typeof s.focus).toBe("object")
+    expect(typeof s.mind).toBe("object")
+  })
+})

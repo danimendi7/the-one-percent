@@ -66,14 +66,14 @@ export function CloseDialog({ m, period, review, open, onOpenChange, conflicts }
             <li>
               {QUESTION_KEYS[period.kind].length - unanswered.length} de {QUESTION_KEYS[period.kind].length} preguntas respondidas
             </li>
-            <li>{decisions === 1 ? "1 decisión" : `${decisions} decisiones`} para el próximo periodo</li>
+            {period.kind !== "day" && <li>{decisions === 1 ? "1 decisión" : `${decisions} decisiones`} para el próximo periodo</li>}
           </ul>
           {unanswered.length > 0 && (
             <p className="text-xs leading-relaxed text-text-tertiary">
               Sin responder: {unanswered.map((q) => `«${QUESTION_LABEL[q]}»`).join(", ")}. Puedes cerrar igualmente.
             </p>
           )}
-          <p className="text-xs leading-relaxed text-text-tertiary">No se puede reabrir. Las correcciones se hacen al evaluar las decisiones en la próxima revisión.</p>
+          <p className="text-xs leading-relaxed text-text-tertiary">No se puede reabrir.{period.kind !== "day" && " Las correcciones se hacen al evaluar las decisiones en la próxima revisión."}</p>
           {note && <p className="text-xs leading-relaxed text-text-secondary">{note}</p>}
           {conflicts > 0 && <p className="text-xs text-warning">{BLOCKED.conflicts}</p>}
           {error && (
@@ -198,7 +198,7 @@ export function DeleteDialog({ m, period, label, open, onOpenChange, onDeleted }
         <DialogHeader>
           <DialogTitle>Borrar la revisión</DialogTitle>
           <DialogDescription>
-            {label}. Se borra en todos tus dispositivos, con sus respuestas, decisiones y evaluaciones. No se puede deshacer.
+            {label}. Se borra en todos tus dispositivos, con sus respuestas{period.kind === "day" ? "" : ", decisiones y evaluaciones"}. No se puede deshacer.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">

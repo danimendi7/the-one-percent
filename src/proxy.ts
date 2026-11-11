@@ -11,6 +11,12 @@ const PUBLIC_PATHS = ["/login", "/auth/"]
  */
 export async function proxy(request: NextRequest) {
   if (!isSupabaseConfigured) return NextResponse.next()
+  // Cover images (M4g.2) are cacheable by the browser, so they must never carry a refreshed
+  // session cookie: the route verifies the user itself with the Auth server and sets nothing.
+  if (request.nextUrl.pathname === "/api/covers") return NextResponse.next()
+  // The scheduled push (E9) is called by the database planner, which has no session: the route
+  // checks its own secret (PUSH_DISPATCH_SECRET) before doing anything.
+  if (request.nextUrl.pathname === "/api/push/dispatch") return NextResponse.next()
 
   // Auth falls back to the bare Site URL when a redirect is not allowlisted: route
   // email credentials that land on "/" to the confirm handler instead of dropping them.
@@ -52,6 +58,10 @@ export async function proxy(request: NextRequest) {
 
   // If Auth is unreachable but a session exists, let the client work from its local cache.
   if (!userId && !demo && !isPublic && !authUnreachable) {
+    // An API caller gets an answer it can read, not the login page. The demo cookie still
+    // reaches the route, which verifies the user itself (src/features/library/metadata/server/auth.ts).
+    if (path.startsWith("/api/"))
+      return NextResponse.json({ ok: false, error: { code: "unauthorized" } }, { status: 401, headers: { "Cache-Control": "private, no-store" } })
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     url.search = ""

@@ -202,7 +202,7 @@ export function ReflectionStep({
       {QUESTION_KEYS[kind].map((q) => (
         <ReflectionField key={q} question={q} stored={review?.content[q] ?? ""} save={save} onTyping={onTyping} waiting={waiting.has(`content.${q}`)} disabled={disabled} />
       ))}
-      {noteOpen || hasNote ? (
+      {kind === "day" ? null : noteOpen || hasNote ? (
         <ReflectionField question="note" stored={review?.content.note ?? ""} save={save} onTyping={onTyping} waiting={waiting.has("content.note")} disabled={disabled} />
       ) : (
         <Button variant="ghost" className="-ml-2" onClick={() => setNoteOpen(true)} disabled={disabled}>

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { Brain, Link2, Search, SlidersHorizontal, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,7 @@ import { collator, normalize } from "@/features/knowledge/domain/text"
 import { APPLICATION_LABEL, APPLICATION_STATUSES, NOTE_TYPES, noteLabel, STATUSES, type ApplicationStatus, type ContentStatus, type KnowledgeNote, type KnowledgeState, type NoteType } from "@/features/knowledge/domain/types"
 import { DEMO_NOTICE } from "@/features/knowledge/demo"
 import { useLibrary } from "./store/use-library"
+import { RecallCount } from "@/features/recall/components/recall-count"
 import type { LibrarySnapshot } from "./store/types"
 import { NoteCard, QuickCapture } from "./components/knowledge-notes"
 import { Connections, KnowledgePicker, Marked, refView } from "./components/knowledge-links"
@@ -293,13 +294,14 @@ function groupNotes(state: KnowledgeState, notes: KnowledgeNote[], by: "contenid
  */
 export function BrainView() {
   const snap = useLibrary()
-  const router = useRouter()
   const pathname = usePathname()
   const sp = useSearchParams()
   const b = useMemo(() => parseBrainQuery((k) => sp.get(k)), [sp])
+  // From the address bar, not this render: two quick taps must build on each other.
   const set = (p: Partial<BrainQuery>) => {
-    const qs = brainQueryString({ ...b, ...p })
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+    const current = new URLSearchParams(window.location.search)
+    const qs = brainQueryString({ ...parseBrainQuery((k) => current.get(k)), ...p })
+    window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname)
   }
 
   // The box answers at once; the URL follows a moment later (no history entry per keystroke).
@@ -366,6 +368,10 @@ export function BrainView() {
         <Link href={`${BRAIN_HREF}?vista=aplicaciones`} aria-current={b.view === "aplicaciones" ? "page" : undefined} className={cn("inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium md:min-h-10", b.view === "aplicaciones" ? "border-signal/60 bg-signal/12" : "border-border text-text-secondary hover:bg-surface-raised")} data-testid="tab-applications">
           Aplicaciones
           {appsPending > 0 && <span className="num rounded-full bg-surface-raised px-1.5 text-xs text-text-secondary">{appsPending}</span>}
+        </Link>
+        <Link href={`${BRAIN_HREF}/repaso`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-medium text-text-secondary hover:text-foreground md:min-h-9" data-testid="recall-tab">
+          Repaso
+          <RecallCount />
         </Link>
       </nav>
 

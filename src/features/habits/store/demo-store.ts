@@ -5,6 +5,10 @@
  * data. Used when there is no account (explore mode) or Supabase is not
  * configured. Never synced, never imported automatically into an account.
  */
+import { normalizeMotivation } from "@/features/notifications/domain/settings"
+import { addExperiment, closeExperiment, MAX_ACTIVE, removeExperiment, validateExperiment } from "@/features/intelligence/domain/experiments"
+import { addOwnTopic, applyFeedback, emptyDiscovery, removeOwnTopic, validateOwnTopic } from "@/features/discover/domain/ops"
+import { addCard, answerOutcome, emptyRecall, recordAnswer, removeCard, setSuspended, validateCardText } from "@/features/recall/domain/ops"
 import { useSyncExternalStore } from "react"
 import { clearDemoLibrary, createDemoLibrary } from "@/features/library/store/demo-library"
 import { localDateInZone, type LocalDate } from "../domain/dates"
@@ -24,10 +28,14 @@ import { withDemoFocus } from "@/features/focus/fixtures"
 import { withDemoCheckins } from "@/features/mind/fixtures"
 import { setCheckin, setCheckinConfig } from "@/features/mind/domain/ops"
 import {
+  addGoalLogEntry,
   archiveGoal,
+  removeGoalLogEntry,
   createGoal,
   restoreGoal,
   setCheckpointDone,
+  setGoalBook,
+  setGoalReview,
   setGoalState,
   setMeasurement,
   updateGoal,
@@ -61,7 +69,7 @@ export function readDemoState(): HabitsState | null {
     if (!raw) return null
     const parsed = habitsStateSchema.safeParse(JSON.parse(raw))
     if (!parsed.success) return null
-    const data = parsed.data as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews"> &
+    const data = { ...parsed.data, recall: parsed.data.recall ?? emptyRecall(), discovery: parsed.data.discovery ?? emptyDiscovery(), experiments: parsed.data.experiments ?? {}, motivation: normalizeMotivation(parsed.data.motivation) } as Omit<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews"> &
       Partial<Pick<HabitsState, "goals" | "measurements" | "focusSessions" | "checkins" | "checkinConfig" | "reviews">>
     // Before M3.4 there were no reviews.
     const reviews = data.reviews ?? {}
@@ -219,6 +227,20 @@ export const demoBackend: Backend = {
       const s = getSnapshot()
       commit(archiveGoal(s.state, id, s.today))
     },
+    addGoalLog(goalId, kind, text) {
+      const s = getSnapshot()
+      commit(addGoalLogEntry(s.state, goalId, { id: uuidv4(), kind, text, on: s.today }))
+    },
+    removeGoalLog(goalId, entryId) {
+      commit(removeGoalLogEntry(getSnapshot().state, goalId, entryId))
+    },
+    setGoalBook(goalId, itemId, linked) {
+      commit(setGoalBook(getSnapshot().state, goalId, itemId, linked))
+    },
+    setGoalReview(id, review) {
+      const s = getSnapshot()
+      commit(setGoalReview(s.state, id, review ? s.today : null))
+    },
     restoreGoal(id) {
       commit(restoreGoal(getSnapshot().state, id))
     },
@@ -322,6 +344,66 @@ export const demoBackend: Backend = {
     },
     resolveReviewText: () => false,
     reviewSyncState: () => "local",
+    setMotivationSettings(settings) {
+      const s = getSnapshot()
+      commit({ ...s.state, motivation: normalizeMotivation(settings) })
+    },
+    startExperiment(input) {
+      const v = validateExperiment(input)
+      if (!v.ok) return v
+      const s = getSnapshot()
+      if (Object.values(s.state.experiments).filter((e) => e.status === "active").length >= MAX_ACTIVE) return { ok: false, field: "active", reason: "too_many" }
+      const id = uuidv4()
+      commit({ ...s.state, experiments: addExperiment(s.state.experiments, { id, title: v.title, metric: input.metric, startOn: s.today, days: input.days, at: new Date().toISOString() }) })
+      return { ok: true, id }
+    },
+    closeExperiment(id, status, note) {
+      const s = getSnapshot()
+      commit({ ...s.state, experiments: closeExperiment(s.state.experiments, id, { status, endedOn: s.today, note }) })
+    },
+    deleteExperiment(id) {
+      const s = getSnapshot()
+      commit({ ...s.state, experiments: removeExperiment(s.state.experiments, id) })
+    },
+    addDiscoveryTopic(input) {
+      const v = validateOwnTopic(input)
+      if (!v.ok) return v
+      const s = getSnapshot()
+      const id = uuidv4()
+      commit({ ...s.state, discovery: addOwnTopic(s.state.discovery, { id, title: v.title, category: v.category, body: v.body, sourceTitle: v.sourceTitle, sourceUrl: v.sourceUrl, at: new Date().toISOString() }) })
+      return { ok: true, id }
+    },
+    removeDiscoveryTopic(id) {
+      const s = getSnapshot()
+      commit({ ...s.state, discovery: removeOwnTopic(s.state.discovery, id) })
+    },
+    setTopicFeedback(topicKey, fields) {
+      const s = getSnapshot()
+      commit({ ...s.state, discovery: applyFeedback(s.state.discovery, topicKey, fields, s.today, new Date().toISOString()) })
+    },
+    addRecallCard(input) {
+      const text = validateCardText(input.question, input.answer)
+      if (!text.ok) return text
+      const s = getSnapshot()
+      const id = uuidv4()
+      commit({ ...s.state, recall: addCard(s.state.recall, { id, question: text.question, answer: text.answer, sourceType: input.sourceNoteId ? "note" : null, sourceId: input.sourceNoteId, today: s.today, at: new Date().toISOString() }) })
+      return { ok: true, id }
+    },
+    answerRecallCard(cardId, grade) {
+      const s = getSnapshot()
+      const card = s.state.recall.cards[cardId]
+      if (!card) return false
+      commit({ ...s.state, recall: recordAnswer(s.state.recall, answerOutcome(card, { attemptId: uuidv4(), grade, respondedAt: new Date().toISOString(), today: s.today })) })
+      return true
+    },
+    suspendRecallCard(cardId, suspended) {
+      const s = getSnapshot()
+      commit({ ...s.state, recall: setSuspended(s.state.recall, cardId, suspended ? s.today : null) })
+    },
+    deleteRecallCard(cardId) {
+      const s = getSnapshot()
+      commit({ ...s.state, recall: removeCard(s.state.recall, cardId) })
+    },
     resetDemo() {
       const s = getSnapshot()
       commit(createDemoState(s.today, s.state.timezone))

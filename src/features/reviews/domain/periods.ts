@@ -3,8 +3,9 @@ import type { DateRange } from "@/features/habits/domain/metrics"
 import type { ReviewKind } from "./types"
 
 /**
- * Review periods in local dates of the profile timezone (like Analytics): a week runs Monday to
- * Sunday and belongs to its Monday even when it spans two months; a month is the calendar month.
+ * Review periods in local dates of the profile timezone (like Analytics): a day is its own period;
+ * a week runs Monday to Sunday and belongs to its Monday even when it spans two months; a month is
+ * the calendar month.
  * «Today» always comes from the caller (profile timezone), never from the device clock here.
  */
 export interface Period extends DateRange {
@@ -23,6 +24,7 @@ function lastDayOfMonth(start: LocalDate): LocalDate {
 
 /** The period of `kind` that contains `date`. */
 export function periodOf(kind: ReviewKind, date: LocalDate): Period {
+  if (kind === "day") return { kind, from: date, to: date }
   if (kind === "week") {
     const from = startOfWeek(date)
     return { kind, from, to: addDays(from, 6) }
@@ -31,7 +33,7 @@ export function periodOf(kind: ReviewKind, date: LocalDate): Period {
   return { kind, from, to: lastDayOfMonth(from) }
 }
 
-/** A valid period start: a Monday for weeks, the 1st for months. */
+/** A valid period start: any date for days, a Monday for weeks, the 1st for months. */
 export function isPeriodStart(kind: ReviewKind, start: unknown): start is LocalDate {
   return isLocalDate(start) && periodOf(kind, start).from === start
 }
@@ -74,15 +76,16 @@ export function isLateClose(p: Period, closedOn: LocalDate, lateDays: number): b
   return diffDays(p.to, closedOn) > lateDays
 }
 
-/** «Semana del 26 oct al 1 nov» / «Octubre de 2026». */
+/** «Miércoles, 21 de octubre» / «Semana del 26 oct al 1 nov» / «Octubre de 2026». */
 export function periodLabel(p: Period): string {
+  if (p.kind === "day") return capitalize(formatDate(p.from, { weekday: "long", day: "numeric", month: "long" }))
   if (p.kind === "month") return capitalize(formatDate(p.from, { month: "long", year: "numeric" }))
   return `Semana del ${formatDate(p.from, { day: "numeric", month: "short" })} al ${formatDate(p.to, { day: "numeric", month: "short" })}`
 }
 
 /** Route segment parser (`/reviews/week/2026-10-26`): null for anything invalid or not yet available. */
 export function parseRoute(kind: unknown, start: unknown, today: LocalDate): Period | null {
-  if (kind !== "week" && kind !== "month") return null
+  if (kind !== "day" && kind !== "week" && kind !== "month") return null
   const p = periodFromStart(kind, start)
   return p && isAvailable(p, today) ? p : null
 }

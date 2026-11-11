@@ -7,6 +7,7 @@ import {
   type Goal,
   type GoalHabitLink,
   type GoalKind,
+  type GoalLogEntry,
   type GoalPriority,
   type GoalState,
   type Horizon,
@@ -134,7 +135,7 @@ function dedupeLinks(links: GoalHabitLink[]): GoalHabitLink[] {
 export function createGoal(state: HabitsState, input: GoalInput, meta: { id: string; now: string }): HabitsState {
   if (state.goals.some((g) => g.id === meta.id)) return state
   if (Object.keys(validateGoal(input, state)).length) return state
-  const goal: Goal = { id: meta.id, ...normalize(input), state: "active", closedOn: null, archivedOn: null, version: 1, createdAt: meta.now, updatedAt: meta.now }
+  const goal: Goal = { id: meta.id, ...normalize(input), state: "active", closedOn: null, archivedOn: null, reviewSince: null, processLog: [], bookIds: [], version: 1, createdAt: meta.now, updatedAt: meta.now }
   return { ...state, goals: [...state.goals, goal] }
 }
 
@@ -162,6 +163,63 @@ export function restoreGoal(state: HabitsState, id: string): HabitsState {
   const g = state.goals.find((x) => x.id === id)
   if (!g || !g.archivedOn) return state
   return replace(state, { ...g, archivedOn: null })
+}
+
+/** Desired state: a date puts the goal in review, null takes it out. The first date is kept. */
+export function setGoalReview(state: HabitsState, id: string, on: LocalDate | null): HabitsState {
+  const g = state.goals.find((x) => x.id === id)
+  if (!g || !!g.reviewSince === !!on) return state
+  return replace(state, { ...g, reviewSince: on })
+}
+
+export type GoalStatusView = "active" | "review" | "closed" | "archived"
+
+/**
+ * The one list a goal belongs to, so none is ever left out of every filter. Archiving wins over
+ * closing, as it always has on this screen, and a review only counts while the goal is open.
+ */
+export function goalStatusView(g: Pick<Goal, "state" | "archivedOn" | "reviewSince">): GoalStatusView {
+  if (g.archivedOn) return "archived"
+  if (g.state !== "active") return "closed"
+  return g.reviewSince ? "review" : "active"
+}
+
+export const GOAL_LOG_LIMITS = { text: 500, entries: 200 }
+
+/** One line: line breaks and control characters out, as the server requires. */
+export function cleanLogText(text: string): string {
+  return text.replace(/\s+/g, " ").replace(/\p{Cc}/gu, "").trim()
+}
+
+/** Appends once per id; an empty or oversized note, or a full log, changes nothing. */
+export function addGoalLogEntry(state: HabitsState, goalId: string, entry: GoalLogEntry): HabitsState {
+  const g = state.goals.find((x) => x.id === goalId)
+  const text = cleanLogText(entry.text)
+  const log = g?.processLog ?? []
+  if (!g || !text || text.length > GOAL_LOG_LIMITS.text || log.length >= GOAL_LOG_LIMITS.entries || log.some((e) => e.id === entry.id)) return state
+  return replace(state, { ...g, processLog: [...log, { ...entry, text }] })
+}
+
+export function removeGoalLogEntry(state: HabitsState, goalId: string, entryId: string): HabitsState {
+  const g = state.goals.find((x) => x.id === goalId)
+  if (!g?.processLog?.some((e) => e.id === entryId)) return state
+  return replace(state, { ...g, processLog: g.processLog.filter((e) => e.id !== entryId) })
+}
+
+/** Newest day first; within a day, the last one written first. */
+export function goalLogNewestFirst(log: GoalLogEntry[] | undefined): GoalLogEntry[] {
+  return [...(log ?? [])].reverse().sort((a, b) => (a.on < b.on ? 1 : a.on > b.on ? -1 : 0))
+}
+
+export const GOAL_BOOKS_LIMIT = 100
+
+/** Desired state: linked or not. A full list changes nothing. */
+export function setGoalBook(state: HabitsState, goalId: string, itemId: string, linked: boolean): HabitsState {
+  const g = state.goals.find((x) => x.id === goalId)
+  if (!g) return state
+  const ids = g.bookIds ?? []
+  if (ids.includes(itemId) === linked || (linked && ids.length >= GOAL_BOOKS_LIMIT)) return state
+  return replace(state, { ...g, bookIds: linked ? [...ids, itemId] : ids.filter((id) => id !== itemId) })
 }
 
 /** Desired state for one milestone: done on a date, or not done (null). */

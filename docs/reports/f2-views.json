@@ -1,0 +1,87 @@
+{
+  "measuredAt": "2026-11-10T09:17:29.418Z",
+  "base": "http://localhost:3100",
+  "profile": {
+    "viewport": "375x812",
+    "cpuSlowdown": 4,
+    "network": "9 Mbps / 1.5 Mbps / 85 ms"
+  },
+  "medians": {
+    "/": {
+      "cold": {
+        "ready": 1695,
+        "fcp": 352,
+        "lcp": 1520,
+        "cls": 0.004
+      },
+      "warm": {
+        "ready": 682,
+        "fcp": 208,
+        "lcp": 664,
+        "cls": 0
+      },
+      "tapMs": 78,
+      "runs": 5
+    },
+    "/habits": {
+      "cold": {
+        "ready": 1744,
+        "fcp": 348,
+        "lcp": 1548,
+        "cls": 0
+      },
+      "warm": {
+        "ready": 805,
+        "fcp": 228,
+        "lcp": 776,
+        "cls": 0
+      },
+      "runs": 5
+    },
+    "/analytics": {
+      "cold": {
+        "ready": 2222,
+        "fcp": 348,
+        "lcp": 2184,
+        "cls": 0
+      },
+      "warm": {
+        "ready": 1195,
+        "fcp": 204,
+        "lcp": 1172,
+        "cls": 0
+      },
+      "runs": 5
+    },
+    "/knowledge/library": {
+      "cold": {
+        "ready": 1730,
+        "fcp": 348,
+        "lcp": 1488,
+        "cls": 0
+      },
+      "warm": {
+        "ready": 666,
+        "fcp": 196,
+        "lcp": 648,
+        "cls": 0
+      },
+      "runs": 5
+    },
+    "/goals": {
+      "cold": {
+        "ready": 1755,
+        "fcp": 348,
+        "lcp": 1484,
+        "cls": 0
+      },
+      "warm": {
+        "ready": 673,
+        "fcp": 220,
+        "lcp": 664,
+        "cls": 0
+      },
+      "runs": 5
+    }
+  }
+}

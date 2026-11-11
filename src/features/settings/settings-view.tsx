@@ -26,8 +26,12 @@ import { clearDemoState, readDemoState } from "@/features/habits/store/demo-stor
 import type { HabitsState } from "@/features/habits/domain/types"
 import { useHabitsModel } from "@/features/habits/components/use-habits-model"
 import { useHabits } from "@/features/habits/store/habit-store"
+import { clearAssistantDrafts, draftStorage } from "@/features/library/metadata/assistant-draft"
 import { DEMO_COOKIE, isSupabaseConfigured } from "@/lib/supabase/env"
-import { DemoImportSheet, downloadJson } from "./demo-import-sheet"
+import { getSupabaseBrowser } from "@/lib/supabase/browser"
+import { forgetThisDevice } from "@/features/notifications/push/push-client"
+import { DemoImportSheet, download, downloadJson } from "./demo-import-sheet"
+import { checkinsCsv, focusCsv, habitsCsv } from "./domain/csv"
 import { isLibraryText } from "@/features/sync/domain/library-sync"
 
 const TIMEZONES = [
@@ -126,6 +130,7 @@ function AccountSection() {
           <Button variant="outline" onClick={exportAccount}>
             <Download /> Exportar mis datos (JSON)
           </Button>
+          <CsvExports state={snap.state} today={snap.today} prefix="the-one-percent" />
           <Button variant="ghost" className="text-text-secondary" onClick={() => setConfirmOut(true)}>
             <LogOut /> Cerrar sesión
           </Button>
@@ -178,6 +183,8 @@ function SignOutDialog({
   async function confirm() {
     setBusy(true)
     if (wipe) await habitActions.clearLocalCopy?.()
+    // This browser stops receiving this account's push notifications (E8).
+    await forgetThisDevice(getSupabaseBrowser())
     signOut()
   }
 
@@ -287,6 +294,7 @@ function SyncDiagnostics() {
 }
 
 function signOut() {
+  clearAssistantDrafts(draftStorage())
   const form = document.createElement("form")
   form.method = "post"
   form.action = "/auth/signout"
@@ -323,6 +331,7 @@ function DemoModeSection() {
             <Button variant="outline" onClick={exportDemo}>
               <Download /> Exportar JSON
             </Button>
+            <CsvExports state={snap.state} today={snap.today} prefix="the-one-percent-demo" />
             <Button variant="ghost" onClick={() => setConfirmReset(true)} className="text-text-secondary">
               <RotateCcw /> Restablecer demo
             </Button>
@@ -456,4 +465,22 @@ function Row({ label, value, hint }: { label: string; value: string; hint?: stri
       <p className="truncate text-right text-sm text-text-secondary">{value}</p>
     </div>
   )
+}
+
+/**
+ * F7 · The records as CSV, one file per kind (PRD §7). Habits, check-ins and focus sessions have
+ * different columns, so a single file would mix tables; three small buttons keep each one usable
+ * in a spreadsheet.
+ */
+function CsvExports({ state, today, prefix }: { state: HabitsState; today: string; prefix: string }) {
+  const files = [
+    { label: "CSV: hábitos", name: "habitos", make: habitsCsv },
+    { label: "CSV: check-ins", name: "checkins", make: checkinsCsv },
+    { label: "CSV: enfoque", name: "enfoque", make: focusCsv },
+  ]
+  return files.map((f) => (
+    <Button key={f.name} variant="outline" onClick={() => download(f.make(state), "text/csv;charset=utf-8", `${prefix}-${f.name}-${today}.csv`)}>
+      <Download /> {f.label}
+    </Button>
+  ))
 }

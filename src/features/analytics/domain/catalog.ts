@@ -194,3 +194,11 @@ export const MIND_RULES = [
   "Con menos de 7 días con check-in en el periodo se indica «Pocos datos» y no se muestran tendencias ni comparaciones.",
   "Las reflexiones son privadas: no se usan en ninguna cifra, ni en notificaciones ni en IA.",
 ] as const
+
+/** «Relaciones» (Plan Maestro §5.3). Not part of the frozen review figures, so METRICS_VERSION stays. */
+export const RELATION_RULES = [
+  "Cada cruce compara el orden de los días con los dos datos (correlación de Spearman, de −1 a +1). Los días sin alguno de los dos no cuentan.",
+  "Un cruce sin mínimo de días, o con un valor que no cambia, no muestra ninguna cifra.",
+  "Se comparan varios cruces a la vez: alguna coincidencia puede ser casualidad.",
+  "Son coincidencias en tus datos, no causas, y no son un diagnóstico médico. Hoy no cuenta para hábitos ni enfoque; los filtros de hábito no se aplican aquí.",
+] as const

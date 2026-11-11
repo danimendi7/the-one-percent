@@ -114,8 +114,14 @@ export function createDemoLibrary(today: () => LocalDate, notify: () => void): L
     undo: (removed) => commit(restoreRemoved(ensure().state, removed)),
     syncStateOf: () => "demo",
     resolveText: () => false,
-    // The demo writes localStorage synchronously, before the action returns.
-    saved: async () => ensure().persisted,
+    // The demo writes localStorage synchronously, before the action returns; a refused write is tried again here.
+    saved: async () => {
+      const s = ensure()
+      if (s.persisted) return true
+      const persisted = write(s.state)
+      if (persisted) snap = { ...s, persisted }
+      return persisted
+    },
   } as LibraryActions
 
   return {

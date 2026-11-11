@@ -1,6 +1,7 @@
 import type { BrowserContext, Page } from "@playwright/test"
 import { expect, isMobile, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
+import { storedOpTypes } from "./support/offline"
 
 /**
  * M3.3c · Mind & Energy in account mode against the LOCAL Supabase stack: real rows, two devices,
@@ -58,6 +59,8 @@ test.describe("mind & energy · account mode", () => {
     await scale(page, "Ánimo").getByRole("radio", { name: "3, Normal" }).click()
     await expect(sheet(page).getByRole("status")).toContainText("se enviará al recuperar la conexión")
     expect(await rows()).toBe(0)
+    // Closed once the write is on the device, as a person closing the app seconds later (PR #27).
+    await expect.poll(() => storedOpTypes(page), { timeout: 15_000 }).toContain("checkin.set")
     await page.close()
     await context.setOffline(false)
 

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { BrandMark, BrandWordmark } from "./brand-mark"
 import { isActive, SETTINGS_NAV, SIDEBAR_NAV, type NavItem } from "./nav-config"
 import { SyncStatus } from "./sync-status"
+import { InboxButton } from "@/features/notifications/inbox/inbox-button"
 import { FocusPill } from "@/features/focus/components/focus-pill"
 
 /**
@@ -65,7 +66,8 @@ function Sidebar({ pathname }: { pathname: string }) {
           <FocusPill rail className="lg:w-full" />
         </div>
         <NavLink item={SETTINGS_NAV} active={isActive(pathname, SETTINGS_NAV)} />
-        <div className="flex justify-center lg:justify-start lg:px-1">
+        <div className="flex items-center justify-center gap-1 lg:justify-start lg:px-1">
+          <InboxButton />
           <SyncStatus compact className="lg:w-full lg:justify-start" />
         </div>
       </div>

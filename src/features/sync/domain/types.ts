@@ -1,6 +1,9 @@
+import type { MotivationSettings } from "@/features/notifications/domain/motivation"
+import type { Dismissal, FeedbackFields } from "@/features/discover/domain/types"
+import type { CardState, Grade } from "@/features/recall/domain/schedule"
 import type { LocalDate } from "@/features/habits/domain/dates"
 import type { DimensionId, HabitsState, HabitType, ScheduleRule, TargetDirection } from "@/features/habits/domain/types"
-import type { Aggregation, GoalDirection, GoalKind, GoalPriority, GoalState, Horizon, NumericSource } from "@/features/goals/domain/types"
+import type { Aggregation, GoalDirection, GoalKind, GoalLogEntry, GoalPriority, GoalState, Horizon, NumericSource } from "@/features/goals/domain/types"
 import type { CheckinField, CheckinPhase } from "@/features/mind/domain/types"
 import type { Decision, Evaluation, ReviewKind, ReviewStatus } from "@/features/reviews/domain/types"
 import type { ReviewSnapshot } from "@/features/reviews/domain/snapshot"
@@ -75,6 +78,10 @@ export type Op =
   | { type: "goal.set_state"; op_id: string; goal_id: string; state: GoalState; on: LocalDate }
   | { type: "goal.archive"; op_id: string; goal_id: string; archived_on: LocalDate }
   | { type: "goal.restore"; op_id: string; goal_id: string }
+  | { type: "goal.set_review"; op_id: string; goal_id: string; review_since: LocalDate | null }
+  | { type: "goal.log_add"; op_id: string; goal_id: string; entry: GoalLogEntry }
+  | { type: "goal.log_remove"; op_id: string; goal_id: string; entry_id: string }
+  | { type: "goal.book_set"; op_id: string; goal_id: string; item_id: string; linked: boolean }
   | { type: "goal.checkpoint.set"; op_id: string; goal_id: string; checkpoint_id: string; done_on: LocalDate | null }
   | {
       type: "goal.measure"
@@ -95,7 +102,7 @@ export type Op =
     }
   | { type: "focus.pause"; op_id: string; session_id: string; at: string }
   | { type: "focus.resume"; op_id: string; session_id: string; at: string }
-  | { type: "focus.finish"; op_id: string; session_id: string; at: string; trim_to: string | null; actual_output: string | null; rating: number | null }
+  | { type: "focus.finish"; op_id: string; session_id: string; at: string; trim_to: string | null; actual_output: string | null; rating: number | null; interruptions?: number | null }
   | {
       type: "focus.edit"
       op_id: string
@@ -108,6 +115,8 @@ export type Op =
       planned_output: string | null
       actual_output: string | null
       rating: number | null
+      /** Absent in operations queued by an older version: the server then keeps what was noted. */
+      interruptions?: number | null
       /** Device time of the edit (validation of the optimistic copy only; the server uses its clock). */
       at: string
     }
@@ -130,6 +139,8 @@ export type Op =
       base_note_seq: number | null
     }
   | { type: "profile.checkin_fields"; op_id: string; am: CheckinField[]; pm: CheckinField[] }
+  /** E6: the whole notification settings, a desired state. */
+  | { type: "profile.motivation"; op_id: string; settings: MotivationSettings }
   // ── Life Review (M3.4): addressed by kind + period start (one review per period) ──
   | {
       type: "review.save"
@@ -153,6 +164,38 @@ export type Op =
       base_seq: number | null
     }
   | { type: "review.delete"; op_id: string; kind: ReviewKind; period_start: LocalDate; confirm: "delete"; base_seq: number }
+  // ── Active Recall (D2) ──
+  | {
+      type: "recall.create"
+      op_id: string
+      card: { id: string; question: string; answer: string; source_type: "note" | null; source_id: string | null }
+      local_date: LocalDate
+      algorithm_version: number
+      at: string
+    }
+  | {
+      type: "recall.answer"
+      op_id: string
+      card_id: string
+      attempt_id: string
+      grade: Grade
+      responded_at: string
+      local_date: LocalDate
+      due_on_before: LocalDate
+      algorithm_version: number
+      /** Computed on the device from the card as it was seen; the server validates its shape. */
+      schedule: WireRecallSchedule
+    }
+  | { type: "recall.suspend"; op_id: string; card_id: string; suspended_on: LocalDate | null }
+  | { type: "recall.delete"; op_id: string; card_id: string }
+  // ── Daily Discovery (D4) ──
+  | { type: "discovery.topic.create"; op_id: string; topic: { id: string; title: string; category: string; body: string; source_title: string | null; source_url: string | null }; at: string }
+  | { type: "discovery.topic.delete"; op_id: string; topic_id: string }
+  | { type: "discovery.feedback.set"; op_id: string; topic_key: string; fields: FeedbackFields; local_date: LocalDate; at: string }
+  // ── Experiments (E3) ──
+  | { type: "experiment.create"; op_id: string; experiment: { id: string; title: string; metric_kind: WireExperiment["metric_kind"]; metric_ref: string | null; start_on: LocalDate; days: number }; at: string }
+  | { type: "experiment.close"; op_id: string; experiment_id: string; status: "finished" | "abandoned"; ended_on: LocalDate; note: string | null }
+  | { type: "experiment.delete"; op_id: string; experiment_id: string }
   // ── Library (M4b wire, M4c client): field names are column names (library-wire.ts) ──
   | LibraryOp
 
@@ -262,6 +305,7 @@ export interface WireFocusSession {
   active_seconds: number
   local_date: LocalDate
   rating: number | null
+  interruptions?: number | null
   version: number
   created_at: string
   updated_at: string
@@ -306,6 +350,10 @@ export interface WireGoal extends WireGoalFields {
   state: GoalState
   closed_on: LocalDate | null
   archived_on: LocalDate | null
+  /** Absent in payloads stored before the column existed. */
+  review_since?: LocalDate | null
+  process_log?: GoalLogEntry[]
+  book_ids?: string[]
   version: number
   created_at: string
   updated_at: string
@@ -390,13 +438,87 @@ export interface WireRestDay {
   server_seq: number
 }
 
+export interface WireExperiment {
+  id: string
+  title: string
+  metric_kind: "habit" | "checkin" | "focus"
+  metric_ref: string | null
+  start_on: LocalDate
+  days: number
+  status: "active" | "finished" | "abandoned"
+  ended_on: LocalDate | null
+  note: string | null
+  created_at: string
+  deleted: boolean
+  server_seq: number
+}
+
+export interface WireDiscoveryTopic {
+  id: string
+  title: string
+  category: string
+  body: string
+  source_title: string | null
+  source_url: string | null
+  created_at: string
+  deleted: boolean
+  server_seq: number
+}
+
+export interface WireTopicFeedback {
+  topic_key: string
+  rating: number | null
+  saved: boolean
+  dismissed: Dismissal | null
+  decided_on: LocalDate
+  updated_at: string
+  server_seq: number
+}
+
+export interface WireRecallSchedule {
+  state: CardState
+  reps: number
+  lapses: number
+  ease_factor: number
+  interval_days: number
+  due_on: LocalDate
+}
+
+export interface WireRecallCard extends WireRecallSchedule {
+  id: string
+  source_type: "note" | null
+  source_id: string | null
+  question: string
+  answer: string
+  algorithm_version: number
+  suspended_on: LocalDate | null
+  first_answered_on: LocalDate | null
+  last_answered_at: string | null
+  created_at: string
+  deleted: boolean
+  server_seq: number
+}
+
+export interface WireRecallAttempt {
+  id: string
+  card_id: string
+  grade: Grade
+  responded_at: string
+  local_date: LocalDate
+  due_on_before: LocalDate
+  due_on_after: LocalDate
+  interval_days: number
+  algorithm_version: number
+  server_seq: number
+}
+
 export interface PullPayload {
   server_today: LocalDate
   /** Server clock (ISO), used to correct the device clock. */
   server_time?: string
   full: boolean
   /** checkin_fields: M3.3, absent from servers without the check-ins migration. */
-  profile: { timezone: string; locale: string; server_seq: number; checkin_fields?: { am: CheckinField[]; pm: CheckinField[] } | null } | null
+  profile: { timezone: string; locale: string; server_seq: number; motivation?: unknown; checkin_fields?: { am: CheckinField[]; pm: CheckinField[] } | null } | null
   dimensions: { slug: DimensionId; name: string }[]
   habits: WireHabit[]
   entries: WireEntry[]
@@ -410,6 +532,16 @@ export interface PullPayload {
   daily_checkins?: WireCheckin[]
   /** M3.4. Absent from servers without the reviews migration: reviews stay on the device. */
   reviews?: WireReview[]
+  /** Daily reviews (C5), apart from `reviews` so that clients published before them never receive one. */
+  daily_reviews?: WireReview[]
+  /** Active Recall (D2). A full pull brings only the last 90 days of attempts. */
+  recall_cards?: WireRecallCard[]
+  recall_attempts?: WireRecallAttempt[]
+  /** Daily Discovery (D4). */
+  discovery_topics?: WireDiscoveryTopic[]
+  topic_feedback?: WireTopicFeedback[]
+  /** Experiments (E3). */
+  experiments?: WireExperiment[]
   /** M4b. The library travels through pull_library; this only says the server stores it and its newest change. */
   library?: { head: number }
   cursor: number
@@ -423,7 +555,7 @@ export interface ServerCache {
   cursor: number
   serverToday: LocalDate
   /** Server capabilities seen in the last pull (a deploy may precede its migration). */
-  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; library?: boolean }
+  features?: { goals: boolean; focus?: boolean; checkins?: boolean; reviews?: boolean; dailyReviews?: boolean; recall?: boolean; discovery?: boolean; experiments?: boolean; motivation?: boolean; library?: boolean }
 }
 
 export type SyncStatus = "synced" | "syncing" | "pending" | "offline" | "error"

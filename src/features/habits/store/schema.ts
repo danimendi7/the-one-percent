@@ -129,7 +129,7 @@ const checkin = z.object({
 // reviews map is dropped on its own, never the rest of the demo.
 const review = z
   .object({
-    kind: z.enum(["week", "month"]),
+    kind: z.enum(["day", "week", "month"]),
     periodStart: localDate,
     periodEnd: localDate,
     status: z.enum(["draft", "closed"]),
@@ -160,4 +160,12 @@ export const habitsStateSchema = z.object({
   checkinConfig: z.object({ am: z.array(checkinField), pm: z.array(checkinField) }).optional(),
   // Absent in demo data saved before M3.4.
   reviews: z.record(z.string(), review).optional().catch(undefined),
+  // Absent in demo data saved before D3.
+  recall: z.object({ cards: z.record(z.string(), z.any()), attempts: z.record(z.string(), z.any()) }).optional().catch(undefined),
+  // Absent in demo data saved before D4.
+  discovery: z.object({ topics: z.record(z.string(), z.any()), feedback: z.record(z.string(), z.any()) }).optional().catch(undefined),
+  // Absent in demo data saved before E3.
+  experiments: z.record(z.string(), z.any()).optional().catch(undefined),
+  // Absent in demo data saved before E6; normalized on read.
+  motivation: z.any().optional(),
 })

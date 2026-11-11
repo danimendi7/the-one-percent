@@ -2,7 +2,9 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useId, useRef, useState } from "react"
-import { ArrowRightLeft, Lightbulb, Link2, MoreHorizontal, Pencil, Plus, Star, Trash2 } from "lucide-react"
+import { ArrowRightLeft, GraduationCap, Lightbulb, Link2, MoreHorizontal, Pencil, Plus, Star, Trash2 } from "lucide-react"
+import { RecallCardSheet } from "@/features/recall/components/recall-card-sheet"
+import { NoteRecallChip } from "@/features/recall/components/note-recall-chip"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -288,6 +290,7 @@ export function NoteCard({
 }) {
   const [editing, setEditing] = useState(false)
   const [picker, setPicker] = useState<"link" | "move" | null>(null)
+  const [cardOpen, setCardOpen] = useState(false)
   const connections = linkedTo(snap.state, { type: "note", id: note.id }).length
   const text = useAutosaveText(note.body, (v) => {
     if (!v.trim()) return "Una nota no puede quedar vacía: escribe algo o elimínala."
@@ -340,6 +343,9 @@ export function NoteCard({
             <DropdownMenuItem onSelect={() => setPicker("move")}>
               <ArrowRightLeft aria-hidden /> Mover a…
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setCardOpen(true)} data-testid="note-create-card">
+              <GraduationCap aria-hidden /> Crear tarjeta de repaso
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={remove} className="text-warning">
               <Trash2 aria-hidden /> Eliminar
@@ -347,6 +353,7 @@ export function NoteCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
+      <RecallCardSheet open={cardOpen} onOpenChange={setCardOpen} draft={{ answer: note.body, sourceNoteId: note.id }} />
       {editing ? (
         <div className="space-y-2">
           <label htmlFor={`edit-${note.id}`} className="sr-only">
@@ -365,7 +372,7 @@ export function NoteCard({
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => setEditing(true)} className="block w-full text-left text-[0.9375rem] leading-relaxed whitespace-pre-wrap">
+        <button type="button" onClick={() => setEditing(true)} className="block min-h-11 w-full text-left text-[0.9375rem] leading-relaxed whitespace-pre-wrap">
           <span className="sr-only">Editar nota: </span>
           {terms?.length ? <Marked text={note.body} terms={terms} /> : note.body}
         </button>
@@ -396,7 +403,7 @@ export function NoteCard({
       )}
       <footer className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
         {origin && (
-          <Link href={itemHref(origin.id)} className="inline-flex min-h-11 md:min-h-10 min-w-0 items-center truncate text-xs text-text-secondary underline-offset-2 hover:text-foreground hover:underline">
+          <Link href={itemHref(origin.id)} className="inline-flex min-h-11 md:min-h-10 min-w-11 items-center truncate text-xs text-text-secondary underline-offset-2 hover:text-foreground hover:underline">
             {origin.title}
           </Link>
         )}
@@ -406,6 +413,7 @@ export function NoteCard({
             {connections} {connections === 1 ? "conexión" : "conexiones"}
           </Link>
         )}
+        <NoteRecallChip noteId={note.id} />
         <SyncLine state={sync} snap={snap} className="ml-auto" />
       </footer>
       {picker && <KnowledgePicker from={{ type: "note", id: note.id }} mode={picker} snap={snap} open onOpenChange={(v) => !v && setPicker(null)} />}

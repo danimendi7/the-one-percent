@@ -1,3 +1,9 @@
+import { normalizeMotivation } from "@/features/notifications/domain/settings"
+import { addExperiment, closeExperiment, removeExperiment } from "@/features/intelligence/domain/experiments"
+import { toExperiment } from "./experiment-wire"
+import { addOwnTopic, applyFeedback, removeOwnTopic } from "@/features/discover/domain/ops"
+import { addCard, recordAnswer, removeCard, setSuspended } from "@/features/recall/domain/ops"
+import { fromWireSchedule } from "./recall-wire"
 import type { LocalDate } from "@/features/habits/domain/dates"
 import {
   archiveHabit,
@@ -10,10 +16,14 @@ import {
 } from "@/features/habits/domain/ops"
 import type { Habit, HabitsState } from "@/features/habits/domain/types"
 import {
+  addGoalLogEntry,
   archiveGoal,
+  removeGoalLogEntry,
   createGoal,
   restoreGoal,
   setCheckpointDone,
+  setGoalBook,
+  setGoalReview,
   setGoalState,
   setMeasurement,
   updateGoal,
@@ -99,6 +109,14 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return archiveGoal(state, op.goal_id, op.archived_on)
     case "goal.restore":
       return restoreGoal(state, op.goal_id)
+    case "goal.log_add":
+      return addGoalLogEntry(state, op.goal_id, op.entry)
+    case "goal.log_remove":
+      return removeGoalLogEntry(state, op.goal_id, op.entry_id)
+    case "goal.book_set":
+      return setGoalBook(state, op.goal_id, op.item_id, op.linked)
+    case "goal.set_review":
+      return setGoalReview(state, op.goal_id, op.review_since)
     case "goal.checkpoint.set":
       return setCheckpointDone(state, op.goal_id, op.checkpoint_id, op.done_on, today)
     case "goal.measure":
@@ -126,12 +144,12 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
     case "focus.resume":
       return resumeSession(state, op.session_id, op.at).state
     case "focus.finish":
-      return finishSession(state, op.session_id, { at: op.at, trimTo: op.trim_to, actualOutput: op.actual_output, rating: op.rating }).state
+      return finishSession(state, op.session_id, { at: op.at, trimTo: op.trim_to, actualOutput: op.actual_output, rating: op.rating, interruptions: op.interruptions }).state
     case "focus.edit":
       return editSession(
         state,
         op.session_id,
-        { segments: op.segments, habitId: op.habit_id, project: op.project, plannedOutput: op.planned_output, actualOutput: op.actual_output, rating: op.rating },
+        { segments: op.segments, habitId: op.habit_id, project: op.project, plannedOutput: op.planned_output, actualOutput: op.actual_output, rating: op.rating, interruptions: op.interruptions },
         op.at
       ).state
     case "focus.discard":
@@ -143,6 +161,8 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return setCheckin(state, { date: op.local_date, phase: op.phase, values: wireToValues(op.fields), at: op.at, today }).state
     case "profile.checkin_fields":
       return setCheckinConfig(state, { am: op.am, pm: op.pm }).state
+    case "profile.motivation":
+      return { ...state, motivation: normalizeMotivation(op.settings) }
     // ── Life Review (M3.4): a closed review refuses edits here exactly as on the server ──
     case "review.save":
       return { ...state, reviews: applySave(state.reviews, op.kind, op.period_start, op.fields, new Date(0).toISOString()) }
@@ -150,6 +170,34 @@ export function applyOp(state: HabitsState, op: Op, today: LocalDate): HabitsSta
       return { ...state, reviews: applyCloseOp(state.reviews, op.kind, op.period_start, op.snapshot) }
     case "review.delete":
       return { ...state, reviews: applyDelete(state.reviews, op.kind, op.period_start) }
+    // ── Active Recall (D2) ──
+    case "recall.create":
+      return { ...state, recall: addCard(state.recall, { id: op.card.id, question: op.card.question, answer: op.card.answer, sourceType: op.card.source_type, sourceId: op.card.source_id, today: op.local_date, at: op.at }) }
+    case "recall.answer":
+      return {
+        ...state,
+        recall: recordAnswer(state.recall, { cardId: op.card_id, attemptId: op.attempt_id, grade: op.grade, respondedAt: op.responded_at, localDate: op.local_date, dueOnBefore: op.due_on_before, algorithmVersion: op.algorithm_version, schedule: fromWireSchedule(op.schedule) }),
+      }
+    case "recall.suspend":
+      return { ...state, recall: setSuspended(state.recall, op.card_id, op.suspended_on) }
+    case "recall.delete":
+      return { ...state, recall: removeCard(state.recall, op.card_id) }
+    // ── Daily Discovery (D4) ──
+    case "discovery.topic.create":
+      return { ...state, discovery: addOwnTopic(state.discovery, { id: op.topic.id, title: op.topic.title, category: op.topic.category, body: op.topic.body, sourceTitle: op.topic.source_title, sourceUrl: op.topic.source_url, at: op.at }) }
+    case "discovery.topic.delete":
+      return { ...state, discovery: removeOwnTopic(state.discovery, op.topic_id) }
+    case "discovery.feedback.set":
+      return { ...state, discovery: applyFeedback(state.discovery, op.topic_key, op.fields, op.local_date, op.at) }
+    // ── Experiments (E3) ──
+    case "experiment.create": {
+      const w = toExperiment({ ...op.experiment, status: "active", ended_on: null, note: null, created_at: op.at, deleted: false, server_seq: 0 })
+      return { ...state, experiments: addExperiment(state.experiments, { id: w.id, title: w.title, metric: w.metric, startOn: w.startOn, days: w.days, at: op.at }) }
+    }
+    case "experiment.close":
+      return { ...state, experiments: closeExperiment(state.experiments, op.experiment_id, { status: op.status, endedOn: op.ended_on, note: op.note }) }
+    case "experiment.delete":
+      return { ...state, experiments: removeExperiment(state.experiments, op.experiment_id) }
     default:
       // An operation this version does not know (written by a newer one): no optimistic effect, still sent.
       return state
@@ -198,6 +246,8 @@ export function enqueue(queue: readonly QueuedOp[], op: Op, now: number, inFligh
     if (op.type === "entry.set" && q.op.type === "entry.set")
       return q.op.habit_id === op.habit_id && q.op.local_date === op.local_date
     if (op.type === "rest_day.set" && q.op.type === "rest_day.set") return q.op.local_date === op.local_date
+    // One desired state of the notification settings: only the latest unsent one travels.
+    if (op.type === "profile.motivation" && q.op.type === "profile.motivation") return true
     if (op.type === "goal.measure" && q.op.type === "goal.measure")
       return q.op.goal_id === op.goal_id && q.op.observed_on === op.observed_on
     if (op.type === "goal.checkpoint.set" && q.op.type === "goal.checkpoint.set")

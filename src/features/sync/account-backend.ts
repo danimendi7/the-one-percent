@@ -1,8 +1,15 @@
 "use client"
 
+import { normalizeMotivation } from "@/features/notifications/domain/settings"
+import { MAX_ACTIVE, validateExperiment } from "@/features/intelligence/domain/experiments"
+import { metricToWire } from "./domain/experiment-wire"
+import { validateOwnTopic } from "@/features/discover/domain/ops"
+import { answerOutcome, validateCardText } from "@/features/recall/domain/ops"
+import { recallAnswerOp, recallCreateOp } from "./domain/recall-wire"
+import { fetchHabitHistory } from "./habit-history"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { setEntry, type HabitInput } from "@/features/habits/domain/ops"
-import { setCheckpointDone, setMeasurement, validateGoal } from "@/features/goals/domain/ops"
+import { addGoalLogEntry, cleanLogText, setCheckpointDone, setMeasurement, validateGoal } from "@/features/goals/domain/ops"
 import { cleanText, editSession, finishSession, pauseSession, resumeSession, startSession } from "@/features/focus/domain/ops"
 import { ACTUAL_OUTPUT_MAX, PLANNED_OUTPUT_MAX, PROJECT_MAX } from "@/features/focus/domain/types"
 import { goalToWire } from "./domain/goal-wire"
@@ -13,6 +20,7 @@ import type { Backend, HabitsSnapshot } from "@/features/habits/store/types"
 import { uuidv4 } from "@/lib/ids"
 import { SyncEngine } from "./engine"
 import { clearUserCache, deviceId, idbStorage, tabLock } from "./idb-storage"
+import { browserKeyValue, keyValueJournal } from "./journal"
 import { idbLibraryStore, memoryLibraryStore } from "./library-store"
 import { accountLibrary } from "@/features/library/store/account-library"
 import { supabaseTransport } from "./supabase-transport"
@@ -38,9 +46,12 @@ export interface AccountBackend extends Backend {
 export function createAccountBackend(sb: SupabaseClient, user: { id: string; email: string | null }): AccountBackend {
   // The Library's device copy lives in its own database, one entry per row (N1, D72).
   const library = typeof indexedDB !== "undefined" ? idbLibraryStore(user.id) : memoryLibraryStore()
+  // Synchronous record of the queue, written before each change is shown (Orden 2 §1).
+  const journal = keyValueJournal(user.id, browserKeyValue())
   const engine = new SyncEngine({
     transport: supabaseTransport(sb),
     storage: idbStorage(user.id),
+    journal,
     deviceId: deviceId(uuidv4),
     lock: tabLock(`the-one-percent:sync:${user.id}`),
     library,
@@ -73,6 +84,11 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         focus: e.focus,
         checkins: e.checkins,
         reviews: e.reviews,
+        dailyReviews: e.dailyReviews,
+        recall: e.recall,
+        discovery: e.discovery,
+        experiments: e.experiments,
+        motivation: e.motivation,
       }
     }
     return snapshot
@@ -145,6 +161,10 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       .on("postgres_changes", { event: "*", schema: "public", table: "focus_sessions", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "daily_checkins", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "recall_cards", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "discovery_topics", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "topic_feedback", filter: `user_id=eq.${user.id}` }, onRemoteChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "experiments", filter: `user_id=eq.${user.id}` }, onRemoteChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "library_items", filter: `user_id=eq.${user.id}` }, onLibraryChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "knowledge_notes", filter: `user_id=eq.${user.id}` }, onLibraryChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "podcast_shows", filter: `user_id=eq.${user.id}` }, onLibraryChange)
@@ -250,6 +270,58 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       restoreHabit(id) {
         submit({ type: "habit.restore", op_id: uuidv4(), habit_id: id })
       },
+      loadHabitHistory: (id) => fetchHabitHistory(sb, id),
+      setMotivationSettings(settings) {
+        submit({ type: "profile.motivation", op_id: uuidv4(), settings: normalizeMotivation(settings) })
+      },
+      startExperiment(input) {
+        const v = validateExperiment(input)
+        if (!v.ok) return v
+        const { state, today } = view()
+        if (Object.values(state.experiments).filter((e) => e.status === "active").length >= MAX_ACTIVE) return { ok: false, field: "active", reason: "too_many" }
+        const id = uuidv4()
+        submit({ type: "experiment.create", op_id: uuidv4(), experiment: { id, title: v.title, ...metricToWire(input.metric), start_on: today, days: input.days }, at: engine.clientTime() })
+        return { ok: true, id }
+      },
+      closeExperiment(id, status, note) {
+        submit({ type: "experiment.close", op_id: uuidv4(), experiment_id: id, status, ended_on: view().today, note: note?.trim() || null })
+      },
+      deleteExperiment(id) {
+        submit({ type: "experiment.delete", op_id: uuidv4(), experiment_id: id })
+      },
+      addDiscoveryTopic(input) {
+        const v = validateOwnTopic(input)
+        if (!v.ok) return v
+        const id = uuidv4()
+        submit({ type: "discovery.topic.create", op_id: uuidv4(), topic: { id, title: v.title, category: v.category, body: v.body, source_title: v.sourceTitle, source_url: v.sourceUrl }, at: engine.clientTime() })
+        return { ok: true, id }
+      },
+      removeDiscoveryTopic(id) {
+        submit({ type: "discovery.topic.delete", op_id: uuidv4(), topic_id: id })
+      },
+      setTopicFeedback(topicKey, fields) {
+        submit({ type: "discovery.feedback.set", op_id: uuidv4(), topic_key: topicKey, fields, local_date: view().today, at: engine.clientTime() })
+      },
+      addRecallCard(input) {
+        const text = validateCardText(input.question, input.answer)
+        if (!text.ok) return text
+        const id = uuidv4()
+        submit(recallCreateOp({ id, question: text.question, answer: text.answer, sourceType: input.sourceNoteId ? "note" : null, sourceId: input.sourceNoteId, today: view().today, at: engine.clientTime() }, uuidv4()))
+        return { ok: true, id }
+      },
+      answerRecallCard(cardId, grade) {
+        const { state, today } = view()
+        const card = state.recall.cards[cardId]
+        if (!card) return false
+        submit(recallAnswerOp(answerOutcome(card, { attemptId: uuidv4(), grade, respondedAt: engine.clientTime(), today }), uuidv4()))
+        return true
+      },
+      suspendRecallCard(cardId, suspended) {
+        submit({ type: "recall.suspend", op_id: uuidv4(), card_id: cardId, suspended_on: suspended ? view().today : null })
+      },
+      deleteRecallCard(cardId) {
+        submit({ type: "recall.delete", op_id: uuidv4(), card_id: cardId })
+      },
       setRestDay(date, rest) {
         submit({
           type: "rest_day.set",
@@ -278,6 +350,19 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       },
       archiveGoal(id) {
         submit({ type: "goal.archive", op_id: uuidv4(), goal_id: id, archived_on: view().today })
+      },
+      addGoalLog(goalId, kind, text) {
+        const entry = { id: uuidv4(), kind, text: cleanLogText(text), on: view().today }
+        if (addGoalLogEntry(view().state, goalId, entry) !== view().state) submit({ type: "goal.log_add", op_id: uuidv4(), goal_id: goalId, entry })
+      },
+      removeGoalLog(goalId, entryId) {
+        submit({ type: "goal.log_remove", op_id: uuidv4(), goal_id: goalId, entry_id: entryId })
+      },
+      setGoalBook(goalId, itemId, linked) {
+        submit({ type: "goal.book_set", op_id: uuidv4(), goal_id: goalId, item_id: itemId, linked })
+      },
+      setGoalReview(id, review) {
+        submit({ type: "goal.set_review", op_id: uuidv4(), goal_id: id, review_since: review ? view().today : null })
       },
       restoreGoal(id) {
         submit({ type: "goal.restore", op_id: uuidv4(), goal_id: id })
@@ -336,9 +421,9 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
       finishFocus(id, input) {
         const at = engine.clientTime()
         const actual = cleanText(input.actualOutput, ACTUAL_OUTPUT_MAX)
-        const r = finishSession(view().state, id, { at, trimTo: input.trimTo, actualOutput: actual, rating: input.rating })
+        const r = finishSession(view().state, id, { at, trimTo: input.trimTo, actualOutput: actual, rating: input.rating, interruptions: input.interruptions })
         if (!r.ok) return { ok: false, reason: r.reason }
-        submit({ type: "focus.finish", op_id: uuidv4(), session_id: id, at, trim_to: input.trimTo ?? null, actual_output: actual, rating: input.rating ?? null })
+        submit({ type: "focus.finish", op_id: uuidv4(), session_id: id, at, trim_to: input.trimTo ?? null, actual_output: actual, rating: input.rating ?? null, interruptions: input.interruptions ?? null })
         return { ok: true }
       },
       editFocus(id, input) {
@@ -356,6 +441,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
           planned_output: cleanText(input.plannedOutput, PLANNED_OUTPUT_MAX),
           actual_output: cleanText(input.actualOutput, ACTUAL_OUTPUT_MAX),
           rating: input.rating,
+          interruptions: input.interruptions,
           at,
         })
         return { ok: true }
@@ -421,6 +507,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         // Stop first so nothing re-persists the cache after it is deleted.
         engine.stop()
         await clearUserCache(user.id)
+        journal.clear()
         await library.clear()
       },
       diagnostics() {

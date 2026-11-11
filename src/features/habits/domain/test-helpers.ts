@@ -1,3 +1,4 @@
+import { DEFAULT_SETTINGS } from "@/features/notifications/domain/motivation"
 import type { LocalDate } from "./dates"
 import { DEFAULT_CHECKIN_CONFIG } from "@/features/mind/domain/types"
 import type { EvalContext } from "./metrics"
@@ -47,5 +48,9 @@ export function makeState(habits: Habit[], map: EntryMap = {}, rest: LocalDate[]
     checkins: {},
     checkinConfig: DEFAULT_CHECKIN_CONFIG,
     reviews: {},
+    recall: { cards: {}, attempts: {} },
+    discovery: { topics: {}, feedback: {} },
+    experiments: {},
+    motivation: DEFAULT_SETTINGS,
   }
 }

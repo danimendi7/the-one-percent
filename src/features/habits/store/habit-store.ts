@@ -6,7 +6,8 @@
  * engine + Supabase). The backend is chosen by <DataSourceProvider>.
  */
 import { useSyncExternalStore } from "react"
-import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions, ReviewActions } from "./types"
+import type { Backend, FocusActions, GoalActions, HabitActions, HabitsSnapshot, MindActions, RecallActions, ReviewActions, DiscoveryActions, ExperimentActions, MotivationActions } from "./types"
+import type { ReviewKind } from "@/features/reviews/domain/types"
 
 export type { HabitsSnapshot, DataSource, SyncInfo } from "./types"
 
@@ -59,9 +60,21 @@ export function focusEnabled(): boolean {
   return !!backend?.actions.startFocus && backend.getSnapshot()?.focus !== false
 }
 
-/** True when the active data source can close reviews (an account needs the M3.4 migration; drafts stay on the device until then). */
-export function reviewsEnabled(): boolean {
-  return !!backend?.actions.saveReview && backend.getSnapshot()?.reviews !== false
+/** True when the active data source can close reviews (an account needs the M3.4 migration, and C5 for daily ones; drafts stay on the device until then). */
+export function reviewsEnabled(kind?: ReviewKind): boolean {
+  if (!backend?.actions.saveReview) return false
+  const snap = backend.getSnapshot()
+  return snap?.reviews !== false && (kind !== "day" || snap?.dailyReviews !== false)
+}
+
+/** False only for an account whose server lacks the Daily Discovery migration: it waits on the device. */
+export function discoveryEnabled(): boolean {
+  return backend?.getSnapshot()?.discovery !== false
+}
+
+/** False only for an account whose server lacks the Active Recall migration: cards then wait on the device. */
+export function recallEnabled(): boolean {
+  return backend?.getSnapshot()?.recall !== false
 }
 
 /** True when the active data source stores check-ins (an account needs the M3.3 migration). */
@@ -79,7 +92,18 @@ function active(): HabitActions {
   return backend.actions
 }
 
-export const habitActions: HabitActions & GoalActions & FocusActions & MindActions & ReviewActions = {
+export const habitActions: HabitActions & GoalActions & FocusActions & MindActions & ReviewActions & RecallActions & DiscoveryActions & ExperimentActions & MotivationActions = {
+  setMotivationSettings: (...a) => need(active().setMotivationSettings)(...a),
+  startExperiment: (...a) => need(active().startExperiment)(...a),
+  closeExperiment: (...a) => need(active().closeExperiment)(...a),
+  deleteExperiment: (...a) => need(active().deleteExperiment)(...a),
+  addDiscoveryTopic: (...a) => need(active().addDiscoveryTopic)(...a),
+  removeDiscoveryTopic: (...a) => need(active().removeDiscoveryTopic)(...a),
+  setTopicFeedback: (...a) => need(active().setTopicFeedback)(...a),
+  addRecallCard: (...a) => need(active().addRecallCard)(...a),
+  answerRecallCard: (...a) => need(active().answerRecallCard)(...a),
+  suspendRecallCard: (...a) => need(active().suspendRecallCard)(...a),
+  deleteRecallCard: (...a) => need(active().deleteRecallCard)(...a),
   setEntry: (...a) => active().setEntry(...a),
   addHabit: (...a) => active().addHabit(...a),
   updateHabit: (...a) => active().updateHabit(...a),
@@ -87,11 +111,16 @@ export const habitActions: HabitActions & GoalActions & FocusActions & MindActio
   restoreHabit: (...a) => active().restoreHabit(...a),
   setRestDay: (...a) => active().setRestDay(...a),
   exportJson: () => active().exportJson(),
+  loadHabitHistory: (...a) => need(active().loadHabitHistory)(...a),
   addGoal: (input) => need(active().addGoal)(input),
   updateGoal: (...a) => need(active().updateGoal)(...a),
   setGoalState: (...a) => need(active().setGoalState)(...a),
   archiveGoal: (...a) => need(active().archiveGoal)(...a),
   restoreGoal: (...a) => need(active().restoreGoal)(...a),
+  setGoalReview: (...a) => need(active().setGoalReview)(...a),
+  setGoalBook: (...a) => need(active().setGoalBook)(...a),
+  addGoalLog: (...a) => need(active().addGoalLog)(...a),
+  removeGoalLog: (...a) => need(active().removeGoalLog)(...a),
   setMeasurement: (...a) => need(active().setMeasurement)(...a),
   setCheckpoint: (...a) => need(active().setCheckpoint)(...a),
   startFocus: (input) => need(active().startFocus)(input),

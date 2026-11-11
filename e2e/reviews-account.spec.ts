@@ -1,6 +1,7 @@
-import type { Browser, BrowserContext, Page, TestInfo } from "@playwright/test"
+import { errors, type Browser, type BrowserContext, type Page, type TestInfo } from "@playwright/test"
 import { expect, isMobile, test } from "./fixtures"
 import { countRows, newAccount, removeAccount, signIn, type Account } from "./support/account"
+import { storedOpTypes } from "./support/offline"
 import { db } from "../tests/integration/setup"
 
 /**
@@ -47,12 +48,39 @@ async function step(page: Page, info: TestInfo, name: RegExp) {
   if (isMobile(info.project.name)) await page.getByRole("navigation", { name: "Pasos de la revisión" }).getByRole("button", { name }).click()
 }
 
-async function closeReview(page: Page, info: TestInfo) {
+async function openCloseDialog(page: Page, info: TestInfo) {
   if (isMobile(info.project.name)) {
     await step(page, info, /Cerrar/)
     await page.getByTestId("review-close").click()
   } else await page.getByTestId("review-close-header").click()
+}
+
+async function closeReview(page: Page, info: TestInfo) {
+  await openCloseDialog(page, info)
   await page.getByRole("dialog").getByTestId("review-close-confirm").click()
+}
+
+/**
+ * Two browsers confirming the close at the same time. Two outcomes are legitimate for each one:
+ * - «confirmed»: its own confirmation lands;
+ * - «converged»: the other browser's close reaches it first, the review becomes closed and the draft
+ *   editor (with this dialog) is replaced by the closed document, so the button goes away under the
+ *   click (run 41654144424). The click then ends with a timeout — no click is left pending — and it
+ *   counts only if the dialog is really gone and the page shows the closed review. Any other error,
+ *   or a button still there, fails as before.
+ */
+async function closeReviewConcurrently(page: Page, info: TestInfo): Promise<"confirmed" | "converged"> {
+  await openCloseDialog(page, info)
+  const confirm = page.getByRole("dialog").getByTestId("review-close-confirm")
+  try {
+    await confirm.click({ timeout: 20_000 })
+    return "confirmed"
+  } catch (error) {
+    if (!(error instanceof errors.TimeoutError)) throw error
+    await expect(confirm, "the confirmation is still there: nothing closed this review").toHaveCount(0)
+    await expect(page.getByTestId("review-closed-stamp"), "the dialog went away but the page did not converge to the closed review").toBeVisible({ timeout: 20_000 })
+    return "converged"
+  }
 }
 
 async function secondDevice(browser: Browser, info: TestInfo): Promise<{ ctx: BrowserContext; page: Page }> {
@@ -72,6 +100,8 @@ test.describe("life review · account mode", () => {
     await expect(page.getByTestId("review-save")).toContainText("se enviará al recuperar la conexión")
     await expect(page.getByTestId("review-save")).not.toContainText("Sincronizado")
     expect(await row()).toBeNull()
+    // Closed once the write is on the device, as a person closing the app seconds later (PR #27).
+    await expect.poll(() => storedOpTypes(page), { timeout: 15_000 }).toContain("review.save")
     await page.close()
     await context.setOffline(false)
 
@@ -155,7 +185,10 @@ test.describe("life review · account mode", () => {
     await open(b.page)
 
     // Both browsers confirm the close at the same time: the first close wins, the other converges to it.
-    await Promise.all([closeReview(page, info), closeReview(b.page, info)])
+    const outcomes = await Promise.all([closeReviewConcurrently(page, info), closeReviewConcurrently(b.page, info)])
+    test.info().annotations.push({ type: "close-outcome", description: `A=${outcomes[0]} B=${outcomes[1]}` })
+    // Someone closed it: at least one of the two confirmations landed.
+    expect(outcomes).toContain("confirmed")
     await expect(page.getByTestId("review-closed-stamp")).toBeVisible({ timeout: 20_000 })
     await expect(b.page.getByTestId("review-closed-stamp")).toBeVisible({ timeout: 20_000 })
     await expect.poll(async () => (await row())?.status, { timeout: 15_000 }).toBe("closed")
@@ -235,6 +268,41 @@ test.describe("life review · account mode", () => {
     await expect.poll(async () => (await row())?.content, { timeout: 20_000 }).toEqual({ wins: "Escrito en la pestaña 1", lessons: "Escrito en la pestaña 2" })
     await synced(p)
     await expect(p.getByTestId("review-conflicts")).toHaveCount(0)
+  })
+
+  test("a daily review: saved on the server, kept after reopening, closed and frozen, and seen from another browser", async ({ browser, page, consoleErrors }, info) => {
+    test.slow()
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date())
+    const dayUrl = `/reviews/day/${today}`
+    await signIn(page, account)
+    await page.goto(dayUrl)
+    await synced(page)
+    await step(page, info, /Reflexión/)
+    await page.getByTestId("review-observations").fill("Dormí poco")
+    await page.getByTestId("review-adjustments").fill("Acostarme antes")
+    await expect.poll(() => answer("adjustments"), { timeout: 15_000 }).toBe("Acostarme antes")
+    await expect.poll(() => answer("observations"), { timeout: 15_000 }).toBe("Dormí poco")
+    await expect(page.getByTestId("review-save")).toContainText("Sincronizado")
+
+    await page.reload()
+    await synced(page)
+    await step(page, info, /Reflexión/)
+    await expect(page.getByTestId("review-observations")).toHaveValue("Dormí poco")
+
+    await closeReview(page, info)
+    await expect(page.getByTestId("review-closed-stamp")).toBeVisible({ timeout: 20_000 })
+    await expect.poll(async () => (await row())?.status, { timeout: 15_000 }).toBe("closed")
+    expect((await row())?.frozen).toBe(true)
+    expect(await countRows("select count(*)::int n from public.reviews where user_id = $1 and kind = 'day' and period_start = $2 and period_end = $2", [account.id, today])).toBe(1)
+
+    const b = await secondDevice(browser, info)
+    await b.page.goto(dayUrl)
+    await synced(b.page)
+    await expect(b.page.getByTestId("review-closed-stamp")).toBeVisible({ timeout: 20_000 })
+    await expect(b.page.getByText("Acostarme antes")).toBeVisible()
+    await expect(b.page.locator("textarea")).toHaveCount(0)
+    await b.ctx.close()
+    expect(consoleErrors).toEqual([])
   })
 
   test("a new account: honest empty home, no demo reviews", async ({ page }) => {

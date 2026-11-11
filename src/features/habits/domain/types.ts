@@ -1,3 +1,7 @@
+import type { MotivationSettings } from "@/features/notifications/domain/motivation"
+import type { ExperimentMap } from "@/features/intelligence/domain/experiments"
+import type { DiscoveryState } from "@/features/discover/domain/types"
+import type { RecallState } from "@/features/recall/domain/types"
 import type { LocalDate, Weekday } from "./dates"
 import type { Goal, MeasurementMap } from "@/features/goals/domain/types"
 import type { FocusSession } from "@/features/focus/domain/types"
@@ -84,6 +88,14 @@ export interface HabitsState {
   checkinConfig: CheckinConfig
   /** Life Review (M3.4), keyed `kind:periodStart`. Metrics never read it. */
   reviews: ReviewMap
+  /** Active Recall (D2): cards and the history of their answers. */
+  recall: RecallState
+  /** Daily Discovery (D4): topics written by the user and what they thought of each topic. */
+  discovery: DiscoveryState
+  /** Improvement experiments (E3), keyed by id. */
+  experiments: ExperimentMap
+  /** Notification settings (E6), from the profile; the defaults until the user changes them. */
+  motivation: MotivationSettings
 }
 
 export function entryKey(habitId: string, date: LocalDate): string {

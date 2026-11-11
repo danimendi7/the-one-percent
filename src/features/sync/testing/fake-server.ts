@@ -4,6 +4,7 @@
  * version conflicts, tombstones, change cursor). Used by engine tests;
  * parity with the real SQL is covered by the integration suite.
  */
+import { normalizeMotivation } from "@/features/notifications/domain/settings"
 import { isEligibleDay } from "@/features/habits/domain/schedule"
 import { entryKey, type HabitsState } from "@/features/habits/domain/types"
 import type { LocalDate } from "@/features/habits/domain/dates"
@@ -21,7 +22,11 @@ import { cleanNote, normalizeConfig, validateConfig, validValue } from "@/featur
 import { addDays } from "@/features/habits/domain/dates"
 import { CHECKIN_FIELDS, DEFAULT_CHECKIN_CONFIG, type CheckinConfig } from "@/features/mind/domain/types"
 import { toCheckin, WIRE_FIELD } from "../domain/checkin-wire"
-import type { WireCheckin, WireReview } from "../domain/types"
+import type { WireCheckin, WireDiscoveryTopic, WireRecallAttempt, WireRecallCard, WireReview, WireTopicFeedback, WireExperiment } from "../domain/types"
+import { toOwnTopic, toTopicFeedback } from "../domain/discovery-wire"
+import { toExperiment } from "../domain/experiment-wire"
+import { validateCardText } from "@/features/recall/domain/ops"
+import { toRecallAttempt, toRecallCard } from "../domain/recall-wire"
 import { toReview } from "../domain/review-wire"
 import { periodFromStart, previousPeriod } from "@/features/reviews/domain/periods"
 import { contentKeys, validateContent } from "@/features/reviews/domain/content"
@@ -53,6 +58,22 @@ export class FakeServer {
   private reviews = new Map<string, Row<WireReview>>()
   /** false: behave like a server without the reviews migration (M3.4). */
   reviewsSupported = true
+  /** false: behave like a server without the daily reviews migration (C5). */
+  dailyReviewsSupported = true
+  /** false: behave like a server without the Active Recall migration (D2). */
+  recallSupported = true
+  private recallCards = new Map<string, Row<WireRecallCard>>()
+  private recallAttemptRows = new Map<string, Row<WireRecallAttempt>>()
+  /** false: behave like a server without the Daily Discovery migration (D4). */
+  discoverySupported = true
+  /** false: behave like a server without the experiments migration (E3). */
+  experimentsSupported = true
+  /** false: behave like a server without the notification settings migration (E6). */
+  motivationSupported = true
+  private motivationSettings: unknown = null
+  private experimentRows = new Map<string, Row<WireExperiment>>()
+  private discoveryTopics = new Map<string, Row<WireDiscoveryTopic>>()
+  private feedbackRows = new Map<string, Row<WireTopicFeedback> & { stamps: Record<string, number> }>()
   /** Latest change of any data a snapshot is computed from (private.review_data_cursor). */
   private dataSeq = 0
   /** Count of times each op_id was actually applied (never > 1). */
@@ -147,6 +168,16 @@ export class FakeServer {
       focusSessions: [...this.sessions.values()].filter((r) => !r.data.deleted).map((r) => r.data.session),
       checkins: Object.fromEntries([...this.checkins].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toCheckin({ ...r.data, server_seq: r.seq })])),
       checkinConfig: normalizeConfig(this.checkinConfig ?? DEFAULT_CHECKIN_CONFIG),
+      motivation: normalizeMotivation(this.motivationSettings),
+      experiments: Object.fromEntries([...this.experimentRows].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toExperiment({ ...r.data, server_seq: r.seq })])),
+      discovery: {
+        topics: Object.fromEntries([...this.discoveryTopics].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toOwnTopic({ ...r.data, server_seq: r.seq })])),
+        feedback: Object.fromEntries([...this.feedbackRows].map(([k, r]) => [k, toTopicFeedback({ ...r.data, server_seq: r.seq })])),
+      },
+      recall: {
+        cards: Object.fromEntries([...this.recallCards].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toRecallCard({ ...r.data, server_seq: r.seq })])),
+        attempts: Object.fromEntries([...this.recallAttemptRows].map(([k, r]) => [k, toRecallAttempt({ ...r.data, server_seq: r.seq })])),
+      },
       reviews: Object.fromEntries([...this.reviews].filter(([, r]) => !r.data.deleted).map(([k, r]) => [k, toReview({ ...r.data, server_seq: r.seq })])),
     }
   }
@@ -266,6 +297,10 @@ export class FakeServer {
       case "goal.set_state":
       case "goal.archive":
       case "goal.restore":
+      case "goal.set_review":
+      case "goal.log_add":
+      case "goal.log_remove":
+      case "goal.book_set":
       case "goal.checkpoint.set": {
         const id = op.type === "goal.create" ? op.goal.id : op.goal_id
         const existing = this.goals.get(id)
@@ -278,7 +313,7 @@ export class FakeServer {
         if (!goal || (after === before && op.type === "goal.create")) return reject("invalid_goal")
         if (after !== before) {
           // Like the SQL: every definition/state change bumps the version.
-          const bump = op.type === "goal.set_state" || op.type === "goal.archive" || op.type === "goal.restore"
+          const bump = op.type === "goal.set_state" || op.type === "goal.archive" || op.type === "goal.restore" || op.type === "goal.set_review"
           this.goals.set(id, { seq: this.next(), data: bump ? { ...goal, version: (existing?.data.version ?? 1) + 1 } : goal })
         }
         return { op_id: op.op_id, status: "applied" }
@@ -313,7 +348,26 @@ export class FakeServer {
       case "review.close":
       case "review.delete":
         if (!this.reviewsSupported) return reject("unknown_op_type")
+        if (op.kind === "day" && !this.dailyReviewsSupported) return reject("invalid_period")
         return this.applyReview(op)
+      case "profile.motivation":
+        if (!this.motivationSupported) return reject("unknown_op_type")
+        this.motivationSettings = op.settings
+        this.nextReview()
+        return { op_id: op.op_id, status: "applied" }
+      case "experiment.create":
+      case "experiment.close":
+      case "experiment.delete":
+        return this.experimentsSupported ? this.applyExperiment(op) : reject("unknown_op_type")
+      case "discovery.topic.create":
+      case "discovery.topic.delete":
+      case "discovery.feedback.set":
+        return this.discoverySupported ? this.applyDiscovery(op) : reject("unknown_op_type")
+      case "recall.create":
+      case "recall.answer":
+      case "recall.suspend":
+      case "recall.delete":
+        return this.recallSupported ? this.applyRecall(op) : reject("unknown_op_type")
       default:
         // Like a server without the library migration (M4b): the library is tested against real PostgreSQL.
         return reject("unknown_op_type")
@@ -409,6 +463,111 @@ export class FakeServer {
     return done("applied")
   }
 
+  /** Mirrors private.experiment_op (supabase/migrations/*_experiments.sql). */
+  private applyExperiment(op: Extract<Op, { type: "experiment.create" | "experiment.close" | "experiment.delete" }>): OpResult {
+    const done = (status: OpResult["status"], code?: string): OpResult => ({ op_id: op.op_id, status, ...(code ? { code } : {}) })
+    const write = (data: WireExperiment) => this.experimentRows.set(data.id, { seq: this.nextReview(), data })
+    if (op.type === "experiment.create") {
+      if (!this.experimentRows.has(op.experiment.id)) write({ ...op.experiment, title: op.experiment.title.trim(), status: "active", ended_on: null, note: null, created_at: op.at, deleted: false, server_seq: 0 })
+      return done("applied")
+    }
+    const row = this.experimentRows.get(op.experiment_id)
+    if (op.type === "experiment.delete") {
+      if (row && !row.data.deleted) write({ ...row.data, title: "", note: null, deleted: true })
+      return done("applied")
+    }
+    if (!row || row.data.deleted) return done("rejected", "experiment_not_found")
+    if (row.data.status !== "active") return done("superseded", "already_closed")
+    write({ ...row.data, status: op.status, ended_on: op.ended_on, note: op.note?.trim() || null })
+    return done("applied")
+  }
+
+  motivation(): unknown {
+    return this.motivationSettings
+  }
+
+  experiment(id: string): WireExperiment | null {
+    return this.experimentRows.get(id)?.data ?? null
+  }
+
+  /** Mirrors private.discovery_op (supabase/migrations/*_discovery.sql). */
+  private applyDiscovery(op: Extract<Op, { type: "discovery.topic.create" | "discovery.topic.delete" | "discovery.feedback.set" }>): OpResult {
+    const done = (status: OpResult["status"], code?: string): OpResult => ({ op_id: op.op_id, status, ...(code ? { code } : {}) })
+    if (op.type === "discovery.topic.create") {
+      if (this.discoveryTopics.has(op.topic.id)) return done("applied")
+      this.discoveryTopics.set(op.topic.id, { seq: this.nextReview(), data: { ...op.topic, created_at: op.at, deleted: false, server_seq: 0 } })
+      return done("applied")
+    }
+    if (op.type === "discovery.topic.delete") {
+      const row = this.discoveryTopics.get(op.topic_id)
+      if (row && !row.data.deleted) this.discoveryTopics.set(op.topic_id, { seq: this.nextReview(), data: { ...row.data, title: "", body: "", source_title: null, source_url: null, deleted: true } })
+      return done("applied")
+    }
+    const at = Date.parse(op.at)
+    const row = this.feedbackRows.get(op.topic_key)
+    const next: WireTopicFeedback = row ? { ...row.data } : { topic_key: op.topic_key, rating: null, saved: false, dismissed: null, decided_on: op.local_date, updated_at: op.at, server_seq: 0 }
+    const stamps = { ...(row?.stamps ?? {}) }
+    let changed = !row
+    for (const [k, v] of Object.entries(op.fields) as [keyof typeof op.fields, never][]) {
+      if ((stamps[k] ?? -Infinity) > at) continue
+      next[k] = v
+      stamps[k] = at
+      changed = true
+    }
+    if (changed) this.feedbackRows.set(op.topic_key, { seq: this.nextReview(), stamps, data: { ...next, decided_on: op.local_date, updated_at: op.at } })
+    return done("applied")
+  }
+
+  /** Server-side view of the discovery tables (tests). */
+  discoveryTopic(id: string): WireDiscoveryTopic | null {
+    return this.discoveryTopics.get(id)?.data ?? null
+  }
+
+  topicFeedback(key: string): WireTopicFeedback | null {
+    return this.feedbackRows.get(key)?.data ?? null
+  }
+
+  /** Mirrors private.recall_op (supabase/migrations/*_recall.sql). */
+  private applyRecall(op: Extract<Op, { type: "recall.create" | "recall.answer" | "recall.suspend" | "recall.delete" }>): OpResult {
+    const done = (status: OpResult["status"], code?: string): OpResult => ({ op_id: op.op_id, status, ...(code ? { code } : {}) })
+    const write = (next: WireRecallCard) => this.recallCards.set(next.id, { data: next, seq: this.nextReview() })
+    if (op.type === "recall.create") {
+      if (this.recallCards.has(op.card.id)) return done("applied")
+      const text = validateCardText(op.card.question, op.card.answer)
+      if (!text.ok || op.local_date > this.today) return done("rejected", "invalid_value")
+      write({ id: op.card.id, source_type: op.card.source_type, source_id: op.card.source_id, question: text.question, answer: text.answer, state: "new", reps: 0, lapses: 0, ease_factor: 2.5, interval_days: 0, due_on: op.local_date, algorithm_version: op.algorithm_version, suspended_on: null, first_answered_on: null, last_answered_at: null, created_at: op.at, deleted: false, server_seq: 0 })
+      return done("applied")
+    }
+    const row = this.recallCards.get(op.card_id)
+    if (op.type === "recall.delete") {
+      if (row && !row.data.deleted) write({ ...row.data, question: "", answer: "", source_type: null, source_id: null, deleted: true })
+      return done("applied")
+    }
+    if (!row) return done("rejected", "card_not_found")
+    if (row.data.deleted) return done("superseded", "card_deleted")
+    if (op.type === "recall.suspend") {
+      write({ ...row.data, suspended_on: op.suspended_on })
+      return done("applied")
+    }
+    this.recallAttemptRows.set(op.attempt_id, {
+      seq: this.nextReview(),
+      data: { id: op.attempt_id, card_id: op.card_id, grade: op.grade, responded_at: op.responded_at, local_date: op.local_date, due_on_before: op.due_on_before, due_on_after: op.schedule.due_on, interval_days: op.schedule.interval_days, algorithm_version: op.algorithm_version, server_seq: 0 },
+    })
+    const latest = row.data.last_answered_at === null || Date.parse(op.responded_at) >= Date.parse(row.data.last_answered_at)
+    const first = row.data.first_answered_on === null || op.local_date < row.data.first_answered_on ? op.local_date : row.data.first_answered_on
+    write(latest ? { ...row.data, ...op.schedule, last_answered_at: op.responded_at, first_answered_on: first } : { ...row.data, first_answered_on: first })
+    return done("applied")
+  }
+
+  /** Server-side view of the recall tables (tests). */
+  recallCard(id: string): WireRecallCard | null {
+    return this.recallCards.get(id)?.data ?? null
+  }
+
+  recallAttempts(): WireRecallAttempt[] {
+    return [...this.recallAttemptRows.values()].map((r) => r.data)
+  }
+
   /** Server-side view of a review (tests). */
   review(kind: string, periodStart: string): (WireReview & { seq: number }) | null {
     const r = this.reviews.get(`${kind}:${periodStart}`)
@@ -478,7 +637,7 @@ export class FakeServer {
         if (row.data.deleted) return done("rejected", "session_not_found")
         if (row.data.session.state !== "finished") return done("rejected", "not_finished")
         if ((row.data.session.version ?? 1) !== op.base_version) return done("conflict")
-        const input = { segments: op.segments, habitId: op.habit_id, project: op.project, plannedOutput: op.planned_output, actualOutput: op.actual_output, rating: op.rating }
+        const input = { segments: op.segments, habitId: op.habit_id, project: op.project, plannedOutput: op.planned_output, actualOutput: op.actual_output, rating: op.rating, interruptions: op.interruptions }
         r = editSession(before, op.session_id, input, nowIso)
       } else {
         if (row.data.deleted || row.data.session.state === "finished") return done("superseded", "not_active")
@@ -487,7 +646,7 @@ export class FakeServer {
             ? pauseSession(before, op.session_id, clamp(op.at))
             : op.type === "focus.resume"
               ? resumeSession(before, op.session_id, clamp(op.at))
-              : finishSession(before, op.session_id, { at: clamp(op.at), trimTo: op.trim_to, actualOutput: op.actual_output, rating: op.rating })
+              : finishSession(before, op.session_id, { at: clamp(op.at), trimTo: op.trim_to, actualOutput: op.actual_output, rating: op.rating, interruptions: op.interruptions })
       }
     }
     if (!r.ok) return done("rejected", r.reason)
@@ -543,7 +702,7 @@ export class FakeServer {
       server_today: this.today,
       server_time: new Date(this.serverNow()).toISOString(),
       full,
-      profile: { timezone: this.timezone, locale: "es-ES", server_seq: 0, ...(this.checkinsSupported ? { checkin_fields: this.checkinConfig } : {}) },
+      profile: { timezone: this.timezone, locale: "es-ES", server_seq: 0, ...(this.motivationSupported ? { motivation: this.motivationSettings } : {}), ...(this.checkinsSupported ? { checkin_fields: this.checkinConfig } : {}) },
       ...(this.checkinsSupported
         ? {
             daily_checkins: pick(this.checkins)
@@ -581,6 +740,7 @@ export class FakeServer {
                   active_seconds: activeSeconds(f.segments),
                   local_date: f.localDate,
                   rating: f.rating,
+                  interruptions: f.interruptions ?? null,
                   version: f.version ?? 1,
                   created_at: f.createdAt,
                   updated_at: f.updatedAt,
@@ -593,7 +753,37 @@ export class FakeServer {
       ...(this.reviewsSupported
         ? {
             reviews: pick(this.reviews)
+              .filter((r) => r.data.kind !== "day" && (!full || !r.data.deleted))
+              .map((r) => ({ ...r.data, server_seq: r.seq })),
+          }
+        : {}),
+      ...(this.experimentsSupported
+        ? {
+            experiments: pick(this.experimentRows)
               .filter((r) => !full || !r.data.deleted)
+              .map((r) => ({ ...r.data, server_seq: r.seq })),
+          }
+        : {}),
+      ...(this.discoverySupported
+        ? {
+            discovery_topics: pick(this.discoveryTopics)
+              .filter((r) => !full || !r.data.deleted)
+              .map((r) => ({ ...r.data, server_seq: r.seq })),
+            topic_feedback: pick(this.feedbackRows).map((r) => ({ ...r.data, server_seq: r.seq })),
+          }
+        : {}),
+      ...(this.recallSupported
+        ? {
+            recall_cards: pick(this.recallCards)
+              .filter((r) => !full || !r.data.deleted)
+              .map((r) => ({ ...r.data, server_seq: r.seq })),
+            recall_attempts: pick(this.recallAttemptRows).map((r) => ({ ...r.data, server_seq: r.seq })),
+          }
+        : {}),
+      ...(this.reviewsSupported && this.dailyReviewsSupported
+        ? {
+            daily_reviews: pick(this.reviews)
+              .filter((r) => r.data.kind === "day" && (!full || !r.data.deleted))
               .map((r) => ({ ...r.data, server_seq: r.seq })),
           }
         : {}),

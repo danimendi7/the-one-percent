@@ -71,6 +71,16 @@ async function entry(u: TestUser, habitId: string, date: string) {
   return (await pull(u)).entries.find((e) => e.habit_id === habitId && e.local_date === date)
 }
 
+/**
+ * Several sessions here start up to 3 h before now and are then read on «today». A session belongs
+ * to the day it started, so just after midnight they fall on yesterday: this user lives in a
+ * timezone where it is at least 4 a.m. (run 42716447865 failed at 00:01 in Madrid).
+ */
+function zoneWellPastMidnight(): string {
+  const hour = (timeZone: string) => Number(new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", hourCycle: "h23" }).format(new Date()))
+  return hour("Europe/Madrid") >= 4 ? "Europe/Madrid" : "America/New_York"
+}
+
 let a: TestUser
 let b: TestUser
 let today: string
@@ -80,6 +90,7 @@ const bin = randomUUID()
 beforeAll(async () => {
   a = await createTestUser("fa")
   b = await createTestUser("fb")
+  await db((c) => c.query("update public.profiles set timezone = $1 where id = $2", [zoneWellPastMidnight(), a.id]))
   today = (await pull(a)).server_today
   const res = await apply(a, [habitCreate(dw, addDays(today, -10), "duration"), habitCreate(bin, addDays(today, -10), "binary")])
   expect(res.map((r) => r.status)).toEqual(["applied", "applied"])
@@ -281,5 +292,51 @@ describe("habit fed by focus (decision 1): materialised once, never logged twice
     const inc2 = await pull(a, inc1.cursor)
     expect(inc2.focus_sessions).toMatchObject([{ id, deleted: true }])
     expect((await pull(a)).focus_sessions.some((s) => s.id === id)).toBe(false)
+  })
+})
+
+describe("interruptions (additive column)", () => {
+  let u: TestUser
+  const s1 = randomUUID()
+  const s2 = randomUUID()
+  type Row = { id: string; version: number; rating: number | null; interruptions: number | null; segments: unknown[] }
+  const row = async (id: string) => (await pull(u)).focus_sessions.find((x) => x.id === id) as unknown as Row
+  const edit = (id: string, r: Row, extra: Record<string, unknown> = {}) => ({
+    type: "focus.edit", op_id: opId("fe"), session_id: id, base_version: r.version, segments: r.segments, habit_id: null, project: "Tesis",
+    planned_output: null, actual_output: null, rating: r.rating, ...extra,
+  })
+
+  beforeAll(async () => {
+    u = await createTestUser("fi")
+  })
+  afterAll(async () => {
+    await deleteTestUser(u)
+  })
+
+  it("a session finished without the key stays not noted, never 0", async () => {
+    const t = NOW() - min(200)
+    expect((await apply(u, [start(s1, t), finish(s1, t + min(40))])).map((r) => r.status)).toEqual(["applied", "applied"])
+    expect((await row(s1)).interruptions).toBeNull()
+  })
+
+  it("records the number at the close, keeps it through an edit that does not know the key, and changes it through one that does", async () => {
+    const t = NOW() - min(120)
+    await apply(u, [start(s2, t), finish(s2, t + min(40), { interruptions: 3 })])
+    expect((await row(s2)).interruptions).toBe(3)
+
+    expect((await apply(u, [edit(s2, await row(s2))]))[0].status).toBe("applied")
+    expect(await row(s2)).toMatchObject({ interruptions: 3, project: "Tesis" })
+
+    expect((await apply(u, [edit(s2, await row(s2), { interruptions: 0 })]))[0].status).toBe("applied")
+    expect((await row(s2)).interruptions).toBe(0)
+    expect((await apply(u, [edit(s2, await row(s2), { interruptions: null })]))[0].status).toBe("applied")
+    expect((await row(s2)).interruptions).toBeNull()
+  })
+
+  it("rejects numbers out of range and leaves the session as it was", async () => {
+    const before = await row(s1)
+    expect((await apply(u, [edit(s1, before, { interruptions: 100 })]))[0].status).toBe("rejected")
+    expect((await apply(u, [edit(s1, before, { interruptions: -1 })]))[0].status).toBe("rejected")
+    expect(await row(s1)).toMatchObject({ version: before.version, interruptions: null })
   })
 })

@@ -255,3 +255,122 @@ describe("edits, milestones and state", () => {
     expect(["applied", "conflict"]).toContain(res[0].status)
   })
 })
+
+describe("in review (additive column)", () => {
+  const g = randomUUID()
+  const setReview = (id: string, on: string | null) => ({ type: "goal.set_review", op_id: opId("rv"), goal_id: id, review_since: on })
+  const snapshot = async () =>
+    (await db((c) => c.query("select title, state, closed_on::text, archived_on::text, baseline, target, due_date::text from public.goals where id = $1", [g]))).rows[0]
+
+  it("puts a goal in and out of review and pulls it, leaving every other value intact", async () => {
+    expect((await apply(a, [create(numericGoal(g, start)), measure(g, today, 80)])).map((r) => r.status)).toEqual(["applied", "applied"])
+    const before = await snapshot()
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ review_since: null, version: 1 })
+
+    expect((await apply(a, [setReview(g, today)]))[0].status).toBe("applied")
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ review_since: today, state: "active", version: 2 })
+
+    expect((await apply(a, [setReview(g, addDays(today, 1))]))[0].status).toBe("applied")
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ review_since: today, version: 2 })
+
+    expect((await apply(a, [setReview(g, null)]))[0].status).toBe("applied")
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ review_since: null, version: 3 })
+
+    expect(await snapshot()).toEqual(before)
+    expect((await pull(a)).measurements.find((m) => m.goal_id === g)).toMatchObject({ observed_on: today, deleted: false })
+    expect(Number((await pull(a)).measurements.find((m) => m.goal_id === g)!.value)).toBe(80)
+  })
+
+  it("an edit from a client that does not know the column keeps the review", async () => {
+    await apply(a, [setReview(g, today)])
+    const version = (await pull(a)).goals.find((x) => x.id === g)!.version
+    const res = await apply(a, [{ type: "goal.update", op_id: opId("u"), goal_id: g, base_version: version, goal: numericGoal(g, start, { title: "Bajar a 77 kg" }), habits: [], checkpoints: [] }])
+    expect(res[0].status).toBe("applied")
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ title: "Bajar a 77 kg", review_since: today })
+  })
+
+  it("rejects dates far from today and goals of another account", async () => {
+    const res = await apply(a, [setReview(g, addDays(today, 5))])
+    expect(res[0]).toMatchObject({ status: "rejected", code: "invalid_review_date" })
+    const other = await apply(b, [setReview(g, today)])
+    expect(other[0]).toMatchObject({ status: "rejected", code: "goal_not_found" })
+    expect((await pull(a)).goals.find((x) => x.id === g)).toMatchObject({ review_since: today })
+  })
+})
+
+describe("process log (additive column)", () => {
+  const g = randomUUID()
+  const entry = (id: string = randomUUID(), over: Record<string, unknown> = {}) => ({ id, kind: "obstacle", text: "Viaje de trabajo", on: today, ...over })
+  const add = (goal: string, e: unknown) => ({ type: "goal.log_add", op_id: opId("la"), goal_id: goal, entry: e })
+  const log = async () => (await pull(a)).goals.find((x) => x.id === g) as unknown as { version: number; title: string; process_log: { id: string; text: string }[] }
+
+  it("adds once per id without bumping the version, and removes only that entry", async () => {
+    await apply(a, [create(numericGoal(g, start))])
+    const first = randomUUID()
+    const second = randomUUID()
+    expect((await apply(a, [add(g, entry(first)), add(g, entry(first)), add(g, entry(second, { kind: "adjustment", text: "Entreno al mediodía" }))])).map((r) => r.status)).toEqual(["applied", "applied", "applied"])
+    let row = await log()
+    expect(row.version).toBe(1)
+    expect(row.process_log.map((e) => e.id)).toEqual([first, second])
+
+    expect((await apply(a, [{ type: "goal.log_remove", op_id: opId("lr"), goal_id: g, entry_id: first }]))[0].status).toBe("applied")
+    row = await log()
+    expect(row.process_log.map((e) => e.id)).toEqual([second])
+    expect(row.title).toBe("Bajar a 78 kg")
+  })
+
+  it("an edit from a client that does not know the column keeps the log", async () => {
+    const before = await log()
+    const res = await apply(a, [{ type: "goal.update", op_id: opId("u"), goal_id: g, base_version: before.version, goal: numericGoal(g, start, { title: "Bajar a 77 kg" }), habits: [], checkpoints: [] }])
+    expect(res[0].status).toBe("applied")
+    expect((await log()).process_log).toEqual(before.process_log)
+  })
+
+  it("rejects invalid entries and other accounts' goals, in a batch that goes on", async () => {
+    const res = await apply(a, [
+      add(g, entry(undefined, { text: "   " })),
+      add(g, entry(undefined, { kind: "otro" })),
+      add(g, entry(undefined, { text: "x".repeat(501) })),
+      add(g, entry(undefined, { on: addDays(today, 5) })),
+      add(g, entry("no-es-un-id")),
+    ])
+    expect(res.map((r) => r.code)).toEqual(Array(5).fill("invalid_goal_log"))
+    expect((await apply(b, [add(g, entry())]))[0]).toMatchObject({ status: "rejected", code: "goal_not_found" })
+    expect((await apply(b, [{ type: "goal.log_remove", op_id: opId("lr"), goal_id: g, entry_id: "x" }]))[0]).toMatchObject({ status: "rejected", code: "goal_not_found" })
+    expect((await log()).process_log).toHaveLength(1)
+  })
+})
+
+describe("books of a goal (additive column)", () => {
+  const g = randomUUID()
+  const bookOfA = randomUUID()
+  const bookOfB = randomUUID()
+  const link = (item: string, linked = true, goal = g) => ({ type: "goal.book_set", op_id: opId("bk"), goal_id: goal, item_id: item, linked })
+  const row = async () => (await pull(a)).goals.find((x) => x.id === g) as unknown as { version: number; title: string; book_ids: string[] }
+  const insertBook = async (id: string, owner: TestUser) => {
+    const res = await apply(owner, [{ type: "library.item.create", op_id: opId("lib"), id, kind: "book", fields: { title: "Un libro" }, at: new Date().toISOString() }])
+    expect(res[0].status).toBe("applied")
+  }
+
+  it("links only the owner's live books, once, without bumping the version", async () => {
+    await apply(a, [create(numericGoal(g, start))])
+    await insertBook(bookOfA, a)
+    await insertBook(bookOfB, b)
+    const res = await apply(a, [link(bookOfA), link(bookOfA), link(bookOfB), link(randomUUID()), link("no-es-un-id")])
+    expect(res.map((r) => r.status)).toEqual(["applied", "applied", "rejected", "rejected", "rejected"])
+    expect(res[2].code).toBe("book_not_found")
+    expect(await row()).toMatchObject({ book_ids: [bookOfA], version: 1 })
+  })
+
+  it("an edit from a client that does not know the column keeps the links", async () => {
+    const before = await row()
+    await apply(a, [{ type: "goal.update", op_id: opId("u"), goal_id: g, base_version: before.version, goal: numericGoal(g, start, { title: "Bajar a 77 kg" }), habits: [], checkpoints: [] }])
+    expect(await row()).toMatchObject({ title: "Bajar a 77 kg", book_ids: [bookOfA] })
+  })
+
+  it("another account cannot touch the links, and unlinking is idempotent", async () => {
+    expect((await apply(b, [link(bookOfB)]))[0]).toMatchObject({ status: "rejected", code: "goal_not_found" })
+    expect((await apply(a, [link(bookOfA, false), link(bookOfA, false)])).map((r) => r.status)).toEqual(["applied", "applied"])
+    expect((await row()).book_ids).toEqual([])
+  })
+})
