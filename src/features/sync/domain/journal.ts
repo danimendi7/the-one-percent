@@ -33,7 +33,9 @@ export function journalChanges(before: readonly QueuedOp[], after: readonly Queu
   const afterIds = new Set(after.map((q) => q.op.op_id))
   const written = after.filter((q) => !kept.has(q)).map((q) => ({ opId: q.op.op_id, t, q }))
   const removed = before.filter((q) => !afterIds.has(q.op.op_id)).map((q) => ({ opId: q.op.op_id, t, q: null }))
-  return [...removed, ...written]
+  // New versions first: if storage fills up half-way, the removal of the old version is what is
+  // missing, and both come back (the newer one wins on the server), never neither.
+  return [...written, ...removed]
 }
 
 /**
@@ -60,7 +62,8 @@ export function recoverQueue(
     }
     if (gone.has(e.opId)) continue
     if (i >= 0) {
-      if (JSON.stringify(queue[i]) !== JSON.stringify(e.q)) {
+      // Only the operation counts: `attempts` changes in place while retrying and is not journaled.
+      if (JSON.stringify(queue[i].op) !== JSON.stringify(e.q.op)) {
         queue[i] = e.q
         recovered++
       }

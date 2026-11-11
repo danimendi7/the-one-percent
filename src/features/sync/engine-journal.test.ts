@@ -136,6 +136,36 @@ describe("queue journal (Orden 2 §1)", () => {
     expect(b.engine.getSnapshot().pending).toBe(0)
   })
 
+  it("storage refuses the journal during a fold: the old write survives, never neither", async () => {
+    const server = new FakeServer(TODAY, () => NOW)
+    const storage = slowStorage()
+    const kv = memoryKeyValue()
+    const journal = keyValueJournal("u1", kv)
+    const a = open(server, storage, journal)
+    await a.engine.start()
+    a.engine.submit(createHabit())
+    await a.engine.sync()
+    a.transport.online = false
+    a.engine.submit(mark(true))
+    await a.engine.sync() // the first mark is in the device copy
+    storage.hang = true
+    // The next write fits nowhere: neither the new mark nor the removal of the old one is journaled.
+    const setItem = kv.setItem
+    kv.setItem = () => {
+      throw new Error("QuotaExceededError")
+    }
+    a.engine.submit(mark(false))
+    a.engine.stop()
+    kv.setItem = setItem
+
+    storage.hang = false
+    const b = open(server, storage, journal)
+    b.transport.online = false
+    await b.engine.start()
+    expect(b.engine.getSnapshot().pending).toBe(1)
+    expect(b.engine.getSnapshot().state.entries[entryKey(HABIT, TODAY)]?.value).toBe(true)
+  })
+
   it("without a usable journal the device copy still works as before", async () => {
     const server = new FakeServer(TODAY, () => NOW)
     const journal = keyValueJournal("u1", null)

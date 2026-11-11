@@ -1084,6 +1084,7 @@ export class SyncEngine {
   private rebaseReviewBases(applied: Op[], acked: Set<string>) {
     const saves = applied.filter((o): o is Extract<Op, { type: "review.save" }> => o.type === "review.save")
     if (saves.length === 0) return
+    const before = this.queue
     this.queue = this.queue.map((q) => {
       if (acked.has(q.op.op_id) || q.op.type !== "review.save") return q
       const op = q.op
@@ -1103,6 +1104,8 @@ export class SyncEngine {
       }
       return base_seqs === op.base_seqs ? q : { ...q, op: { ...op, base_seqs } }
     })
+    // A stale journal entry must not bring the old bases back after a restart.
+    this.journalFrom(before)
   }
 
   /**
@@ -1252,8 +1255,9 @@ export class SyncEngine {
     const entries = journalChanges(before, this.queue, t)
     if (entries.length === 0) return
     this.lastJournalT = t
-    // Refused (no storage, quota): the device copy still follows, as before the journal existed.
-    if (journal.write(entries)) for (const e of entries) this.journaled.set(e.opId, e.t)
+    // What storage refused (no storage, quota) only has the device copy, as before the journal existed.
+    const stored = journal.write(entries)
+    for (const e of entries.slice(0, stored)) this.journaled.set(e.opId, e.t)
   }
 
   private releaseJournal(covered: readonly { opId: string; t: number }[]): void {

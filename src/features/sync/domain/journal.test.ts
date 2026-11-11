@@ -15,9 +15,9 @@ describe("journalChanges", () => {
     const c = entry("c", false)
     const b2 = { ...b, op: { ...b.op } }
     expect(journalChanges([a, b], [b2, c], 7)).toEqual([
-      { opId: "a", t: 7, q: null },
       { opId: "b", t: 7, q: b2 },
       { opId: "c", t: 7, q: c },
+      { opId: "a", t: 7, q: null },
     ])
   })
 
@@ -42,6 +42,8 @@ describe("recoverQueue", () => {
     const newer = entry("a", false)
     expect(recoverQueue([a], [{ opId: "a", t: 1, q: a }], new Set())).toEqual({ queue: [a], recovered: 0 })
     expect(recoverQueue([a], [{ opId: "a", t: 1, q: newer }], new Set())).toEqual({ queue: [newer], recovered: 1 })
+    // A retry count is not a new version.
+    expect(recoverQueue([{ ...a, attempts: 3 }], [{ opId: "a", t: 1, q: a }], new Set()).recovered).toBe(0)
   })
 
   it("drops an operation that left the queue unsent, and never revives one another tab removed", () => {

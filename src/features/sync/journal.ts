@@ -6,8 +6,11 @@ import { parseJournalEntry, type JournalEntry } from "./domain/journal"
  * app in between lost it (PR #27). Each change is written here first, before it is shown.
  */
 export interface OpJournal {
-  /** Writes the entries at once. False when the browser refused (no storage, quota): the device copy still follows. */
-  write(entries: readonly JournalEntry[]): boolean
+  /**
+   * Writes the entries in order and returns how many were stored: fewer than given when the browser
+   * refused (no storage, quota). The device copy still follows, as before the journal existed.
+   */
+  write(entries: readonly JournalEntry[]): number
   read(): JournalEntry[]
   /** Forgets each entry whose version is still `t` (it is in the device copy now). */
   release(entries: readonly { opId: string; t: number }[]): void
@@ -47,13 +50,17 @@ export function keyValueJournal(userId: string, kv: KeyValue | null): OpJournal 
   }
   return {
     write(entries) {
-      if (!kv) return false
+      if (!kv) return 0
+      let stored = 0
       try {
-        for (const e of entries) kv.setItem(prefix + e.opId, JSON.stringify({ t: e.t, q: e.q }))
-        return true
+        for (const e of entries) {
+          kv.setItem(prefix + e.opId, JSON.stringify({ t: e.t, q: e.q }))
+          stored++
+        }
       } catch {
-        return false
+        // Storage refused the rest.
       }
+      return stored
     },
     read() {
       return keys().map(readOne).filter((e): e is JournalEntry => e !== null)
