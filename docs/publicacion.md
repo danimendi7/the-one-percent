@@ -24,7 +24,8 @@ Estado comprobado el 2026-11-10:
    Necesitas `BACKUP_PASSPHRASE` y `SUPABASE_DB_URL` (en `.env.cloud.local`), según `docs/backup-strategy.md`. Es la tarea F3, bloqueada para Skynet porque su máquina no tiene Docker.
 4. **Variables de Vercel (Production).** Obligatorias: `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; sin ellas el build de producción falla a propósito (`next.config.ts`). Opcionales:
    - `GOOGLE_BOOKS_API_KEY`: mejores datos de libros.
-   - Para el push: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` (`mailto:tu@correo`), generadas con `npx web-push generate-vapid-keys`. Sin ellas, Ajustes › Notificaciones dice que el push no está configurado y los avisos siguen en la bandeja.
+   - Para el push: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT`. Skynet ya generó el par en `.env.push.local` (en la carpeta del proyecto, ignorado por git); solo tienes que poner tu correo en `VAPID_SUBJECT`. Sin ellas, Ajustes › Notificaciones dice que el push no está configurado y los avisos siguen en la bandeja.
+   - Para el push programado: `PUSH_DISPATCH_SECRET` y `SUPABASE_SECRET_KEY`. Ver la sección 5.
    - `AI_*`: déjalas vacías; el proveedor de IA está apagado y requiere autorización.
 5. **Preview de la rama base:** la prueba de humo contra `the-one-percent-git-skynet-integracion-…vercel.app` da 10 de 22. Las 12 restantes fallan solo porque la CSP bloquea la barra de comentarios que Vercel inyecta en los previews, que en producción no existe.
 
@@ -88,9 +89,41 @@ Recomendado antes de usar la app a diario: hoy los previews, las pruebas de Skyn
    - Cada migración nueva llega a producción con `npm run cloud -- push --confirm <ref>`, tras su copia y su simulacro.
    - Desde entonces, las migraciones ya no necesitan ser compatibles con el código desplegado en `main` (D de 2026-11-09). Aun así, conviene mantenerlo: es lo que permite revertir el código sin tocar la base.
 
+## 5. Push programado (E9)
+
+Cada 5 minutos, `pg_cron` (en la base) llama con `pg_net` a `/api/push/dispatch`. La ruta lee con la clave secreta los datos de cada persona con un dispositivo activado, vuelve a evaluar el Motivation Engine en ese momento (silencio, tope diario, separación, días sin avisos) y reserva cada aviso en `push_deliveries` antes de enviarlo, así que un reintento nunca lo duplica. Todo es gratis: `pg_cron` y `pg_net` vienen con Supabase y Vercel Hobby incluye de sobra las 288 llamadas diarias.
+
+La migración `20261111090000_push_schedule.sql` ya crea el trabajo, pero **no llama a nada** mientras Vault no tenga la URL de destino y el secreto. Hazlo solo cuando la versión con la ruta esté publicada en `main`: hoy producción no tiene `/api/push/dispatch`.
+
+1. **Vercel › Settings › Environment Variables (Production).** Copia de `.env.push.local`:
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (con tu correo: `mailto:tu@correo`).
+   - `PUSH_DISPATCH_SECRET`.
+   - `SUPABASE_SECRET_KEY`: en Supabase › Project Settings › API Keys › *Secret keys* (empieza por `sb_secret_`). Solo en el servidor: nunca con el prefijo `NEXT_PUBLIC_`.
+
+   Después, un despliegue nuevo de producción para que las lea.
+2. **Supabase › SQL Editor**, en el proyecto que use producción (el actual, o el nuevo si ya separaste la base, sección 4):
+   ```sql
+   select vault.create_secret('https://the-one-percent-kappa.vercel.app/api/push/dispatch', 'push_dispatch_url');
+   select vault.create_secret('<el PUSH_DISPATCH_SECRET de .env.push.local>', 'push_dispatch_secret');
+   ```
+3. **Activa el push en cada dispositivo:** Ajustes › Notificaciones › «Activar». Las suscripciones hechas con otra clave pública no sirven y la ruta las ignora.
+4. **Comprueba** a los 5 minutos:
+   ```sql
+   select status, return_message, start_time from cron.job_run_details order by start_time desc limit 3;
+   select status_code, content from net._http_response order by created desc limit 3;
+   ```
+   Lo normal es un `200` con recuentos (`people`, `reserved`, `sent`…), sin datos personales. Un `401` es que el secreto de Vault y el de Vercel no coinciden; un `503`, que falta alguna variable en Vercel.
+5. **Para probarlo antes en un preview:** pon las mismas variables con ámbito *Preview*, usa como `push_dispatch_url` la URL del preview y añade el secreto de protección de Vercel:
+   ```sql
+   select vault.create_secret('<VERCEL_AUTOMATION_BYPASS_SECRET>', 'push_dispatch_bypass');
+   ```
+6. **Apagarlo:** `select cron.unschedule('the-one-percent-push-dispatch');`, o borra el secreto: `delete from vault.secrets where name = 'push_dispatch_url';`.
+
+Cada aviso va como mucho una vez por persona y clave (regla y día, o regla y semana para la revisión). En la pantalla de bloqueo solo dice cuántos hábitos quedan, nunca sus nombres; la bandeja de la app sigue mostrando el texto completo.
+
 ## Pendiente autorizable (no bloquea publicar)
 
-- **Envío programado de push (E9):** claves VAPID en Vercel, un planificador de pocos minutos (de pago en Vercel) y una clave de servicio en el servidor.
+- **Push programado (E9):** las variables de Vercel y los dos secretos de Vault de la sección 5. El código, la migración y las claves ya están.
 - **IA generativa:** requiere un proveedor de pago.
 - **Desactivar la barra de comentarios de Vercel en los previews:** dejaría el humo de los previews en 22 de 22.
 - **Simulacro de restauración (F3)** y **prueba en un iPhone real.**
