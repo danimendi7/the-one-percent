@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-11T10:04:40.434Z",
+  "env": {
+    "chromium": "156.0.8078.4",
+    "cpu": "AMD Ryzen 5 7535HS with Radeon Graphics",
+    "cores": 12,
+    "node": "v26.13.0"
+  },
+  "runs": 30,
+  "cpuThrottle": 6,
+  "modes": [
+    {
+      "journal": false,
+      "survived": 0,
+      "lost": 30,
+      "duplicated": 0,
+      "deviceCopyHadIt": 0,
+      "journalLeftAfterStart": 0,
+      "journalLeftAfterNextSave": 0
+    },
+    {
+      "journal": true,
+      "survived": 30,
+      "lost": 0,
+      "duplicated": 0,
+      "deviceCopyHadIt": 1,
+      "journalLeftAfterStart": 1,
+      "journalLeftAfterNextSave": 0
+    }
+  ]
+}
