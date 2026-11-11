@@ -100,9 +100,9 @@ Atendida el 2026-11-10: versión candidata en `skynet/integracion` (ver `DONE.md
 > **Objetivo final: THE ONE PERCENT completamente desarrollado, estable y preparado para su publicación.**
 
 
-## 2026-11-11 09:27 [planificada]
+## 2026-11-11 09:27 [hecha]
 
-Planificada el 2026-11-11 en `PROGRESS.md`: G1 (§1), E9a–E9c (§2), G2 (§3) y G3 (§4). En pausa por la Orden 3 (CI sin minutos) y reanudada por la Orden 4 el mismo día.
+Atendida el 2026-11-11: G1 (§1), E9a–E9c (§2) y G2 (§3) en la PR #35, con la CI completa en verde (0 fallidas, 0 inestables); G3 (§4) en la PR #40. La migración de E9 está aplicada en staging. Activar el push programado y crear la base de producción quedan para Dani, paso a paso en `DONE.md`.
 
 > ORDEN 2: CIERRE PREVIO A PUBLICACIÓN
 > 
@@ -137,9 +137,9 @@ Atendida el 2026-11-11: **APTO PARA PÚBLICO**, sin secretos que rotar (PR #37, 
 > 
 > No necesitas la CI para esta orden. Sin coste: nada de pago.
 
-## 2026-11-11 11:59 [planificada]
+## 2026-11-11 11:59 [hecha]
 
-Planificada el 2026-11-11 en `PROGRESS.md`: reanuda G1, E9a–E9c y G2 en la PR #35, con la base actual y la CI relanzada; G3 (cierre) y G4 (pasos para Dani en DONE.md).
+Atendida el 2026-11-11: la CI de la PR #35 pasó en verde a la primera tras ponerla al día (ejecución 43008966912) y se fusionó en `skynet/integracion`; G3 y G4 en la PR #40. Lo que necesita a Dani (variables de Vercel, secretos de Vault, base de producción) está preparado y explicado paso a paso en `DONE.md`.
 
 > ORDEN 4: RETOMAR LA ORDEN 2
 > 

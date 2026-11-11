@@ -2,10 +2,10 @@
 
 Procedimiento para que Dani decida cuándo pasar `skynet/integracion` a `main` y a producción. Skynet no publica: todo lo de este documento lo hace Dani, o Skynet con su autorización expresa para ese paso.
 
-Estado comprobado el 2026-11-10:
+Estado comprobado el 2026-11-11:
 - `skynet/integracion` va por delante de `main` y `main` no tiene nada que ella no tenga, así que la fusión no tiene conflictos. Compruébalo antes con `git fetch && git rev-list --left-right --count origin/main...origin/skynet/integracion`: el primer número debe ser 0.
 - **Producción:** `https://the-one-percent-kappa.vercel.app`. La despliega Vercel al hacer push a `main` (`vercel.json`: las ramas `ci/**` no despliegan).
-- **Base de datos:** el proyecto Supabase `the-one-percent` (`supabase/cloud-project.json`) es a la vez staging y producción, por decisión de Dani del 2026-11-09. Las 11 migraciones nuevas de esta versión (de `20261109090000_goal_review` a `20261110120000_push_subscriptions`) **ya están aplicadas** en esa base. Todas son aditivas y compatibles con el código de `main`, que funciona sobre ellas desde que se aplicaron (9 y 10 de noviembre).
+- **Base de datos:** el proyecto Supabase `the-one-percent` (`supabase/cloud-project.json`) es a la vez staging y producción, por decisión de Dani del 2026-11-09. Las 12 migraciones nuevas de esta versión (de `20261109090000_goal_review` a `20261111090000_push_schedule`) **ya están aplicadas** en esa base. Todas son aditivas y compatibles con el código de `main`, que funciona sobre ellas desde que se aplicaron (9, 10 y 11 de noviembre). La última crea el trabajo de `pg_cron` del push programado, que no llama a nada hasta que Vault tenga su URL y su secreto (sección 5).
 - **CI:** `.github/workflows/ci.yml` valida, pero no migra ni despliega, y no lee ningún secreto. En este repositorio no hay ninguna migración automática a producción: las migraciones de la nube se aplican a mano (abajo).
 
 ## 1. Antes de publicar
@@ -65,7 +65,7 @@ Desde que staging y producción comparten base, toda migración es aditiva y com
 Recomendado antes de usar la app a diario: hoy los previews, las pruebas de Skynet y producción escriben en la misma base.
 
 1. **Proyecto nuevo** en Supabase, en tu organización personal y en la región UE (la misma que el actual), con la contraseña de la base en tu gestor. No reutilices ningún proyecto de Neumáticos Uría. Plan gratuito: no hace falta nada de pago.
-2. **Extensiones:** no hay que activar nada a mano: las migraciones activan las que necesitan (por ejemplo `pg_cron` y `pg_net` para el push programado, cuando E9 esté fusionada), y Vault viene activada en todo proyecto nuevo.
+2. **Extensiones:** no hay que activar nada a mano: las migraciones activan las que necesitan (por ejemplo `pg_cron` y `pg_net` para el push programado), y Vault viene activada en todo proyecto nuevo.
 3. **Esquema completo y verificación de RLS** con `npm run db:fresh` (`scripts/db-fresh.mjs`), desde la carpeta del proyecto. Copia la cadena de conexión en Supabase › *Connect* › *Session pooler* (con la contraseña del paso 1) y ponla solo en esa terminal:
    ```bash
    export FRESH_DB_URL='postgresql://postgres.<ref>:<contraseña>@aws-0-<región>.pooler.supabase.com:5432/postgres'
@@ -76,7 +76,7 @@ Recomendado antes de usar la app a diario: hoy los previews, las pruebas de Skyn
    En PowerShell: `$env:FRESH_DB_URL = '…'` y al terminar `Remove-Item Env:FRESH_DB_URL`.
    - El script se niega a instalar en una base que ya tenga tablas o historial de migraciones: no puede pisar staging ni una base en uso.
    - La auditoría falla si una tabla de `public` no tiene RLS, si una política no es solo para usuarios con sesión o no depende de `auth.uid()`, si hay una vista que se salte RLS, si falta una migración en el historial o si una persona de prueba puede ver el hábito de otra. Las personas y el hábito de prueba viven en una transacción que se deshace: no queda nada escrito.
-   - Resultado esperado: «✔ Todas las tablas tienen RLS…» y todas las migraciones de `supabase/migrations` en el historial (22 a 2026-11-11, antes de E9). `npm run db:fresh -- --verify` repite solo la auditoría cuando quieras.
+   - Resultado esperado: «✔ Todas las tablas tienen RLS…» y todas las migraciones de `supabase/migrations` en el historial (23 a 2026-11-11, con la de E9). `npm run db:fresh -- --verify` repite solo la auditoría cuando quieras.
    - Probado así: la CI aplica en cada PR todas las migraciones a una base vacía y la audita igual (`tests/integration/db-fresh.int.test.ts`); contra staging (2026-11-11), `--verify` sale correcto (25 tablas, 66 políticas, 22 de 22 migraciones) sin dejar ninguna fila, y tanto el ensayo en seco como `--apply` se niegan porque la base no está vacía.
    - Después, apunta `supabase/cloud-project.json` al proyecto nuevo (`ref`, `organizationId`, `region`): `npm run cloud` se niega a actuar sobre otro, y es lo que usarás para las migraciones siguientes.
 4. **Acceso** (`supabase/README.md`, pasos 4 y 5):

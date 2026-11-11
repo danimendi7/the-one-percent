@@ -1,10 +1,10 @@
 # Matriz funcional
 
-Estado medido el 2026-11-10 sobre `faee9b2` (`skynet/integracion`, versión candidata). Se actualiza al cerrar cada tarea.
+Estado medido el 2026-11-11 sobre `15c7c09` (`skynet/integracion`, versión candidata tras las Órdenes 2 y 4). Se actualiza al cerrar cada tarea.
 
 **Estados:** IV = implementada y validada · P = implementada parcialmente · SP = implementada sin pruebas suficientes · ND = planificada pero no desarrollada · NV = no verificable con la información disponible.
 
-**Validación:** «CI» es la integración continua en verde de la última PR fusionada (#28, run 42812714735). Una pasada, con 0 fallidas y 0 inestables: 1144 unitarias, 231 de integración, 6 del motor en Chromium real, 595 E2E con 27 omisiones previstas y 22 de humo. Ninguna fila incluye prueba en un dispositivo real.
+**Validación:** «CI» es la integración continua en verde de la última PR de código fusionada (#35, run 43008966912). Una pasada, con 0 fallidas y 0 inestables: 1193 unitarias, 245 de integración, 6 del motor en Chromium real, 597 E2E con 27 omisiones previstas y 22 de humo. Ninguna fila incluye prueba en un dispositivo real.
 
 | Módulo | Funcionalidad | Estado actual | Evidencia | Trabajo pendiente | Prioridad |
 | --- | --- | --- | --- | --- | --- |
@@ -17,6 +17,7 @@ Estado medido el 2026-11-10 sobre `faee9b2` (`skynet/integracion`, versión cand
 | Habit Engine | Rachas y cumplimiento a 30 días | IV | `habit-metrics.tsx`, `metrics.ts`, CI | — | — |
 | Habit Engine | Historial de auditoría de cambios | IV | `audit_logs`, `habits/domain/history.ts`, `habit-history.int.test.ts`, `account.spec.ts`, CI | — | — |
 | Habit Engine | Sincronización y offline | IV | `features/sync` (14 tests), `sync.int.test.ts`, `offline.spec.ts`, CI | — | — |
+| Habit Engine | Cola duradera: un cambio sin red sobrevive al cierre forzado inmediato (G1, Orden 2 §1) | IV | Diario síncrono `sync/journal.ts`, `journal.test.ts`, `engine-journal.test.ts`, E2E «Orden 2 §1» en `account.spec.ts` (CPU ×6, móvil y escritorio, una sola fila en el servidor), `bench:journal` (30 de 30 con diario, 0 de 30 sin él), CI | — | — |
 | Life Analytics | Descriptivo: series, heatmap, comparativas | IV | `analytics-view.tsx`, `catalog.ts`, `domain/comparisons.ts`, `e2e/analytics.spec.ts`, CI (PR #7) | — | — |
 | Life Analytics | Diagnóstico: cruces multivariables | IV | `domain/relations.ts` (Spearman, mínimo de 14 días, sin lenguaje causal), `relations-panel.tsx`, `e2e/analytics.spec.ts`, CI (PR #7) | — | — |
 | Life Analytics | Predictivo | IV | `goal_projection`, `domain/projections.ts` (6 semanas cerradas como mínimo), `forecast-panel.tsx`, CI (PR #7) | — | — |
@@ -50,11 +51,12 @@ Estado medido el 2026-11-10 sobre `faee9b2` (`skynet/integracion`, versión cand
 | AI Intelligence | Insights basados en reglas | IV | `features/intelligence` (6 reglas con mínimos), `/intelligence`, `intelligence.spec.ts`, experimentos (`experiments.ts`, `20261110100000_experiments.sql`), CI | — | — |
 | AI Intelligence | Arquitectura de proveedor opcional | IV | `domain/ai-provider.ts` (sin proveedor no hay cliente ni llamadas; solo agregados), estado en `/intelligence`, CI | — | — |
 | AI Intelligence | IA generativa | ND | — | Pendiente autorizable: requiere proveedor | — |
-| Motivation Engine | Perfiles, reglas, horas de silencio, tope diario | IV | `notifications/domain/motivation.ts` y `settings.ts`, ajustes en el perfil (`20261110110000_motivation_settings.sql`), `motivation.int.test.ts`, `notifications.spec.ts`, bandeja (E7), CI | Evaluación programada en servidor (E9, pendiente autorizable) | Alta |
-| Notificaciones | Bandeja dentro de la app | IV | `notifications/inbox`, campana en las cabeceras, `inbox.spec.ts`, CI. Registro por dispositivo | Registro compartido con el envío programado (E9) | Media |
+| Motivation Engine | Perfiles, reglas, horas de silencio, tope diario | IV | `notifications/domain/motivation.ts` y `settings.ts`, ajustes en el perfil (`20261110110000_motivation_settings.sql`), `motivation.int.test.ts`, `notifications.spec.ts`, bandeja (E7), reevaluación en el servidor al enviar (E9: `notifications/domain/dispatch.ts`, `push-dispatch.int.test.ts`), CI | — | — |
+| Notificaciones | Bandeja dentro de la app | IV | `notifications/inbox`, campana en las cabeceras, `inbox.spec.ts`, CI. Registro por dispositivo; el push programado lleva su propio registro en el servidor (`push_deliveries`, DECISIONS.md 2026-11-11) | — | — |
 | Notificaciones | Push: suscripción por dispositivo y notificación de prueba | SP | `notifications/push`, `20261110120000_push_subscriptions.sql`, `/api/push/test`, `sw.js` (push y clic), `push.int.test.ts`, `push-account.spec.ts` con un `PushManager` sustituto | Prueba en dispositivos reales cuando haya claves VAPID en Vercel (Dani) | Media |
-| Notificaciones | Push: envío programado de los avisos | ND | — | E9, pendiente autorizable: claves VAPID, planificador y clave de servicio | Media |
+| Notificaciones | Push: envío programado de los avisos | SP | `20261111090000_push_schedule.sql` (`pg_cron` cada 5 min + `pg_net`, URL y secreto en Vault; aplicada en staging, sin configurar no llama a nada), `/api/push/dispatch`, `push/dispatch.ts`, `domain/dispatch.ts` y sus unitarias, `push-schedule.int.test.ts` y `push-dispatch.int.test.ts` (hábito hecho sin aviso, reintento sin duplicar, tope y silencio), CI. Sin entrega real a un dispositivo | Activarlo: variables de Vercel y secretos de Vault (Dani, `DONE.md`), y probarlo en un teléfono real | Media |
 | Transversal | PWA y arranque sin red | SP | `manifest.ts`, `public/sw.js`, `upgrade.spec.ts`, CI; iPhone sin probar | Prueba real con `docs/guia-dispositivo.md` (Dani) | Media |
+| Transversal | Separar la base de producción (G2, Orden 2 §3) | IV | `npm run db:fresh` (`scripts/db-fresh.mjs`, `lib/rls-audit.mjs`): instala todas las migraciones en una base vacía y audita RLS; `db-fresh.int.test.ts` en la CI; `--verify` contra staging (26 tablas, 66 políticas, 23 de 23 migraciones); `docs/publicacion.md` §4 | Crear el proyecto nuevo y ejecutarlo (Dani, `DONE.md`) | Media |
 | Transversal | Autenticación, lista de acceso y RLS | IV | `account.spec.ts`, `metadata-auth.int.test.ts`, `push.int.test.ts`, repaso de A7, M2.5 | — | — |
 | Transversal | Respaldo y restauración | SP | `backup*.mjs`, `restore-drill.mjs`, `backup-strategy.md`; simulacro sin repetir | F3 bloqueada: requiere Docker y la frase de las copias (Dani, `docs/publicacion.md` §1) | Media |
 | Transversal | Exportación | IV | JSON y CSV (hábitos, check-ins, enfoque) en Ajustes: `settings/domain/csv.ts`, `csv.test.ts`, `export.spec.ts`, CI | — | — |
