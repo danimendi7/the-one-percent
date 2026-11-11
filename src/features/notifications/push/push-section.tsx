@@ -176,7 +176,7 @@ function PushControls() {
         <p className="text-sm leading-relaxed text-text-secondary">
           Estado: <strong className="font-medium text-foreground" data-testid="push-status">{status}</strong>.{" "}
           {on
-            ? "Por ahora solo se envía la notificación de prueba: el envío programado de los avisos está pendiente de autorización. Mientras, los avisos aparecen en la bandeja de la app."
+            ? "Los avisos aparecen siempre en la bandeja de la app y, cuando el envío programado está activado en el servidor, también llegan aquí como notificación."
             : "El permiso solo se pide al pulsar «Activar». Cada dispositivo se activa y se desactiva por separado."}
         </p>
       </div>

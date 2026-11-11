@@ -69,7 +69,8 @@ Al cerrar una revisión, sus cifras quedan congeladas tal como eran ese día. La
 
 - **Bandeja** (la campana): recordatorios según tus ajustes (tono, máximo diario, separación mínima, horas de silencio, días sin avisos y qué avisos quieres). Antes de mostrarse se vuelve a comprobar si ya hiciste el hábito o si es día de descanso.
 - **Push en este dispositivo:** «Activar en este dispositivo» pide el permiso del navegador solo en ese momento. Cada dispositivo se activa y desactiva por separado, y desde la lista puedes quitar otro (un móvil perdido). Al cerrar sesión, ese navegador deja de recibir push.
-  - Hoy solo se envía la **notificación de prueba** («Enviar prueba»). El envío programado de los recordatorios por push está pendiente de autorización (E9 en `PROGRESS.md`). Mientras, los recordatorios llegan a la bandeja.
+  - «Enviar prueba» manda una **notificación de prueba** a ese dispositivo.
+  - Los recordatorios llegan además por push cuando el envío programado está activado en el servidor (E9; cómo activarlo, en `docs/publicacion.md` §5). Se vuelven a comprobar en el momento del envío con las mismas reglas que la bandeja, y en la pantalla de bloqueo solo dicen cuántos hábitos quedan, nunca sus nombres. Mientras no esté activado, llegan solo a la bandeja.
   - En un servidor sin claves VAPID, la sección lo dice y no ofrece activar.
 
 ## Sin conexión y varios dispositivos
