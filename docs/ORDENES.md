@@ -99,3 +99,21 @@ Atendida el 2026-11-10: versión candidata en `skynet/integracion` (ver `DONE.md
 > 
 > **Objetivo final: THE ONE PERCENT completamente desarrollado, estable y preparado para su publicación.**
 
+
+## 2026-11-11 09:27 [planificada]
+
+Planificada el 2026-11-11 en `PROGRESS.md`: G1 (§1), E9a–E9c (§2), G2 (§3) y G3 (§4).
+
+> ORDEN 2: CIERRE PREVIO A PUBLICACIÓN
+> 
+> Sigue en modo protegido: todo contra skynet/integracion, nada en main ni en producción.
+> 
+> 1. PRIORIDAD MÁXIMA. Pérdida de datos sin conexión: implementa la mejora propuesta en PROGRESS.md (guardar la cola de cambios aparte, de forma duradera antes de pintar el cambio en pantalla o con escritura síncrona equivalente) para que forzar el cierre de la app justo después de escribir sin conexión no pierda nada. Añade una E2E que lo demuestre en runner lento (cierre forzado inmediato tras escribir offline → al reabrir, el cambio está y se sincroniza una sola vez). Sin test.skip ni más tiempo de espera.
+> 
+> 2. E9 · Envío programado de push, sin coste: AUTORIZO generar un par de claves VAPID y usar pg_cron en el proyecto Supabase the-one-percent como planificador (no el cron de pago de Vercel). Si necesitas guardar las claves o la clave de servicio en Vercel y no tienes acceso, déjalo preparado y apunta en DONE.md exactamente qué variable poner y dónde; yo lo hago. Respeta el Motivation Engine existente (silencio, tope, separación). Prueba de integración del planificador.
+> 
+> 3. Prepara la separación de la base de producción: en docs/publicacion.md deja el procedimiento paso a paso y un script que aplique todas las migraciones a una base vacía nueva y verifique RLS. NO crees el proyecto nuevo: eso lo hago yo.
+> 
+> 4. Actualiza DONE.md, PROGRESS.md y la matriz con el resultado, CI completa en verde en cada PR.
+> 
+> Sigue sin coste: ninguna API ni servicio de pago.

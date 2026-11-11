@@ -1,6 +1,6 @@
 # Progreso
 
-Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs/roadmap.md`; estado por funcionalidad en `docs/matriz-funcional.md`.
+Plan de la Misión Maestra (orden del 2026-11-09) y de la Orden 2 (2026-11-11, tareas G y E9a–E9c). Fases y estimaciones en `docs/roadmap.md`; estado por funcionalidad en `docs/matriz-funcional.md`.
 
 **Comprobación común a toda tarea con PR:** CI de la PR en verde (`gh pr checks`), que incluye tipos, lint, unitarias, integración, E2E y el criterio de 0 flaky.
 
@@ -43,7 +43,7 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | E6 | Ajustes reales de notificaciones (migración aditiva) | Integración; E2E; sin etiqueta demo | Sí | high | E5 | hecha | #22 |
 | E7 | Bandeja dentro de la app | E2E; respeta tope y silencio | Sí | high | E6 | hecha | #23 |
 | E8 | Push: suscripción por dispositivo y permiso tras acción clara | Test de navegador; alta y baja independientes por dispositivo | Sí | xhigh | E7 | hecha | #24 |
-| E9 | Envío programado de push en servidor (reglas del Motivation Engine reevaluadas al enviar, registro de entregas sin duplicados) | Integración: un hábito hecho no recibe aviso; un reintento no duplica | Sí | xhigh | E8 | bloqueada | — |
+| E9 | Envío programado de push en servidor (reglas del Motivation Engine reevaluadas al enviar, registro de entregas sin duplicados) | Hecha cuando lo estén E9a–E9c (Orden 2 autoriza VAPID y `pg_cron`) | Sí | xhigh | E9a, E9b, E9c | pendiente | — |
 | F1 | Integración final del Command Center y sus estados | E2E de los cuatro estados del Plan §5.1 | Sí | high | B–E (E9 bloqueada, no la necesita) | hecha | #25 |
 | F2 | Accesibilidad y rendimiento de vistas clave (incluye el salto de diseño del Resumen al cargar en móvil, visto en la PR #25) | `a11y.spec.ts` ampliado; mediciones documentadas | Sí | high | F1 | hecha | #26 |
 | F3 | Simulacro de respaldo y restauración | `restore:drill` correcto, con resultado documentado | Sí | high | F1 | bloqueada | — |
@@ -51,6 +51,12 @@ Plan de la Misión Maestra (orden del 2026-11-09). Fases y estimaciones en `docs
 | F5 | `docs/publicacion.md`: publicar, revertir, separar la base | Procedimiento completo revisado contra el repo | Sí | medium | F2 | hecha | #28 |
 | F6 | Documentación final y versión candidata (DONE.md) | Criterios §12 de la orden con evidencia | Sí | high | F1, F2, F4, F5, F7 (F3 bloqueada) | hecha | #29 |
 | F7 | Exportación CSV de los registros (PRD §7: «Export JSON and CSV») | Unitarias del CSV (escapes, zona, columnas); E2E: la descarga contiene los registros | Sí | medium | — | hecha | #28 |
+| G1 | Orden 2 §1 · Cola de cambios duradera: cada cambio se anota de forma síncrona en un diario aparte (`localStorage`, una clave por operación) antes de pintarse, y al abrir se recupera lo que no llegó a IndexedDB | Unitarias del motor (diario antes de notificar, recuperación sin duplicar, limpieza tras guardar); E2E con CPU ralentizada: escribir sin red y cerrar al instante, sin esperar a la copia → al reabrir el cambio está y con red llega una sola fila al servidor | Sí | xhigh | — | pendiente | — |
+| E9a | Orden 2 §2 · Planificador: migración con registro de entregas (`push_deliveries`, única por persona, regla y día), `pg_cron` cada 5 min y `pg_net` hacia la ruta de envío, con la URL y el secreto en Vault (sin configurar no llama a nada) | Integración: el trabajo existe; sin configuración no encola nada; configurado encola una llamada con el secreto; RLS de las entregas | Sí | xhigh | E8 | pendiente | — |
+| E9b | Orden 2 §2 · Ruta de envío programado: con la clave de servicio, reevalúa el Motivation Engine con los datos de cada persona (silencio, tope, separación), reserva la entrega antes de enviar y la marca aceptada, rechazada o revocada | Unitarias del plan de envío; integración: un hábito hecho no recibe aviso, un reintento no duplica, el tope y el silencio se respetan | Sí | xhigh | E9a | pendiente | — |
+| E9c | Orden 2 §2 · Claves VAPID generadas y configuración preparada para Dani | Claves en un archivo local ignorado por git; `docs/publicacion.md` y DONE.md dicen qué variable va dónde | Sí | medium | E9b | pendiente | — |
+| G2 | Orden 2 §3 · Separar la base de producción: script que aplica todas las migraciones a una base vacía y verifica RLS, y procedimiento paso a paso | Integración del verificador contra la base local de la CI; ensayo en seco del script contra staging; `docs/publicacion.md` §4 actualizado | Sí | high | — | pendiente | — |
+| G3 | Orden 2 §4 · Cierre: DONE.md, PROGRESS.md y matriz con el resultado | Los tres documentos coinciden con las PR fusionadas | Sí | medium | G1, E9, G2 | pendiente | — |
 
 Estados: pendiente · en curso · hecha · bloqueada · PR lista para fusionar
 
@@ -70,4 +76,5 @@ Estados: pendiente · en curso · hecha · bloqueada · PR lista para fusionar
 
 ## Cambios de alcance
 
+- 2026-11-11: Orden 2 (cierre previo a publicación) añade G1–G3 y E9a–E9c; E9 deja de estar bloqueada porque Dani autoriza claves VAPID y `pg_cron` en el proyecto `the-one-percent`.
 - 2026-11-09: el plan se agrupa en PR por bloque para no agotar los minutos de CI (ver `DECISIONS.md`).
