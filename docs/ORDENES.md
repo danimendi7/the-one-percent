@@ -102,7 +102,7 @@ Atendida el 2026-11-10: versión candidata en `skynet/integracion` (ver `DONE.md
 
 ## 2026-11-11 09:27 [planificada]
 
-Planificada el 2026-11-11 en `PROGRESS.md`: G1 (§1), E9a–E9c (§2), G2 (§3) y G3 (§4).
+Planificada el 2026-11-11 en `PROGRESS.md`: G1 (§1), E9a–E9c (§2), G2 (§3) y G3 (§4). En pausa por la Orden 3 (CI sin minutos) y reanudada por la Orden 4 el mismo día.
 
 > ORDEN 2: CIERRE PREVIO A PUBLICACIÓN
 > 
@@ -136,3 +136,15 @@ Atendida el 2026-11-11: **APTO PARA PÚBLICO**, sin secretos que rotar (PR #37, 
 > 5. Pon el veredicto también arriba del todo en PROGRESS.md y termina la vuelta escribiendo DONE.md solo con ese veredicto y el siguiente paso para Dani.
 > 
 > No necesitas la CI para esta orden. Sin coste: nada de pago.
+
+## 2026-11-11 11:59 [planificada]
+
+Planificada el 2026-11-11 en `PROGRESS.md`: reanuda G1, E9a–E9c y G2 en la PR #35, con la base actual y la CI relanzada; G3 (cierre) y G4 (pasos para Dani en DONE.md).
+
+> ORDEN 4: RETOMAR LA ORDEN 2
+> 
+> El repo danimendi7/the-one-percent ya es público y GitHub Actions vuelve a tener minutos. La auditoría de secretos (Orden 3) está hecha y es APTO; Dani deja su correo en el historial tal cual.
+> 
+> Retoma la Orden 2 (cierre previo a publicación) donde la dejaste: relanza la CI de la PR #35 (G1 + E9 + G2), corrige lo que falle sin debilitar pruebas, fusiona en skynet/integracion con la CI en verde y completa G3 (DONE.md, PROGRESS.md y matriz). Marca la Orden 2 y esta como [hecha] al terminar.
+> 
+> Lo que no puedas hacer sin Dani (variables en Vercel, claves en Vault, crear la base de producción), déjalo preparado y explícalo paso a paso en DONE.md. Modo protegido y sin coste, como siempre.
