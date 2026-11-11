@@ -3,6 +3,8 @@ import type { HabitsState } from "@/features/habits/domain/types"
 import { uuidv4 } from "@/lib/ids"
 import { emptyCache, mergePull } from "./domain/merge"
 import { upgradePersisted } from "./domain/persisted"
+import { journalChanges, recoverQueue } from "./domain/journal"
+import type { OpJournal } from "./journal"
 import { enqueue, rebase } from "./domain/rebase"
 import type { CloseIntent, Op, OpResult, PullPayload, QueuedOp, ReviewSyncState, ServerCache, SyncNotice, SyncStatus } from "./domain/types"
 import { closeGate, emptyDraft, type CloseGate } from "@/features/reviews/domain/close"
@@ -167,6 +169,11 @@ export interface EngineDeps {
   library?: LibraryStore
   /** Rows per pull_library page (1–1000). */
   libraryPageSize?: number
+  /**
+   * Synchronous record of every queue change, written before the change is shown (Orden 2 §1):
+   * closing the app before the device copy holds a write no longer loses it.
+   */
+  journal?: OpJournal
 }
 
 const MAX_BACKOFF_MS = 60_000
@@ -189,6 +196,9 @@ export class SyncEngine {
   private goneOps: string[] = []
   /** Op ids of the queue as last read from or written to the device copy. */
   private savedIds = new Set<string>()
+  /** Journal entries this tab wrote or adopted and the device copy may not hold yet: op id → version. */
+  private journaled = new Map<string, number>()
+  private lastJournalT = 0
   /** The latest write of the device copy and its outcome (M4-H1). */
   private writing: Promise<boolean> = Promise.resolve(true)
   /** The last attempt failed for lack of network (the visible status turns «syncing» while retrying). */
@@ -262,9 +272,13 @@ export class SyncEngine {
     // A copy saved by an older version may lack newer fields (e.g. goals): upgrade it in place, never discard it.
     const stored = upgradePersisted(await this.deps.storage.load().catch(() => null), this.localToday("Europe/Madrid"))
     await library
+    // Writes the device copy never received (the app was closed first) come back from the journal.
+    const entries = this.deps.journal?.read() ?? []
+    const { queue, recovered } = recoverQueue(stored?.queue ?? [], entries, new Set(stored?.goneOps ?? []))
+    for (const e of entries) this.journaled.set(e.opId, e.t)
     if (stored) {
       this.cache = stored.cache
-      this.queue = stored.queue
+      this.queue = queue
       this.goneOps = stored.goneOps ?? []
       this.savedIds = new Set(stored.queue.map((q) => q.op.op_id))
       this.resolvedNotes = stored.resolvedNotes ?? []
@@ -274,6 +288,14 @@ export class SyncEngine {
       this.closeIntents = this.orphansWaiting((stored.closeIntents ?? []).filter((c) => !this.resolvedNotes.includes(c.id)))
       this.ready = true
       this.invalidate()
+    } else if (recovered > 0) {
+      // No device copy at all yet: the writes wait in the queue for the first pull.
+      this.queue = queue
+    }
+    if (recovered > 0) {
+      if (this.status === "synced") this.status = "pending"
+      this.invalidate()
+      void this.persist()
     }
   }
 
@@ -456,6 +478,7 @@ export class SyncEngine {
     const row = this.libraryRow(entity, id)
     const targets = (q: QueuedOp) => isLibraryOp(q.op) && "id" in q.op && q.op.id === id && entityOfOp(q.op) === entity
     const queued = this.queue.filter(targets)
+    const before = this.queue
     const notes =
       entity === "item" ? new Set(Object.values(this.getSnapshot().library.notes).filter((n) => n.itemId === id).map((n) => n.id)) : new Set<string>()
     const ofNotes = (q: QueuedOp) => isLibraryOp(q.op) && "id" in q.op && entityOfOp(q.op) === "note" && notes.has(q.op.id)
@@ -469,13 +492,16 @@ export class SyncEngine {
     }
     const notesSeq =
       entity === "item" ? Math.max(0, ...[...this.libRows.note.values()].filter((n) => n.item_id === id).map((n) => Number(n.server_seq))) : undefined
-    this.submit({
-      type: `library.${entity}.delete`,
-      op_id: uuidv4(),
-      id,
-      base_seq: row ? Number(row.server_seq) : 0,
-      ...(notesSeq !== undefined ? { notes_seq: notesSeq } : {}),
-    })
+    this.submitFrom(
+      {
+        type: `library.${entity}.delete`,
+        op_id: uuidv4(),
+        id,
+        base_seq: row ? Number(row.server_seq) : 0,
+        ...(notesSeq !== undefined ? { notes_seq: notesSeq } : {}),
+      },
+      before
+    )
     return { ok: true }
   }
 
@@ -580,7 +606,9 @@ export class SyncEngine {
       const later = this.queue.filter((q) => q.op.op_id !== w.op_id && !this.inFlight.has(q.op.op_id) && isLibraryOp(q.op) && "id" in q.op && q.op.id === w.id)
       const resend = rest.filter((f) => !later.some((q) => "fields" in q.op && f in (q.op.fields as object)))
       if (resend.length > 0) {
+        const before = this.queue
         this.queue = [...this.queue, { op: { ...w, op_id: uuidv4(), fields: pick(w.fields, resend), base_seqs: pick(w.base_seqs, resend) }, enqueuedAt: this.now(), attempts: 0 }]
+        this.journalFrom(before)
       }
       this.addNotice("conflict", { ...w, fields: pick(w.fields, lost), base_seqs: pick(w.base_seqs, lost) }, code)
       return
@@ -813,7 +841,14 @@ export class SyncEngine {
 
   /** Optimistically apply and queue an operation, then sync in the background. */
   submit(op: Op): void {
+    this.submitFrom(op, this.queue)
+  }
+
+  /** `before`: the queue before this user action began (an action may first drop other unsent ops). */
+  private submitFrom(op: Op, before: QueuedOp[]): void {
     this.queue = enqueueLibrary(this.queue, op, this.now(), this.inFlight) ?? enqueue(this.queue, op, this.now(), this.inFlight)
+    // Durable before it is shown (Orden 2 §1).
+    this.journalFrom(before)
     if (this.status === "synced") this.status = "pending"
     this.invalidate()
     void this.persist()
@@ -997,7 +1032,9 @@ export class SyncEngine {
     const rest = all.filter((f) => !lost.includes(f) && !later.some((q) => q.op.type === "review.save" && f in q.op.fields))
     if (rest.length > 0) {
       const resend: Op = { ...op, op_id: uuidv4(), fields: pick(op.fields, rest), base_seqs: pick(op.base_seqs, rest) }
+      const before = this.queue
       this.queue = [...this.queue, { op: resend, enqueuedAt: this.now(), attempts: 0 }]
+      this.journalFrom(before)
     }
     // A newer kept text of a section replaces an older one of the same section (both are the user's).
     for (const n of this.notices.filter((x) => x.op?.type === "review.save" && reviewOf(x.op) === key)) this.dropReviewFields(n, lost)
@@ -1107,7 +1144,9 @@ export class SyncEngine {
           based_on_cursor: this.cache.cursor,
           base_seq: review?.serverSeq ?? null,
         }
+        const before = this.queue
         this.queue = [...this.queue, { op, enqueuedAt: this.now(), attempts: 0 }]
+        this.journalFrom(before)
         kept.push({ ...c, opId: op.op_id })
       } catch (e) {
         kept.push({ ...c, state: "failed", code: e instanceof SnapshotError ? e.code : "snapshot_error" })
@@ -1205,6 +1244,24 @@ export class SyncEngine {
     return this.persist()
   }
 
+  /** Writes what changed in the queue since `before` to the journal, synchronously. */
+  private journalFrom(before: readonly QueuedOp[]): void {
+    const journal = this.deps.journal
+    if (!journal || this.stopped) return
+    const t = Math.max(this.now(), this.lastJournalT + 1)
+    const entries = journalChanges(before, this.queue, t)
+    if (entries.length === 0) return
+    this.lastJournalT = t
+    // Refused (no storage, quota): the device copy still follows, as before the journal existed.
+    if (journal.write(entries)) for (const e of entries) this.journaled.set(e.opId, e.t)
+  }
+
+  private releaseJournal(covered: readonly { opId: string; t: number }[]): void {
+    if (!this.deps.journal || covered.length === 0) return
+    this.deps.journal.release(covered)
+    for (const { opId, t } of covered) if (this.journaled.get(opId) === t) this.journaled.delete(opId)
+  }
+
   private persist(): Promise<boolean> {
     const p = this.write()
     this.writing = p
@@ -1218,6 +1275,8 @@ export class SyncEngine {
       await lock(async () => {
         await this.mergeStored()
         const pendingNotes = this.notices.filter(isDurableNotice)
+        // Every journal entry so far is reflected in the queue being saved now.
+        const covered = [...this.journaled].map(([opId, t]) => ({ opId, t }))
         await this.deps.storage.save({
           cache: this.cache,
           queue: this.queue,
@@ -1227,6 +1286,7 @@ export class SyncEngine {
           goneOps: this.goneOps,
         })
         this.savedIds = new Set(this.queue.map((q) => q.op.op_id))
+        this.releaseJournal(covered)
       })
       this.persisted = true
     } catch {

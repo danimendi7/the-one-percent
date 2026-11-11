@@ -223,6 +223,31 @@ test.describe("account mode", () => {
     expect(ops).toBe(2)
   })
 
+  test("Orden 2 §1: on a slow device, closed the instant an offline mark is shown, the mark survives and syncs once", async ({ page, context }) => {
+    await signIn(page, account)
+    await createHabit(page, "Estirar", account.id)
+    await expect(page.getByRole("button", { name: /Estado de datos: Sincronizado/ })).toBeVisible()
+
+    // A slow runner, slower still: the device copy (IndexedDB) lags well behind the screen.
+    const cdp = await context.newCDPSession(page)
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 })
+    await context.setOffline(true)
+    await todayButton(page, "Estirar").click()
+    await expect(todayButton(page, "Estirar")).toHaveAttribute("aria-pressed", "true")
+    // Swiped away the moment the mark is on screen: no wait for the device copy.
+    await page.close()
+    expect(await liveEntries(account.id)).toBe(0)
+
+    await context.setOffline(false)
+    const reopened = await context.newPage()
+    await reopened.goto("/habits")
+    await expect(todayButton(reopened, "Estirar")).toHaveAttribute("aria-pressed", "true")
+    await expect.poll(() => liveEntries(account.id), { timeout: 15_000 }).toBe(1)
+    await expect(reopened.getByRole("button", { name: /Estado de datos: Sincronizado/ })).toBeVisible({ timeout: 15_000 })
+    const ops = await countRows("select count(*)::int n from public.sync_operations where user_id = $1 and operation_type = 'entry.set'", [account.id])
+    expect(ops).toBe(1)
+  })
+
   test("a concurrent rename shows the conflict notice and «Aplicar el mío» re-applies it on both devices (C6 #7)", async ({ browser, page }, info) => {
     test.skip(isMobile(info.project.name), "covered once")
     test.slow()

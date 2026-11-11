@@ -20,6 +20,7 @@ import type { Backend, HabitsSnapshot } from "@/features/habits/store/types"
 import { uuidv4 } from "@/lib/ids"
 import { SyncEngine } from "./engine"
 import { clearUserCache, deviceId, idbStorage, tabLock } from "./idb-storage"
+import { browserKeyValue, keyValueJournal } from "./journal"
 import { idbLibraryStore, memoryLibraryStore } from "./library-store"
 import { accountLibrary } from "@/features/library/store/account-library"
 import { supabaseTransport } from "./supabase-transport"
@@ -45,9 +46,12 @@ export interface AccountBackend extends Backend {
 export function createAccountBackend(sb: SupabaseClient, user: { id: string; email: string | null }): AccountBackend {
   // The Library's device copy lives in its own database, one entry per row (N1, D72).
   const library = typeof indexedDB !== "undefined" ? idbLibraryStore(user.id) : memoryLibraryStore()
+  // Synchronous record of the queue, written before each change is shown (Orden 2 §1).
+  const journal = keyValueJournal(user.id, browserKeyValue())
   const engine = new SyncEngine({
     transport: supabaseTransport(sb),
     storage: idbStorage(user.id),
+    journal,
     deviceId: deviceId(uuidv4),
     lock: tabLock(`the-one-percent:sync:${user.id}`),
     library,
@@ -503,6 +507,7 @@ export function createAccountBackend(sb: SupabaseClient, user: { id: string; ema
         // Stop first so nothing re-persists the cache after it is deleted.
         engine.stop()
         await clearUserCache(user.id)
+        journal.clear()
         await library.clear()
       },
       diagnostics() {
