@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# backups (Orden 3): they go to ~/Documents/the-one-percent-backups, but never into git if --dir points here
+*.topbak
+*.topbak.*
+
 # vercel
 .vercel
 

@@ -1,5 +1,7 @@
 # Progreso
 
+> **Orden 3 · Auditoría de secretos (2026-11-11): APTO PARA PÚBLICO.** No hay ningún secreto en el historial, las PR, los registros ni los artefactos de la CI, así que no hay nada que rotar. Dani decide dos cosas que no son secretos: su correo personal sigue en el historial (60 commits y versiones antiguas de 4 documentos), y `.perfil`, que el guardián no deja abrir a Skynet, conviene que lo mire Dani. El detalle y el siguiente paso están en [`docs/reports/auditoria-secretos.md`](docs/reports/auditoria-secretos.md).
+
 Plan de la Misión Maestra (orden del 2026-11-09), de la Orden 2 (2026-11-11, tareas G y E9a–E9c) y de la Orden 3 (2026-11-11, auditoría de secretos, tareas S). Fases y estimaciones en `docs/roadmap.md`; estado por funcionalidad en `docs/matriz-funcional.md`.
 
 **Comprobación común a toda tarea con PR:** CI de la PR en verde (`gh pr checks`), que incluye tipos, lint, unitarias, integración, E2E y el criterio de 0 flaky.
@@ -57,9 +59,9 @@ Plan de la Misión Maestra (orden del 2026-11-09), de la Orden 2 (2026-11-11, ta
 | E9c | Orden 2 §2 · Claves VAPID generadas y configuración preparada para Dani | Claves en un archivo local ignorado por git; `docs/publicacion.md` y DONE.md dicen qué variable va dónde | Sí | medium | E9b | en pausa | #35 (abierta) |
 | G2 | Orden 2 §3 · Separar la base de producción: script que aplica todas las migraciones a una base vacía y verifica RLS, y procedimiento paso a paso | Integración del verificador contra la base local de la CI; ensayo en seco del script contra staging; `docs/publicacion.md` §4 actualizado | Sí | high | — | en pausa | #35 (abierta) |
 | G3 | Orden 2 §4 · Cierre: DONE.md, PROGRESS.md y matriz con el resultado | Los tres documentos coinciden con las PR fusionadas | Sí | medium | G1, E9, G2 | pendiente | — |
-| S1 | Orden 3 §1 · Barrido de secretos en todo el historial: gitleaks 8.30.1 sobre el espejo de GitHub (ramas y `refs/pull/*`), el repo local (incluye `respaldo/*` y ramas sin subir) y la copia del worktree de Windows; búsqueda de los valores reales de `.env*.local` en todos los objetos de git; datos personales en fixtures, capturas e informes | `npm run audit:secrets` sale con 0 y cada hallazgo de gitleaks está clasificado en el informe | Sí | xhigh | — | pendiente | — |
-| S2 | Orden 3 §2 y §3 · Workflows (`pull_request_target`, secretos al alcance de PR de forks, artefactos subidos) y `.gitignore` (`.env*`, claves VAPID locales, copias de seguridad) | Ningún workflow con `pull_request_target`; `git check-ignore` cubre `.env.local`, `.env.push.local` y las copias `*.topbak` | Sí | high | — | pendiente | — |
-| S3 | Orden 3 §4 y §5 · Informe `docs/reports/auditoria-secretos.md` con veredicto, veredicto arriba del todo en PROGRESS.md y DONE.md solo con el veredicto y el siguiente paso para Dani | Los tres documentos dan el mismo veredicto | Sí | medium | S1, S2 | pendiente | — |
+| S1 | Orden 3 §1 · Barrido de secretos en todo el historial: gitleaks 8.30.1 sobre el espejo de GitHub (ramas y `refs/pull/*`), el repo local (incluye `respaldo/*` y ramas sin subir) y la copia del worktree de Windows; búsqueda de los valores reales de `.env*.local` en todos los objetos de git; datos personales en fixtures, capturas e informes | `npm run audit:secrets` sale con 0 y cada hallazgo de gitleaks está clasificado en el informe | Sí | xhigh | — | PR lista para fusionar | #37 |
+| S2 | Orden 3 §2 y §3 · Workflows (`pull_request_target`, secretos al alcance de PR de forks, artefactos subidos) y `.gitignore` (`.env*`, claves VAPID locales, copias de seguridad) | Ningún workflow con `pull_request_target`; `git check-ignore` cubre `.env.local`, `.env.push.local` y las copias `*.topbak` | Sí | high | — | PR lista para fusionar | #37 |
+| S3 | Orden 3 §4 y §5 · Informe `docs/reports/auditoria-secretos.md` con veredicto, veredicto arriba del todo en PROGRESS.md y DONE.md solo con el veredicto y el siguiente paso para Dani | Los tres documentos dan el mismo veredicto | Sí | medium | S1, S2 | en curso | #37 (informe y veredicto) |
 
 Estados: pendiente · en curso · hecha · bloqueada · en pausa · PR lista para fusionar
 

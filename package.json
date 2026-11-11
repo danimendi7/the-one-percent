@@ -24,6 +24,7 @@
     "backup": "node scripts/backup.mjs",
     "restore:drill": "node scripts/restore-drill.mjs",
     "backup:verify": "node scripts/backup-verify.mjs",
+    "audit:secrets": "node scripts/audit-secrets.mjs",
     "smoke": "playwright test --config playwright.smoke.config.ts",
     "cloud:auth": "node scripts/cloud-auth.mjs",
     "e2e:linux": "node scripts/e2e-linux.mjs",
